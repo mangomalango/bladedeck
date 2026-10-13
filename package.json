@@ -18,6 +18,9 @@
       "main.js",
       "online.js",
       "store.js",
+      "voice-worker.js",
+      "voice.js",
+      "fsaccess.js",
       "lan.js",
       "system.js",
       "companion/**",
@@ -43,12 +46,16 @@
     },
     "mac": {
       "target": "dmg"
-    }
+    },
+    "asarUnpack": [
+      "node_modules/sherpa-onnx/**"
+    ]
   },
   "allowScripts": {
     "electron@33.4.11": true
   },
   "dependencies": {
-    "qrcode-generator": "^1.4.4"
+    "qrcode-generator": "^1.4.4",
+    "sherpa-onnx": "^1.13.8"
   }
 }

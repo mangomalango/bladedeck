@@ -4,14 +4,42 @@
    play. Each Bladedeck says hello every few seconds by UDP broadcast on port 47617 (its player
    name, what it is playing, its level, and its game titles if the player shares them); invites and
    pokes go straight to that Bladedeck. Nothing leaves the local network, an invite only ever asks
-   the person, and "Show me to other Bladedecks" in Settings turns it all off. */
+   the person, and "Show me to other Bladedecks" in Settings turns it all off. The game list is
+   only sent when "Share my game list" is on (off until you turn it on). Anything received is
+   size-limited and trimmed, invites and pokes only count from a Bladedeck that said hello from
+   the same address, at most one every 5 seconds, and at most 32 Bladedecks are kept track of. */
 const dgram = require('dgram');
 const os = require('os');
 const crypto = require('crypto');
-const { ipcMain } = require('electron');
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const { ipcMain, net } = require('electron');
+const FA = require('./fsaccess');
 
 const PORT = 47617, EVERY = 6000, GONE = 25000;
 let sock = null, timer = 0, me = {}, peers = new Map(), send = () => {}, myId = '';
+const offers = new Map(); // files others offered us: oid -> where to fetch
+const nameOk = (n) => { const b = path.basename(String(n || '')).replace(/[\x00-\x1f<>:"/\\|?*]/g, '_').replace(/^\.+/, '').trim().slice(0, 180); return b && !/\.part$/i.test(b) ? b : ''; };
+
+/* Sending a file to one Bladedeck: a tiny web server just for it, on a random port, that hands
+   the file over once, only to that Bladedeck's address and only with the secret in the link,
+   and closes after 10 minutes either way. */
+function serveOnce(peer, file) {
+  return new Promise((resolve) => {
+    const token = crypto.randomBytes(24).toString('hex'), size = fs.statSync(file).size;
+    const srv = http.createServer((req, res) => {
+      const from = String(req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+      if (from !== peer.addr || req.url !== `/${token}`) { res.writeHead(404); return res.end(); }
+      res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': size });
+      fs.createReadStream(file).pipe(res);
+      res.on('finish', () => { clearTimeout(t); srv.close(); });
+    });
+    const t = setTimeout(() => srv.close(), 10 * 60000);
+    srv.on('error', () => resolve(null));
+    srv.listen(0, '0.0.0.0', () => resolve({ port: srv.address().port, token, size }));
+  });
+}
 
 function broadcasts() {
   const out = new Set(['255.255.255.255']);
@@ -22,7 +50,7 @@ function broadcasts() {
   }
   return [...out];
 }
-const tell = () => send('lan-peers', [...peers.values()].map(({ addr, ...p }) => p));
+const tell = () => send('lan-peers', [...peers.values()].map(({ addr, lastAsk, ...p }) => p));
 
 function hello() {
   if (!sock) return;
@@ -39,16 +67,34 @@ function start(id) {
   sock = dgram.createSocket({ type: 'udp4', reuseAddr: true });
   sock.on('error', () => { stop(); });
   sock.on('message', (buf, rinfo) => {
+    if (buf.length > 60000) return; // bigger than any real hello
     let m; try { m = JSON.parse(buf.toString()); } catch { return; }
-    if (!m || m.bd !== 1 || m.id === myId) return;
+    if (!m || m.bd !== 1 || typeof m.id !== 'string' || m.id.length > 40 || m.id === myId) return;
+    if (m.kind === 'hello' && !peers.has(m.id) && peers.size >= 32) return; // a flood of made-up Bladedecks
     if (m.kind === 'hello') {
       const fresh = !peers.has(m.id);
-      peers.set(m.id, { id: m.id, name: String(m.name || 'Player').slice(0, 40), pc: String(m.pc || '').slice(0, 40), playing: m.playing ? { title: String(m.playing.title || '').slice(0, 120), appid: String(m.playing.appid || '').replace(/\D/g, '') } : null,
+      const prev = peers.get(m.id);
+      peers.set(m.id, { lastAsk: prev?.lastAsk || 0, id: m.id, name: String(m.name || 'Player').slice(0, 40), pc: String(m.pc || '').slice(0, 40), playing: m.playing ? { title: String(m.playing.title || '').slice(0, 120), appid: String(m.playing.appid || '').replace(/\D/g, '') } : null,
         level: +m.level || 1, titles: Array.isArray(m.titles) ? m.titles.slice(0, 600).map((t) => String(t).slice(0, 120)) : null, addr: rinfo.address, seen: Date.now() });
       if (fresh) send('lan-event', { kind: 'arrived', name: m.name });
       tell();
-    } else if (m.kind === 'invite' || m.kind === 'poke') {
+    } else if (m.kind === 'offer') {
+      // Someone wants to send a file: remember where to fetch it, then ask the person.
       const p = peers.get(m.id);
+      if (!p || p.addr !== rinfo.address || Date.now() - (p.lastAsk || 0) < 5000 || offers.size > 20) return;
+      p.lastAsk = Date.now();
+      const oid = crypto.randomBytes(6).toString('hex');
+      const file = { name: nameOk(m.file?.name), size: Math.max(0, +m.file?.size || 0) };
+      if (!file.name || !/^[a-f0-9]{48}$/.test(String(m.token)) || !(+m.port > 1024 && +m.port < 65536)) return;
+      offers.set(oid, { addr: rinfo.address, port: +m.port, token: String(m.token), file, from: p.name, until: Date.now() + 9 * 60000 });
+      send('lan-event', { kind: 'offer', oid, from: p.name, file });
+    } else if (m.kind === 'got') {
+      const p = peers.get(m.id); if (p && p.addr === rinfo.address) send('lan-event', { kind: 'got', from: p.name, name: String(m.name || '').slice(0, 180) });
+    } else if (m.kind === 'invite' || m.kind === 'poke') {
+      // Only from a Bladedeck that said hello from that same address, and not more than one every 5 seconds.
+      const p = peers.get(m.id);
+      if (!p || p.addr !== rinfo.address || Date.now() - (p.lastAsk || 0) < 5000) return;
+      p.lastAsk = Date.now();
       send('lan-event', { kind: m.kind, from: p ? p.name : String(m.name || 'Someone').slice(0, 40), game: m.game ? { title: String(m.game.title || '').slice(0, 120), appid: String(m.game.appid || '').replace(/\D/g, '') } : null });
     }
   });
@@ -64,7 +110,43 @@ function register({ getWin, dataId }) {
     start(dataId());
     return true;
   });
-  ipcMain.handle('lan-peers', () => [...peers.values()].map(({ addr, ...p }) => p));
+  ipcMain.handle('lan-peers', () => [...peers.values()].map(({ addr, lastAsk, ...p }) => p));
+  ipcMain.handle('lan-offer', async (_e, peerId, file) => {
+    const p = peers.get(String(peerId)), f = path.resolve(String(file || ''));
+    if (!p || !sock) return { ok: false, error: 'They are not around any more.' };
+    if (!(FA.allowed(f) || FA.wasPicked(f)) || !fs.existsSync(f) || !fs.statSync(f).isFile()) return { ok: false, error: 'That file is not available.' };
+    const s = await serveOnce(p, f); if (!s) return { ok: false, error: 'Could not start sending.' };
+    sock.send(Buffer.from(JSON.stringify({ bd: 1, kind: 'offer', id: myId, name: me.name, file: { name: path.basename(f), size: s.size }, port: s.port, token: s.token })), PORT, p.addr, () => {});
+    return { ok: true };
+  });
+  ipcMain.handle('lan-accept', async (_e, oid, yes) => {
+    const o = offers.get(String(oid)); offers.delete(String(oid));
+    if (!o || !yes) return { ok: false };
+    if (Date.now() > o.until) return { ok: false, error: 'That offer ran out. Ask them to send it again.' };
+    FA.ensure();
+    const name = nameOk(o.file.name); if (!name) return { ok: false, error: 'That file has a strange name.' };
+    const dir = FA.dir('fromFriends'), ext = path.extname(name), stem = name.slice(0, name.length - ext.length);
+    let to = path.join(dir, name); for (let i = 2; fs.existsSync(to); i++) to = path.join(dir, `${stem} (${i})${ext}`);
+    const part = `${to}.part`;
+    try {
+      const r = await net.fetch(`http://${o.addr}:${o.port}/${o.token}`);
+      if (!r.ok) return { ok: false, error: 'They stopped sending it.' };
+      const out = fs.createWriteStream(part); const reader = r.body.getReader(); let got = 0, last = 0;
+      for (;;) {
+        const { done, value } = await reader.read(); if (done) break;
+        got += value.length;
+        if (got > o.file.size) { reader.cancel(); out.destroy(); fs.rmSync(part, { force: true }); return { ok: false, error: 'The file was bigger than they said, so it was stopped.' }; }
+        out.write(Buffer.from(value));
+        const pct = Math.round(100 * got / (o.file.size || 1)); if (pct !== last) { last = pct; send('lan-event', { kind: 'progress', oid, pct }); }
+      }
+      await new Promise((res) => out.end(res));
+      if (got !== o.file.size) { fs.rmSync(part, { force: true }); return { ok: false, error: 'The file did not arrive whole.' }; }
+      fs.renameSync(part, to);
+      const p = [...peers.values()].find((x) => x.addr === o.addr);
+      if (p && sock) sock.send(Buffer.from(JSON.stringify({ bd: 1, kind: 'got', id: myId, name: path.basename(to) })), PORT, p.addr, () => {});
+      return { ok: true, name: path.basename(to), path: to };
+    } catch (err) { fs.rmSync(part, { force: true }); return { ok: false, error: 'The file could not be received.' }; }
+  });
   ipcMain.handle('lan-send', (_e, peerId, msg) => {
     const p = peers.get(String(peerId)); if (!p || !sock) return false;
     const kind = msg && msg.kind === 'invite' ? 'invite' : 'poke';

@@ -218,24 +218,34 @@ const Panels = (() => {
   return { show, act, list, handle, leave, isOpen, active: () => !!focused, has: (k) => open.has(k), focus: (k) => { const p = open.get(k); if (p) act(k, 'show'); } };
 })();
 
-/* Files: Bladedeck's own file browser for the Files panel. Places on the left (Home, Downloads,
-   Games…), the folder's contents on the right; A opens a folder or a file (with its usual app),
-   B goes up a folder. Pictures show as thumbnails. */
+/* Files: Bladedeck's own file browser for the Files panel. Places on the left (Bladedeck's own
+   folder and the folders you allowed), the folder's contents on the right; A opens a folder or a
+   file (with its usual app), X (or right-click) sends a file, B goes up a folder. Pictures show
+   as thumbnails. Bladedeck sees no other folders unless you allow them (fsaccess.js). */
 const Files = (() => {
   const IMG = /\.(png|jpe?g|gif|webp|bmp|avif)$/i;
   const icon = (it) => (it.dir ? '📁' : IMG.test(it.name) ? '' : /\.(mp4|webm|mkv|mov|avi)$/i.test(it.name) ? '🎬' : /\.(mp3|flac|ogg|opus|m4a|wav)$/i.test(it.name) ? '🎵'
     : /\.(zip|7z|rar|tar|gz|xz)$/i.test(it.name) ? '🗜️' : /\.(pdf)$/i.test(it.name) ? '📕' : /\.(appimage|exe|sh|x86_64)$/i.test(it.name) ? '⚙️' : /\.(iso|chd|nsp|xci|gba|gbc?|nes|sfc|smc|n64|z64|nds)$/i.test(it.name) ? '👾' : '📄');
   const size = (n) => (n > 1e9 ? `${(n / 1e9).toFixed(1)} GB` : n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : n > 1e3 ? `${Math.round(n / 1e3)} KB` : `${n} B`);
 
-  async function mount(p) {
+  // Places: Bladedeck's own folders, then folders you allowed (✕ takes one back), then "Allow a folder…".
+  async function side(p) {
     p.places = await api.fsPlaces();
+    p.body.querySelector('.fl-side').innerHTML = p.places.map((pl) => `<div class="fl-plr"><button type="button" class="fl-pl" data-go="${esc(pl.path)}"><i>${pl.icon}</i>${esc(pl.name)}</button>${pl.granted ? `<button type="button" class="fl-x" data-revoke="${esc(pl.path)}" aria-label="Stop allowing ${esc(pl.name)}">✕</button>` : ''}</div>`).join('')
+      + '<button type="button" class="fl-pl fl-grant" data-grant><i>＋</i>Allow a folder…</button><p class="fl-why">Bladedeck only sees these folders.</p>';
+  }
+  async function mount(p) {
     p.body.innerHTML = '<div class="fl"><nav class="fl-side"></nav><div class="fl-main"><div class="fl-path"></div><div class="fl-grid"></div></div></div>';
-    p.body.querySelector('.fl-side').innerHTML = p.places.map((pl) => `<button type="button" class="fl-pl" data-go="${esc(pl.path)}"><i>${pl.icon}</i>${esc(pl.name)}</button>`).join('');
-    p.body.addEventListener('click', (ev) => {
+    await side(p);
+    p.body.addEventListener('click', async (ev) => {
+      if (ev.target.closest('[data-grant]')) { const r = await api.fsGrant(); if (r.ok) { await side(p); load(p, r.path); toast('Bladedeck can use that folder now. ✕ next to it takes it back.'); } return; }
+      const x = ev.target.closest('[data-revoke]');
+      if (x) { await api.fsRevoke(x.dataset.revoke); toast('Bladedeck no longer uses that folder.'); await side(p); if (p.dir && (p.dir === x.dataset.revoke || p.dir.startsWith(x.dataset.revoke + '/') || p.dir.startsWith(x.dataset.revoke + '\\'))) load(p, p.places[0]?.path); return; }
       const g = ev.target.closest('[data-go]'); if (g) { load(p, g.dataset.go); return; }
       const f = ev.target.closest('[data-file]'); if (f) openItem(p, p.items[+f.dataset.file]);
     });
     p.body.addEventListener('dblclick', (ev) => ev.preventDefault());
+    p.body.addEventListener('contextmenu', (ev) => { const f = ev.target.closest('[data-file]'); const it = f && p.items[+f.dataset.file]; if (it && !it.dir) { ev.preventDefault(); Transfer.open(it.path); } });
     load(p, p.startPath || p.places[0]?.path);
   }
   async function load(p, dir) {
@@ -260,6 +270,8 @@ const Files = (() => {
   function up(p) { if (p.parent) load(p, p.parent); }
   function handle(p, a) {
     if (a === 'b') { if (p.parent) { up(p); Sound.play('back'); } else Panels.leave(); return true; }
+    // X on a file: send it (to the phone or a friend nearby).
+    if (a === 'x') { const hl = p.body.querySelector('.fl-it.pad-hl'); const it = hl && p.items[+hl.dataset.file]; if (it && !it.dir) { Transfer.open(it.path); return true; } }
     if (a === 'lt' || a === 'rt' || a === 'music' || a === 'vol' || a === 'guide') return false;
     return PadNav.input(p.body, a) || true;
   }

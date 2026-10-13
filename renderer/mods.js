@@ -1,7 +1,7 @@
 'use strict';
 /* Cheats and mods for emulated games. Each emulator looks in its own folders (cheats, patches,
    texture packs, mod folders); this shows the ones for the game's emulator, opens them in the
-   Files panel, and copies a file in: from your newest downloads with one press (works from the
+   Files panel, and copies a file in: from Bladedeck's own Mods folder with one press (works from the
    controller), or any file with the picker. A notes box keeps codes or reminders per game.
    Open it with Start on an emulated game (Tasks), or Cheats & mods in PC mode.
    Uses S, api, esc, save, toast, openModal, closeModal, Panels and $ at call time. */
@@ -11,8 +11,10 @@ const Mods = (() => {
     const em = S.lib.emulators.find((x) => x.id === e.emulatorId);
     if (!em) { toast('This game has no emulator set.', 'err'); return; }
     const dirs = await api.modDirs({ name: em.name, exe: em.exe, rom: e.rom });
-    const dl = await api.fsList((await api.fsPlaces()).find((p) => p.name === 'Downloads')?.path || '');
-    const recent = (dl.items || []).filter((f) => !f.dir || /mod|cheat|patch|pack/i.test(f.name)).sort((a, b) => b.at - a.at).slice(0, 8);
+    // Ready-to-copy files come from Bladedeck's own Mods folder; anything else goes through the picker.
+    const inbox = (await api.fsRoot()).mods;
+    const dl = await api.fsList(inbox);
+    const recent = (dl.items || []).sort((a, b) => b.at - a.at).slice(0, 8);
     let target = dirs.findIndex((d) => d.exists && d.path);
     if (target < 0) target = dirs.findIndex((d) => d.creatable);
     const html = () => `<div class="md">
@@ -21,7 +23,7 @@ const Mods = (() => {
           ${d.path ? `<button type="button" data-md="pick" data-i="${i}">${i === target ? '✓ Chosen' : 'Choose'}</button>${d.exists ? `<button type="button" data-md="open" data-i="${i}">Open in Files</button>` : d.creatable ? `<button type="button" data-md="mk" data-i="${i}">Create</button>` : ''}` : ''}</div>`).join('')
         : '<p class="note">Bladedeck does not know where this emulator keeps cheats. Look in its own settings.</p>'}
       ${dirs.some((d) => d.path) ? `<div class="side-h">Copy into the chosen folder</div>
-        <div class="md-recent">${recent.map((f, i) => `<button type="button" data-md="copy" data-f="${i}"><b>${esc(f.name)}</b><small>${f.dir ? 'Folder' : `${Math.max(1, Math.round(f.size / 1024))} KB`} · Downloads</small></button>`).join('') || '<p class="note">Nothing in Downloads yet.</p>'}
+        <div class="md-recent">${recent.map((f, i) => `<button type="button" data-md="copy" data-f="${i}"><b>${esc(f.name)}</b><small>${f.dir ? 'Folder' : `${Math.max(1, Math.round(f.size / 1024))} KB`} · Bladedeck/Mods</small></button>`).join('') || `<p class="note">Put downloaded mods and cheats in ${esc(inbox)} and they show up here.</p>`}
         <button type="button" data-md="file">Another file…</button></div>` : ''}
       <label>Notes for this game (codes, which mods are on)<textarea name="mdNotes" rows="3">${esc(e.modNotes || '')}</textarea></label></div>`;
     openModal({

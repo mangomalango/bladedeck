@@ -238,6 +238,8 @@ function systemActions() {
     { id: 'sys-phone', title: 'Phone app',          sub: 'Control Bladedeck from your phone',     glyph: '📱', run: () => Companion.open() },
     { id: 'sys-cap',   title: 'Captures',           sub: 'Your recordings and saved clips',       glyph: '🎬', run: () => Capture.gallery() },
     { id: 'sys-rec',   title: 'Record',             sub: 'Start or stop recording (View + X)',    glyph: '⏺', run: () => Capture.toggleRecord() },
+    { id: 'sys-voice', title: 'Voice commands',     sub: S.lib.settings.voice ? 'Say “open…”, “weather”, “timer for 5 minutes” (View + LB)' : 'Turn on talking to Bladedeck', glyph: '🎤', run: () => (S.lib.settings.voice ? Voice.listen() : Voice.setup()) },
+    { id: 'sys-xfer', title: 'Send files',          sub: 'To your phone, or to a friend nearby', glyph: '📤', run: () => Transfer.open() },
     { id: 'sys-pip',   title: 'Walkthrough window', sub: 'A small YouTube that floats over your game', glyph: '📺', run: () => walkthrough() },
     { id: 'sys-vol',   title: 'Sound',              sub: 'Volume, outputs, mic and every app',    glyph: '🔊', run: () => Volume.open() },
     { id: 'sys-emu',   title: 'Emulators',          sub: 'Add, edit and scan game folders',       glyph: '◉', run: manageEmulators },
@@ -968,6 +970,7 @@ const CONTROLS = [
   ]],
   ['Walkthrough window', [
     ['Pop a walkthrough video up or away (works in games)', 'View + Y', 'Ctrl+Alt+Y'],
+    ['Voice command (works in games)', 'View + LB', 'Space, or Ctrl+Alt+V'],
     ['Open it for a question', 'Guide flap, YouTube', 'Guide flap, YouTube']
   ]],
   ['Sound', [
@@ -1016,7 +1019,9 @@ function openSettings() {
       <label>Steam folder (leave empty to detect)${row('steamPath', 'dir', st.steamPath)}</label>
       <div class="checks"><label><input type="checkbox" name="sounds" ${st.sounds ? 'checked' : ''}> Menu sounds</label><label><input type="checkbox" name="ambient" ${st.ambient ? 'checked' : ''}> Deep-sea ambience</label><label><input type="checkbox" name="fx" ${st.fx !== false ? 'checked' : ''}> Animations</label><label><input type="checkbox" name="intro" ${st.intro !== false ? 'checked' : ''}> Launch intro</label><label><input type="checkbox" name="bootAnim" ${st.bootAnim !== false ? 'checked' : ''}> Boot animation</label></div>
       <div class="checks"><label><input type="checkbox" name="curatedHome" ${st.curatedHome !== false ? 'checked' : ''}> Home shows a few picks (Switch-style)</label></div>
-      <div class="checks"><label><input type="checkbox" name="lanOn" ${st.lanOn !== false ? 'checked' : ''}> Show me to other Bladedecks nearby</label><label><input type="checkbox" name="lanShare" ${st.lanShare !== false ? 'checked' : ''}> Share my game list with them</label></div>
+      <label>Your town, for the weather<input type="text" name="town" value="${esc(st.town || '')}"></label>
+      <div class="checks"><label><input type="checkbox" name="voice" ${st.voice ? 'checked' : ''}> Voice commands (View + LB, Space or 🎤)</label></div>
+      <div class="checks"><label><input type="checkbox" name="lanOn" ${st.lanOn !== false ? 'checked' : ''}> Show me to other Bladedecks nearby</label><label><input type="checkbox" name="lanShare" ${st.lanShare === true ? 'checked' : ''}> Share my game list with them</label></div>
       <div class="checks"><label><input type="checkbox" name="runningList" ${st.runningList !== false ? 'checked' : ''}> Show what's running on the left</label><label><input type="checkbox" name="autoFreeze" ${st.autoFreeze ? 'checked' : ''}> Pause games when I switch away</label></div>
       <div class="checks"><label><input type="checkbox" name="hideOnLaunch" ${st.hideOnLaunch ? 'checked' : ''}> Minimize while a game runs</label><label><input type="checkbox" name="quietWhilePlaying" ${st.quietWhilePlaying ? 'checked' : ''}> Silence desktop pop-ups while playing</label></div>
       <div class="checks"><label><input type="checkbox" name="showcase" ${st.showcase !== false ? 'checked' : ''}> Play clips and pictures behind games</label></div>
@@ -1052,7 +1057,7 @@ function openSettings() {
       try { blades = JSON.parse($('[name=blades]', root).value); if (!Array.isArray(blades) || !blades.length || blades.some((b) => !b.name)) throw new Error('shape'); }
       catch { toast('Blades must be a JSON list where every blade has a name.', 'err'); return false; }
       Object.assign(st, { playerName: val(root, 'playerName') || 'Player 1', steamPath: val(root, 'steamPath'), sounds: chk(root, 'sounds'), hideOnLaunch: chk(root, 'hideOnLaunch'), blades,
-        ambient: chk(root, 'ambient'), fx: chk(root, 'fx'), intro: chk(root, 'intro'), bootAnim: chk(root, 'bootAnim'), runningList: chk(root, 'runningList'), curatedHome: chk(root, 'curatedHome'), lanOn: chk(root, 'lanOn'), lanShare: chk(root, 'lanShare'), autoFreeze: chk(root, 'autoFreeze'), quietWhilePlaying: chk(root, 'quietWhilePlaying'), showcase: chk(root, 'showcase'),
+        ambient: chk(root, 'ambient'), fx: chk(root, 'fx'), intro: chk(root, 'intro'), bootAnim: chk(root, 'bootAnim'), runningList: chk(root, 'runningList'), curatedHome: chk(root, 'curatedHome'), lanOn: chk(root, 'lanOn'), voice: chk(root, 'voice'), town: val(root, 'town'), lanShare: chk(root, 'lanShare'), autoFreeze: chk(root, 'autoFreeze'), quietWhilePlaying: chk(root, 'quietWhilePlaying'), showcase: chk(root, 'showcase'),
         ambientVolume: +val(root, 'ambientVolume'), showcaseAlpha: +val(root, 'showcaseAlpha'), wineCommand: val(root, 'wineCommand'),
         gogDirs: val(root, 'gogDirs').split('\n').map((x) => x.trim()).filter(Boolean) });
       const peekWas = st.peekMinimize, dirWas = st.musicDir;
@@ -1109,6 +1114,7 @@ function handle(a) {
   if (NowPlaying.handle(a)) return;
   if (a === 'music') { Music.toggle(); return; }
   if (a === 'help') { openControls(); return; }
+  if (a === 'voice') { Voice.listen(); return; }
   if (a === 'lt') { Music.prev(); return; }
   if (a === 'rt') { Music.next(); return; }
   if (Secrets.feed(a)) return;
@@ -1164,7 +1170,7 @@ function pcInput(a) {
   }
 }
 
-const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b', f: 'x', e: 'y', s: 'start', t: 'tasks', p: 'poke', r: 'ach', m: 'music', g: 'guide', v: 'vol', q: 'resume', n: 'notify', F1: 'help', '?': 'help', '[': 'lt', ']': 'rt', F10: 'back', PageUp: 'lb', PageDown: 'rb' };
+const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b', f: 'x', e: 'y', s: 'start', t: 'tasks', p: 'poke', r: 'ach', m: 'music', g: 'guide', v: 'vol', q: 'resume', n: 'notify', ' ': 'voice', F1: 'help', '?': 'help', '[': 'lt', ']': 'rt', F10: 'back', PageUp: 'lb', PageDown: 'rb' };
 
 function bindInput() {
   addEventListener('keydown', (ev) => { if (ev.isTrusted) S.pad = false; }, true);
@@ -1172,7 +1178,7 @@ function bindInput() {
   addEventListener('keydown', (ev) => {
     Secrets.bump();
     if (!/^(Control|Shift|Alt|Meta)$/.test(ev.key)) Water.cancel();
-    if (Crash.busy()) { const a = KEYS[ev.key] || (ev.key === ' ' ? 'a' : null); if (a) { ev.preventDefault(); Crash.handle(a); } return; }
+    if (Crash.busy()) { const a = ev.key === ' ' ? 'a' : KEYS[ev.key]; if (a) { ev.preventDefault(); Crash.handle(a); } return; }
     if (S.modal) { if (ev.key === 'Escape') closeModal(); return; }
     const tag = ev.target.tagName;
     if (/INPUT|TEXTAREA|SELECT/.test(tag)) { if (ev.key === 'Escape') ev.target.blur(); return; }
@@ -1199,6 +1205,8 @@ function bindInput() {
     if (st.back && st.y && !paired) { paired = true; walkthrough(); }
     if (st.back && st.x && !paired) { paired = true; Capture.toggleRecord(); }
     if (st.back && st.rb && !paired) { paired = true; Capture.saveReplay(); }
+    // View + LB: a voice command.
+    if (st.back && st.lb && !paired) { paired = true; Voice.listen(); }
     if (!S.pad && deckFocused()) for (const k in st) if (st[k]) { S.pad = true; break; }
     const focused = deckFocused();
     // Holding the guide trigger pulls the flap out with the stick; the stick is not the menu's then.
@@ -1207,7 +1215,7 @@ function bindInput() {
       const dir = k === 'up' || k === 'down' || k === 'left' || k === 'right';
       if (!focused) { /* the game is using the pad */ }
       else if (pulling && (dir || k === 'lt' || k === 'rt')) { /* the flap has it */ }
-      else if ((k === 'y' || k === 'x' || k === 'rb') && st.back) { /* View + Y / X / RB are chords */ }
+      else if ((k === 'y' || k === 'x' || k === 'rb' || k === 'lb') && st.back) { /* View + Y / X / RB / LB are chords */ }
       else if (k === 'lt' || k === 'rt') { if (!st[k] && prev[k] && (!Guide.isTrigger(k) || Guide.tapped())) { Secrets.bump(); handle(k); } }
       else if (k === 'back' && st.back && !paired && !viewHeld && viewAt && now - viewAt > 550) { viewHeld = true; handle('resume'); }
       else if (k === 'back' || k === 'start') { if (!st[k] && prev[k] && !paired && !(k === 'back' && viewHeld)) { Secrets.bump(); handle(k); } }

@@ -42,6 +42,9 @@ function connect() {
   es?.close();
   es = new EventSource(`api/events?key=${encodeURIComponent(key)}`);
   es.onmessage = (m) => { try { const s = JSON.parse(m.data); if (s && s.pc) { st = s; header(); if (tab === 'now') drawNow(); } } catch { /* skip */ } };
+  // Timers and alarms from Bladedeck: set on the phone too (in the Android app), and ring here.
+  es.addEventListener('alarms', (m) => { try { window.BladedeckApp?.schedule?.(m.data); } catch { /* not the app */ } });
+  es.addEventListener('ring', (m) => { try { ring(JSON.parse(m.data)); } catch { /* skip */ } });
   es.onopen = () => $('#dot').classList.add('on');
   es.onerror = () => { $('#dot').classList.remove('on'); };
 }
@@ -161,10 +164,52 @@ document.addEventListener('pointerdown', (ev) => {
 });
 for (const e of ['pointerup', 'pointercancel', 'pointerleave']) document.addEventListener(e, () => clearInterval(repT));
 
+/* -------------------------------------------------------------- alarms */
+let beepT = 0;
+function ring(r) {
+  const el = $('#ring');
+  el.innerHTML = `<div><b>⏰ ${esc(r.title)}</b><span>${esc(r.text)}</span><button class="primary" id="ring-ok">Stop</button></div>`;
+  el.hidden = false;
+  try { navigator.vibrate?.([600, 300, 600, 300, 600]); } catch { /* no buzz */ }
+  try { window.BladedeckApp?.notify?.(r.title, r.text); } catch { /* not the app */ }
+  let ctx = null;
+  try { ctx = new AudioContext(); let n = 0; const one = () => { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = n++ % 2 ? 988 : 784; g.gain.value = 0.2; o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.3); }; one(); clearInterval(beepT); beepT = setInterval(one, 600); } catch { /* no sound */ }
+  const stop = () => { clearInterval(beepT); ctx?.close(); el.hidden = true; };
+  $('#ring-ok').onclick = stop; setTimeout(stop, 60000);
+}
+
+/* -------------------------------------------------------------- Files */
+// To the phone: what is in Bladedeck/To phone on the PC. To the PC: lands in Bladedeck/From phone.
+const size = (n) => (n > 1e9 ? `${(n / 1e9).toFixed(1)} GB` : n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1e3))} KB`);
+async function drawFiles() {
+  view.innerHTML = '<p class="empty">Loading…</p>';
+  let list = []; try { list = await api('files'); } catch { return; }
+  view.innerHTML = `<h2>Send to the PC</h2>
+    <label class="up"><input type="file" id="up" multiple hidden><span class="primary">Choose files…</span></label>
+    <div id="ups"></div>
+    <p class="note">They go to the Bladedeck/From phone folder on the PC.</p>
+    <h2>From the PC</h2>
+    ${list.length ? list.map((f) => `<a class="row file" href="api/file?name=${encodeURIComponent(f.name)}&key=${encodeURIComponent(key)}" download="${esc(f.name)}"><div class="art">📄</div><div><b>${esc(f.name)}</b><span>${size(f.size)}</span></div><i>⬇</i></a>`).join('')
+      : '<p class="empty">Nothing yet. On the PC, use Send files (or Send to phone in Files).</p>'}`;
+  $('#up').onchange = () => { for (const f of $('#up').files) upload(f); $('#up').value = ''; };
+}
+function upload(f) {
+  const row = document.createElement('div'); row.className = 'row';
+  row.innerHTML = `<div class="art">⬆</div><div><b>${esc(f.name)}</b><span>Sending… 0%</span></div>`;
+  $('#ups').prepend(row);
+  const x = new XMLHttpRequest();
+  x.open('POST', `api/upload?name=${encodeURIComponent(f.name)}`);
+  x.setRequestHeader('Authorization', `Bearer ${key}`);
+  x.upload.onprogress = (e) => { if (e.lengthComputable) row.querySelector('span').textContent = `Sending… ${Math.round(100 * e.loaded / e.total)}%`; };
+  x.onload = () => { let r = {}; try { r = JSON.parse(x.responseText); } catch { /* no body */ } row.querySelector('span').textContent = r.ok ? `Sent ✓ ${size(f.size)}` : (r.error || 'Did not send.'); buzz(); };
+  x.onerror = () => { row.querySelector('span').textContent = 'Did not send. Is Bladedeck still on?'; };
+  x.send(f);
+}
+
 function setTab(t) {
   tab = t;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === t));
-  ({ now: drawNow, library: drawLibrary, remote: drawRemote, clips: drawClips, me: drawMe })[t]();
+  ({ now: drawNow, library: drawLibrary, remote: drawRemote, clips: drawClips, files: drawFiles, me: drawMe })[t]();
   view.scrollTop = 0;
 }
 
@@ -172,5 +217,6 @@ async function start() {
   $('#tabs').hidden = false;
   try { st = await api('state'); header(); } catch { return; }
   connect(); setTab(tab);
+  api('alarms').then((a) => { try { window.BladedeckApp?.schedule?.(JSON.stringify(a)); } catch { /* not the app */ } }).catch(() => {});
 }
 if (key) start(); else pairScreen();

@@ -1088,3 +1088,41 @@ body.driving > :not(#drive):not(#drive-fade):not(#drive-hud):not(#toasts):not(#m
 #drive-hud b { font-size: 64px; line-height: 1; font-weight: 800; }
 #drive-hud span { font-size: 16px; opacity: .8; }
 #drive-hud small { margin-top: 10px; opacity: .65; }
+
+.fl-plr { display: flex; align-items: center; gap: 2px; }
+.fl-plr .fl-pl { flex: 1; min-width: 0; }
+#panels .fw .fl-x { padding: 4px 8px; border-radius: 10px; background: transparent; border: 0; opacity: .6; font-size: 12px; }
+#panels .fw .fl-x:hover, #panels .fw .fl-x.pad-hl { opacity: 1; }
+#panels .fw .fl-grant { opacity: .85; margin-top: 6px; }
+.fl-why { font-size: 11px; color: var(--ink-dim); margin: 6px 10px; }
+
+/* Voice */
+#vc { position: fixed; top: 78px; left: 50%; transform: translate(-50%, -10px); z-index: 45; display: flex; align-items: center; gap: 10px; max-width: min(720px, 90vw);
+  padding: 10px 18px; border-radius: 999px; background: var(--panel); border: 1px solid var(--glass-edge); box-shadow: 0 10px 40px var(--shadow); backdrop-filter: blur(14px);
+  opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; color: var(--ink); }
+#vc.on { opacity: 1; transform: translate(-50%, 0); }
+#vc[hidden] { display: none; }
+.vc-dot { width: 12px; height: 12px; border-radius: 50%; background: #e5484d; animation: vc-pulse 1s infinite; flex: none; }
+.vc-dot.think { background: var(--accent); }
+@keyframes vc-pulse { 50% { opacity: .35; transform: scale(.8); } }
+.vc-lv { display: inline-flex; gap: 3px; align-items: center; height: 20px; }
+.vc-lv i { width: 4px; height: 20px; border-radius: 2px; background: var(--accent); transform: scaleY(.2); transition: transform .08s; }
+.vc-q { color: var(--ink-dim); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
+#vc-btn, #al-chip { border-radius: 999px; }
+#al-chip { padding: 4px 12px; font-variant-numeric: tabular-nums; }
+#al-chip[hidden] { display: none; }
+.vc-dl { display: grid; gap: 6px; margin-top: 10px; }
+/* Weather */
+.wx-now { display: flex; align-items: center; gap: 16px; }
+.wx-now > b { font-size: 48px; font-weight: 700; }
+.wx-now div { display: grid; } .wx-now small { color: var(--ink-dim); }
+.wx-ic { font-size: 42px; }
+.wx-days { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
+.wx-days > div { display: grid; gap: 4px; justify-items: center; padding: 10px; border-radius: 14px; background: color-mix(in srgb, var(--glass-hi) 14%, transparent); }
+.wx-days .wx-ic { font-size: 28px; } .wx-days small { color: var(--ink-dim); }
+.wx-ring { font-size: 28px; font-weight: 700; text-align: center; margin: 20px 0; }
+/* Send files */
+.xf-to { display: grid; gap: 8px; }
+.dlg .xf-to button, .dlg .xf-pick { display: grid; text-align: left; gap: 2px; padding: 12px 14px; border-radius: 14px; }
+.xf-to small { color: var(--ink-dim); font-weight: 400; }
+.xf-file { font-size: 1.1em; }

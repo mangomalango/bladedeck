@@ -271,5 +271,7 @@ const Dock = (() => {
     });
   }
 
-  return { draw, edge, handle, edit, browser, windows: () => [...pans, ...webs, ...wins], slotFor: (w) => slots().find((s, i) => windowsOf(i).includes(w)), active: () => focus >= 0 };
+  // Open (or bring up) a dock app by name, for voice commands.
+  const openByName = (name) => { const n = String(name).toLowerCase(); const i = slots().findIndex((s) => s.name.toLowerCase() === n || (s.pick && s.pick === n)); if (i >= 0) act(i, null); return i >= 0; };
+  return { draw, edge, handle, edit, browser, openByName, names: () => slots().map((s) => s.name), windows: () => [...pans, ...webs, ...wins], slotFor: (w) => slots().find((s, i) => windowsOf(i).includes(w)), active: () => focus >= 0 };
 })();

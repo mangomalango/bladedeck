@@ -228,6 +228,7 @@ ipcMain.handle('pick', async (_e, { kind }) => {
     filters = [{ name: 'Clips and pictures', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'webm', 'mp4', 'mkv', 'mov', 'm4v'] }];
   }
   const r = await dialog.showOpenDialog(win, { properties: props, filters: kind === 'dir' ? undefined : filters });
+  if (!r.canceled && r.filePaths[0]) require('./fsaccess').allowPicked(r.filePaths[0]);
   return r.canceled ? null : r.filePaths[0];
 });
 
@@ -715,36 +716,29 @@ function modDirs({ name = '', exe = '', rom = '' } = {}) {
     return { label, path: found || paths[0] || '', exists: !!found, creatable: !found && !!paths[0] && paths[0].includes('/.var/app/') && fs.existsSync(paths[0].split('/').slice(0, paths[0].split('/').indexOf('app') + 2).join('/')) };
   });
 }
-ipcMain.handle('mod-dirs', (_e, em) => modDirs(em || {}));
-ipcMain.handle('mod-mkdir', (_e, dir) => { const d = path.resolve(String(dir)); if (!d.startsWith(os.homedir() + path.sep)) return false; fs.mkdirSync(d, { recursive: true }); return true; });
+// Only folders worked out here may be created or copied into, and only files in Bladedeck's
+// allowed folders, or ones you just picked yourself, may be copied.
+const modTargets = new Set();
+ipcMain.handle('mod-dirs', (_e, em) => {
+  const FA = require('./fsaccess');
+  const out = modDirs(em || {});
+  for (const d of out) if (d.path) { modTargets.add(path.resolve(d.path)); FA.allowForSession(d.path); }
+  return out;
+});
+ipcMain.handle('mod-mkdir', (_e, dir) => { const d = path.resolve(String(dir)); if (!modTargets.has(d)) return false; fs.mkdirSync(d, { recursive: true }); return true; });
 ipcMain.handle('mod-add', (_e, dir, file) => {
+  const FA = require('./fsaccess');
   const d = path.resolve(String(dir)), f = path.resolve(String(file));
-  if (!d.startsWith(os.homedir() + path.sep) || !fs.existsSync(f)) return { ok: false, error: 'That file or folder is not available.' };
+  if (!modTargets.has(d) || !fs.existsSync(f) || !(FA.allowed(f) || FA.wasPicked(f))) return { ok: false, error: 'That file or folder is not available.' };
   fs.mkdirSync(d, { recursive: true });
   const to = path.join(d, path.basename(f));
   try { fs.cpSync(f, to, { recursive: true }); return { ok: true, to }; } catch (err) { return { ok: false, error: String(err.message || err) }; }
 });
 
 // ---------------------------------------------------------------- the Files panel
-// Folders and files for the built-in file browser; opening a file uses the system's app for it.
-ipcMain.handle('fs-list', (_e, dir) => {
-  const d = path.resolve(String(dir || os.homedir()));
-  let items; try { items = fs.readdirSync(d, { withFileTypes: true }); } catch (err) { return { dir: d, error: err.code === 'EACCES' ? 'You do not have access to this folder.' : 'This folder could not be opened.', items: [] }; }
-  const out = [];
-  for (const it of items) {
-    if (it.name.startsWith('.')) continue;
-    let st; try { st = fs.statSync(path.join(d, it.name)); } catch { continue; }
-    out.push({ name: it.name, path: path.join(d, it.name), dir: st.isDirectory(), size: st.size, at: st.mtimeMs });
-  }
-  out.sort((a, b) => (b.dir - a.dir) || a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
-  return { dir: d, parent: path.dirname(d) !== d ? path.dirname(d) : null, items: out.slice(0, 2000) };
-});
-ipcMain.handle('fs-open', async (_e, p) => !(await shell.openPath(path.resolve(String(p)))));
-ipcMain.handle('fs-places', () => {
-  const h = os.homedir(), get = (k) => { try { return app.getPath(k); } catch { return null; } };
-  return [['🏠', 'Home', h], ['🖥️', 'Desktop', get('desktop')], ['⬇️', 'Downloads', get('downloads')], ['📄', 'Documents', get('documents')], ['🖼️', 'Pictures', get('pictures')],
-    ['🎬', 'Videos', get('videos')], ['🎵', 'Music', get('music')], ['🎮', 'Games', path.join(h, 'Games')]].filter(([, , p]) => p && fs.existsSync(p)).map(([icon, name, p]) => ({ icon, name, path: p }));
-});
+// Lives in fsaccess.js: Bladedeck's own folder by default, other folders only when allowed.
+require('./fsaccess').register({ getWin: () => win });
+require('./voice').register({ getWin: () => win });
 
 // ---------------------------------------------------------------- fonts for the Look menu
 let fontList = null;
