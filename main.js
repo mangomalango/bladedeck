@@ -131,10 +131,19 @@ function createWindow() {
   // Panels get no Node, no preload of their own, and the shared web-app session, whatever the page asks for.
   win.webContents.on('will-attach-webview', (_e, prefs, params) => {
     delete prefs.preload; prefs.nodeIntegration = false; prefs.contextIsolation = true; prefs.sandbox = true;
+    // A Wallpaper Engine web wallpaper: only from a folder a wallpaper scan found, in its own session.
+    if (params.partition === 'wallpaper' && require('./wallpaper').webAllowed(params.src)) { prefs.webSecurity = true; return; }
     if (!/^https:\/\//.test(params.src || '') && params.src !== 'about:blank') params.src = 'about:blank';
     params.partition = 'persist:webapps';
   });
   win.webContents.on('did-attach-webview', (_e, wc) => {
+    // Wallpapers stay put: no leaving their page, no new windows.
+    if (wc.session === require('electron').session.fromPartition('wallpaper')) {
+      wc.setWindowOpenHandler(() => ({ action: 'deny' }));
+      wc.on('will-navigate', (ev, url) => { if (!require('./wallpaper').webAllowed(url)) ev.preventDefault(); });
+      wc.setAudioMuted(true);
+      return;
+    }
     // Links that open new windows stay in the panel.
     wc.setWindowOpenHandler(({ url }) => { if (/^https?:/i.test(url)) wc.loadURL(url); return { action: 'deny' }; });
   });
@@ -739,6 +748,7 @@ ipcMain.handle('mod-add', (_e, dir, file) => {
 // Lives in fsaccess.js: Bladedeck's own folder by default, other folders only when allowed.
 require('./fsaccess').register({ getWin: () => win });
 require('./voice').register({ getWin: () => win });
+require('./wallpaper').register({ steamRoot: () => steamRoot(loadLib().settings?.steamPath) });
 
 // ---------------------------------------------------------------- fonts for the Look menu
 let fontList = null;

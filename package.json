@@ -18,6 +18,7 @@
       "main.js",
       "online.js",
       "store.js",
+      "wallpaper.js",
       "voice-worker.js",
       "voice.js",
       "fsaccess.js",

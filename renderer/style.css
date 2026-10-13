@@ -1126,3 +1126,17 @@ body.driving > :not(#drive):not(#drive-fade):not(#drive-hud):not(#toasts):not(#m
 .dlg .xf-to button, .dlg .xf-pick { display: grid; text-align: left; gap: 2px; padding: 12px 14px; border-radius: 14px; }
 .xf-to small { color: var(--ink-dim); font-weight: 400; }
 .xf-file { font-size: 1.1em; }
+
+/* Wallpaper */
+#wall { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: #000; }
+#wall[hidden] { display: none; }
+#wall .wall-media { position: absolute; inset: calc(var(--wall-blur, 0px) * -2); width: calc(100% + var(--wall-blur, 0px) * 4); height: calc(100% + var(--wall-blur, 0px) * 4); object-fit: cover; border: 0; filter: blur(var(--wall-blur, 0px)); }
+#wall .wall-dim { position: absolute; inset: 0; background: rgba(0, 0, 0, var(--wall-dim, .35)); }
+body.walled #bg, body.walled #drive, body.walled #drive-fade { display: none; }
+.wl-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.wl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin: 8px 0 14px; }
+.dlg .wl-it { display: grid; gap: 3px; text-align: left; padding: 8px; border-radius: 14px; }
+.dlg .wl-it.on { outline: 3px solid var(--accent); }
+.wl-th { display: grid; place-items: center; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: rgba(0,0,0,.35); font-size: 30px; }
+.wl-th img { width: 100%; height: 100%; object-fit: cover; }
+.wl-it b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .wl-it small { color: var(--ink-dim); }

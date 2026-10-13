@@ -92,7 +92,7 @@ function applyTheme(id) {
   $('#theme-css').textContent = t.css || '';
   document.body.dataset.theme = t.id;
   Scenes.set(t.scene === 'drive' ? null : t.scene);
-  Drive.set(t.scene === 'drive');
+  Drive.set(t.scene === 'drive' && !Wallpaper.on());
   S.theme = t; S.lib.settings.theme = t.id;
 }
 function cycleTheme() {
@@ -250,6 +250,7 @@ function systemActions() {
     { id: 'sys-aq',    title: 'Aquarium',           sub: `${(S.lib.settings.aquarium?.flakes ?? 5)} fish flakes to feed your fish`, glyph: '🐟', run: () => Scenes.openTank() },
     { id: 'sys-fr',    title: 'Friends',            sub: `${(S.lib.settings.friends || []).length || 'No'} friends to poke`, glyph: '👉', run: () => Friends.manage() },
     { id: 'sys-pc',    title: 'Switch to PC mode',  sub: 'Windowed library manager',              glyph: '▣', run: () => setMode('pc') },
+    { id: 'sys-wall',  title: 'Wallpaper',          sub: 'Wallpaper Engine or your own picture or video behind the menus', glyph: '🏞', run: () => Wallpaper.open() },
     { id: 'sys-look',  title: 'Look and menus',     sub: 'Font, letters, size and tab icons',     glyph: 'Aa', run: () => Look.open() },
     { id: 'sys-theme', title: 'Next theme',         sub: S.theme.name,                            glyph: '◐', run: cycleTheme },
     { id: 'sys-set',   title: 'Settings',           sub: 'Name, blades, sounds, effects',         glyph: '⚙', run: openSettings },
