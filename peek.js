@@ -148,7 +148,14 @@ async function start(w, { dataDir, minimize, handler }) {
 function electronToggle() {
   if (!win) return;
   if (win.isFocused()) onEvent({ kind: 'want-back' });
-  else { win.restore(); win.show(); win.focus(); onEvent({ kind: 'peek', caption: '', pid: 0, cls: '' }); }
+  else {
+    win.restore(); win.show();
+    // Windows does not let a background app take the screen from a game with focus() alone;
+    // being on top for a moment gets it there.
+    if (process.platform === 'win32') { win.setAlwaysOnTop(true, 'screen-saver'); win.moveTop(); win.focus(); setTimeout(() => { if (win) win.setAlwaysOnTop(false); }, 300); }
+    else win.focus();
+    onEvent({ kind: 'peek', caption: '', pid: 0, cls: '' });
+  }
 }
 
 // The same as pressing Ctrl+M, for the controller.

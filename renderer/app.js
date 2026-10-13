@@ -238,6 +238,7 @@ async function launch(e) {
   await arrived;
   el?.classList.remove('charging');
   FX.ripple(el); Sound.play('ripple');
+  Intro.play(e);
   e.lastPlayed = Date.now(); markDay(e); save();
   S.playing = { id: e.id, t: Date.now(), pid: r.pid, tracked: !(e.type === 'steam' || (e.type === 'gog' && !e.exe)) };
   if (opened) S.playing.winPid = opened.pid;
@@ -254,7 +255,8 @@ async function launch(e) {
       setTimeout(() => { if (p.waiting) p.waiting = false; }, 180000);
       return;
     }
-    if (S.lib.settings.hideOnLaunch) { Sound.duck(true); api.minimize(); }
+    // Let the intro finish before tucking Bladedeck away.
+    if (S.lib.settings.hideOnLaunch) setTimeout(() => { Sound.duck(true); api.minimize(); }, Intro.playing() ? 3000 : 0);
   }, fxOn() ? 1500 : 0);
 }
 
@@ -516,10 +518,12 @@ function openModal({ title, html, wide, buttons = [], onOpen }) {
     if (ev.target === root) closeModal();
   };
   onOpen?.(root);
-  $('input[type=text],select,textarea', root)?.focus();
+  // With a keyboard, start typing in the first box. With a controller, highlight without focusing,
+  // so Steam does not pop up its keyboard; A on a text box opens Bladedeck's own.
+  if (S.pad) PadNav.start(root); else $('input[type=text],select,textarea', root)?.focus();
   return root;
 }
-function closeModal() { const r = $('#modal'); r.classList.remove('open'); r.innerHTML = ''; r.onclick = null; S.modal = false; }
+function closeModal() { OSK.close(); PadNav.clear(); const r = $('#modal'); r.classList.remove('open'); r.innerHTML = ''; r.onclick = null; S.modal = false; }
 const val = (root, n) => $(`[name="${n}"]`, root)?.value.trim() ?? '';
 const chk = (root, n) => !!$(`[name="${n}"]`, root)?.checked;
 const row = (name, kind, v = '', ph = '') => `<div class="row"><input type="text" name="${name}" value="${esc(v)}" placeholder="${esc(ph)}"><button type="button" data-browse="${kind}:${name}">Browse</button></div>`;
@@ -737,7 +741,8 @@ const CONTROLS = [
     ['Launch or open', 'A', 'Enter, or click twice'],
     ['Back to Home', 'B', 'Esc or Backspace'],
     ['Console or PC mode', 'Back', 'F10'],
-    ['Search the library (PC mode)', '', 'Ctrl+F or /'],
+    ['Search the library (PC mode)', 'RB', 'Ctrl+F or /'],
+    ['Type with a controller', 'A on any text box opens the on-screen keyboard: A types, X deletes, Y space, Start done', 'just type'],
     ['This list', '', 'F1 or ?']
   ]],
   ['Games', [
@@ -807,7 +812,7 @@ function openSettings() {
       <label>Your name<input type="text" name="playerName" value="${esc(st.playerName)}"></label>
       <label>Theme<select name="theme">${S.themes.map((t) => `<option value="${t.id}" ${t.id === st.theme ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
       <label>Steam folder (leave empty to detect)${row('steamPath', 'dir', st.steamPath)}</label>
-      <div class="checks"><label><input type="checkbox" name="sounds" ${st.sounds ? 'checked' : ''}> Menu sounds</label><label><input type="checkbox" name="ambient" ${st.ambient ? 'checked' : ''}> Deep-sea ambience</label><label><input type="checkbox" name="fx" ${st.fx !== false ? 'checked' : ''}> Animations</label></div>
+      <div class="checks"><label><input type="checkbox" name="sounds" ${st.sounds ? 'checked' : ''}> Menu sounds</label><label><input type="checkbox" name="ambient" ${st.ambient ? 'checked' : ''}> Deep-sea ambience</label><label><input type="checkbox" name="fx" ${st.fx !== false ? 'checked' : ''}> Animations</label><label><input type="checkbox" name="intro" ${st.intro !== false ? 'checked' : ''}> Launch intro</label></div>
       <div class="checks"><label><input type="checkbox" name="hideOnLaunch" ${st.hideOnLaunch ? 'checked' : ''}> Minimize while a game runs</label><label><input type="checkbox" name="quietWhilePlaying" ${st.quietWhilePlaying ? 'checked' : ''}> Silence desktop pop-ups while playing</label></div>
       <div class="checks"><label><input type="checkbox" name="showcase" ${st.showcase !== false ? 'checked' : ''}> Play clips and pictures behind games</label></div>
       <label class="range-row">Ambience volume<input type="range" name="ambientVolume" min="0" max="1" step="0.05" value="${st.ambientVolume ?? 0.5}"></label>
@@ -840,7 +845,7 @@ function openSettings() {
       try { blades = JSON.parse($('[name=blades]', root).value); if (!Array.isArray(blades) || !blades.length || blades.some((b) => !b.name)) throw new Error('shape'); }
       catch { toast('Blades must be a JSON list where every blade has a name.', 'err'); return false; }
       Object.assign(st, { playerName: val(root, 'playerName') || 'Player 1', steamPath: val(root, 'steamPath'), sounds: chk(root, 'sounds'), hideOnLaunch: chk(root, 'hideOnLaunch'), blades,
-        ambient: chk(root, 'ambient'), fx: chk(root, 'fx'), quietWhilePlaying: chk(root, 'quietWhilePlaying'), showcase: chk(root, 'showcase'),
+        ambient: chk(root, 'ambient'), fx: chk(root, 'fx'), intro: chk(root, 'intro'), quietWhilePlaying: chk(root, 'quietWhilePlaying'), showcase: chk(root, 'showcase'),
         ambientVolume: +val(root, 'ambientVolume'), showcaseAlpha: +val(root, 'showcaseAlpha'), wineCommand: val(root, 'wineCommand'),
         gogDirs: val(root, 'gogDirs').split('\n').map((x) => x.trim()).filter(Boolean) });
       const peekWas = st.peekMinimize, dirWas = st.musicDir;
@@ -876,6 +881,8 @@ function activate() { if (S.sel) launch(S.sel); }
 function handle(a) {
   // The water is a picture of the menu; the moment you do anything, let the real menu back.
   Water.cancel();
+  if (Intro.handle(a)) return;
+  if (OSK.handle(a)) return;
   if (Crash.handle(a)) return;
   if (S.modal) { modalInput(a); return; }
   if (Volume.handle(a)) return;
@@ -898,20 +905,11 @@ function handle(a) {
   if (['left', 'right', 'up', 'down'].includes(a)) Crash.watch(a, before !== (S.mode === 'console' ? `${S.bi}:${S.ii[S.bi] || 0}` : S.pcItems.indexOf(S.sel)));
 }
 
-// Controllers can work every dialog: up and down move between controls, left and right change a list, A presses.
+// Controllers work every dialog: the d-pad moves to whatever is that way on screen, A presses,
+// left and right change a list or slider, B closes. See pad.js.
 function modalInput(a) {
-  const root = $('#modal');
-  const f = $$('button:not([disabled]), input, select, textarea, .task', root).filter((el) => el.offsetParent);
-  const cur = document.activeElement, i = f.indexOf(cur);
-  if (a === 'b') closeModal();
-  else if (cur?.tagName === 'SELECT' && (a === 'left' || a === 'right')) {
-    cur.selectedIndex = Math.max(0, Math.min(cur.options.length - 1, cur.selectedIndex + (a === 'right' ? 1 : -1)));
-    cur.dispatchEvent(new Event('change', { bubbles: true })); sndTick();
-  }
-  else if (cur?.type === 'range' && (a === 'left' || a === 'right')) { a === 'right' ? cur.stepUp() : cur.stepDown(); sndTick(); }
-  else if (a === 'down' || a === 'right') { f[(i + 1) % f.length]?.focus(); sndTick(); }
-  else if (a === 'up' || a === 'left') { f[(i - 1 + f.length) % f.length]?.focus(); sndTick(); }
-  else if (a === 'a' && cur && root.contains(cur)) cur.click();
+  if (a === 'b') { closeModal(); return; }
+  PadNav.input($('#modal'), a);
 }
 
 function consoleInput(a) {
@@ -945,12 +943,15 @@ function pcInput(a) {
     case 'y': if (S.sel) editEntry(S.sel); break;
     case 'b': if (S.search) { S.search = ''; renderPc(); } break;
     case 'start': if (S.sel) Tasks.open(S.sel); break;
+    case 'rb': if ($('#q')) OSK.open($('#q')); break;
   }
 }
 
 const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b', f: 'x', e: 'y', s: 'start', t: 'tasks', p: 'poke', r: 'ach', m: 'music', g: 'guide', v: 'vol', F1: 'help', '?': 'help', '[': 'lt', ']': 'rt', F10: 'back', PageUp: 'lb', PageDown: 'rb' };
 
 function bindInput() {
+  addEventListener('keydown', (ev) => { if (ev.isTrusted) S.pad = false; }, true);
+  addEventListener('pointerdown', (ev) => { if (ev.isTrusted) S.pad = false; }, true);
   addEventListener('keydown', (ev) => {
     Secrets.bump();
     if (!/^(Control|Shift|Alt|Meta)$/.test(ev.key)) Water.cancel();
@@ -977,6 +978,7 @@ function bindInput() {
     const st = { up: b(12) || p.axes[1] < -0.6, down: b(13) || p.axes[1] > 0.6, left: b(14) || p.axes[0] < -0.6, right: b(15) || p.axes[0] > 0.6,
       a: b(0), b: b(1), x: b(2), y: b(3), lb: b(4), rb: b(5), lt: b(6), rt: b(7), back: b(8), start: b(9), ach: b(10), music: b(11), vol: b(16) };
     if (st.back && st.start && !paired) { paired = true; api.peekToggle(); }
+    if (!S.pad && document.hasFocus()) for (const k in st) if (st[k]) { S.pad = true; break; }
     const focused = document.hasFocus();
     // Holding the guide trigger pulls the flap out with the stick; the stick is not the menu's then.
     const pulling = focused && !S.modal && !Volume.isOpen() && Guide.frame(p, now);

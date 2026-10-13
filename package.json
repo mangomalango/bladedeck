@@ -19,6 +19,7 @@
       "online.js",
       "store.js",
       "winaudio.js",
+      "winpad.js",
       "peek.js",
       "net.js",
       "preload.js",

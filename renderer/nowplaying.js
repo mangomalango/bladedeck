@@ -19,7 +19,7 @@ const NowPlaying = (() => {
   window.bladedeck.onPeek((ev) => {
     if (ev.kind === 'mode') { mode = ev.mode; return; }
     if (ev.kind === 'peek') show(ev, true);
-    else if (ev.kind === 'focus') { if (S.playing && !steamWin(ev.cls)) show(ev, covered); }
+    else if (ev.kind === 'focus') { if (S.playing && !steamWin(ev.cls)) show(ev, covered || !visible()); }
     else if (ev.kind === 'want-back') back();
     else if (ev.kind === 'back') highlight(false);
     else if (ev.kind === 'gone') gone(ev);
@@ -48,6 +48,11 @@ const NowPlaying = (() => {
   const nextFrame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   const box = (r) => ({ left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
   const full = () => ({ left: 0, top: 0, width: innerWidth, height: innerHeight });
+  // The copy stays full-screen size and only moves and scales, which the graphics card does
+  // without redrawing it each frame. That is what keeps the shrink smooth.
+  const at = (r) => `translate(${r.left}px, ${r.top}px) scale(${r.width / innerWidth}, ${r.height / innerHeight})`;
+  const FULL_T = 'translate(0px, 0px) scale(1, 1)';
+  const STAGE_AWAY = { transform: 'scale(1.05)', opacity: 0.25 }, STAGE_HERE = { transform: 'none', opacity: 1 };
 
   function dressFly() {
     const live = !!(stream && streamKey === cur?.key);
@@ -62,16 +67,17 @@ const NowPlaying = (() => {
     if (!fxOn()) { fly.hidden = true; document.body.classList.add('np-on'); return; }
     dressFly();
     fly.getAnimations().forEach((a) => a.cancel());
-    Object.assign(fly.style, box(full()), { borderRadius: '0px' });
+    Object.assign(fly.style, box(full()), { transform: FULL_T, borderRadius: '0px' });
     fly.hidden = false;
     // The panel appears in place at once, with its view left empty for the game to land in.
     el.classList.add('instant', 'landing');
     document.body.classList.add('np-on');
-    await nextFrame();
+    // Give the window a moment to be on screen and painted, so the first frames are not dropped.
+    await nextFrame(); await new Promise((r) => setTimeout(r, 40));
     const to = el.querySelector('.np-view').getBoundingClientRect();
     Sound.play('shrink');
-    const a = fly.animate([{ ...box(full()), borderRadius: '0px' }, { ...box(to), borderRadius: '10px' }], { duration: 560, easing: 'cubic-bezier(.3, .9, .25, 1)', fill: 'forwards' });
-    stage().animate([{ transform: 'scale(1.07)', filter: 'blur(8px)', opacity: 0.3 }, { transform: 'none', filter: 'none', opacity: 1 }], { duration: 560, easing: 'cubic-bezier(.3, .9, .25, 1)' });
+    const a = fly.animate([{ transform: FULL_T, borderRadius: '0px' }, { transform: at(to), borderRadius: `${10 * innerWidth / to.width}px` }], { duration: 520, easing: 'cubic-bezier(.3, .9, .25, 1)', fill: 'forwards' });
+    stage().animate([STAGE_AWAY, STAGE_HERE], { duration: 520, easing: 'cubic-bezier(.3, .9, .25, 1)' });
     try { await a.finished; } catch { return; }
     if (covered) return;
     fly.hidden = true; a.cancel();
@@ -85,12 +91,12 @@ const NowPlaying = (() => {
     dressFly();
     const from = el.querySelector('.np-view').getBoundingClientRect();
     fly.getAnimations().forEach((a) => a.cancel());
-    Object.assign(fly.style, box(from), { borderRadius: '10px' });
+    Object.assign(fly.style, box(full()), { transform: at(from), borderRadius: `${10 * innerWidth / from.width}px` });
     fly.hidden = false;
     el.classList.add('landing');
     Sound.play('pop');
-    const a = fly.animate([{ ...box(from), borderRadius: '10px' }, { ...box(full()), borderRadius: '0px' }], { duration: 430, easing: 'cubic-bezier(.55, 0, .25, 1.12)', fill: 'forwards' });
-    stage().animate([{ transform: 'none', filter: 'none', opacity: 1 }, { transform: 'scale(.94)', filter: 'blur(6px)', opacity: 0.4 }], { duration: 430, easing: 'ease-in', fill: 'forwards' });
+    const a = fly.animate([{ transform: at(from), borderRadius: `${10 * innerWidth / from.width}px` }, { transform: FULL_T, borderRadius: '0px' }], { duration: 400, easing: 'cubic-bezier(.55, 0, .25, 1.12)', fill: 'forwards' });
+    stage().animate([STAGE_HERE, { transform: 'scale(.95)', opacity: 0.35 }], { duration: 400, easing: 'ease-in', fill: 'forwards' });
     try { await a.finished; } catch { /* replaced by a newer animation */ }
     // It stays covering the menu, so coming back starts from a full-screen game, not the menu.
   }
@@ -103,7 +109,12 @@ const NowPlaying = (() => {
   }
 
   // Back in Bladedeck some other way (taskbar, alt-tab) with nothing to shrink into: just reveal the menu.
-  addEventListener('focus', () => setTimeout(() => { if (covered && !going && !cur) uncover(); }, 250));
+  addEventListener('focus', () => setTimeout(() => {
+    if (going) return;
+    // Without KDE nothing tells us about alt-tab, so the window coming back does the same as Ctrl+M.
+    if (mode !== 'kwin' && S.playing && (covered || !visible())) { show({ kind: 'focus', caption: '', pid: S.playing.pid || 0, cls: '' }, true); return; }
+    if (covered && !cur) uncover();
+  }, 250));
 
   function updateSub() {
     if (!cur) return;

@@ -50,7 +50,7 @@ const Guide = (() => {
     if (isOpen) return;
     isOpen = true; layout(); el.classList.add('open'); el.classList.remove('peek', 'grab'); set(1);
     Sound.play('pop'); buzz(0.9, 0.6, 140);
-    draw(); focusI = 0; mark();
+    draw(); focusI = 1; mark();
     if (how === 'type') setTimeout(() => $('.gd-q', el)?.focus(), 60);
   }
   function close() {
@@ -226,7 +226,7 @@ const Guide = (() => {
   }
 
   // The controller cursor: the search box is not reachable without a keyboard, so it skips it.
-  const stops = () => [...el.querySelectorAll('.gd-scroll .gd-f'), ...el.querySelectorAll('.gd-x')];
+  const stops = () => [...el.querySelectorAll('.gd-q'), ...el.querySelectorAll('.gd-scroll .gd-f'), ...el.querySelectorAll('.gd-x')];
   function mark() {
     const s = stops(); if (!s.length) return;
     focusI = Math.max(0, Math.min(s.length - 1, focusI));
@@ -238,6 +238,7 @@ const Guide = (() => {
     choose(t);
   });
   function choose(t) {
+    if (t.classList.contains('gd-q')) { OSK.open(t); return; }
     Sound.play('tick');
     if (t.dataset.g === 'close') close();
     else if (t.dataset.g === 'back') { view = view === 'page' ? 'results' : 'home'; focusI = 0; draw(); }
@@ -256,7 +257,7 @@ const Guide = (() => {
     if (ev.key === 'Escape') { ev.stopPropagation(); ev.preventDefault(); close(); }
     if (ev.key === 'Enter' && ev.target.classList.contains('gd-q')) { clearTimeout(timer); const q = ev.target.value.trim(); if (q) { search(q); keepTyping(); } }
   });
-  function keepTyping() { const q = $('.gd-q', el); if (q && document.activeElement !== q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }
+  function keepTyping() { const q = $('.gd-q', el); if (q && !S.pad && document.activeElement !== q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }
 
   // Controller and keyboard while it is open. Returns true when it used the input.
   function handle(a) {

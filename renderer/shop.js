@@ -268,12 +268,12 @@ const Shop = (() => {
   document.addEventListener('input', (ev) => {
     if (ev.target.classList.contains('sh-iq')) {
       clearTimeout(qTimer);
-      qTimer = setTimeout(() => { itch.q = ev.target.value.trim(); loadItch().then(() => { const q = $('.sh-iq'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }); }, 500);
+      qTimer = setTimeout(() => { itch.q = ev.target.value.trim(); loadItch().then(() => { const q = $('.sh-iq'); if (q && !S.pad) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }); }, 500);
       return;
     }
     if (!ev.target.classList.contains('sh-q')) return;
     clearTimeout(qTimer);
-    qTimer = setTimeout(() => { hb.q = ev.target.value.trim(); hb.page = 1; loadHb().then(() => { const q = $('.sh-q'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }); }, 450);
+    qTimer = setTimeout(() => { hb.q = ev.target.value.trim(); hb.page = 1; loadHb().then(() => { const q = $('.sh-q'); if (q && !S.pad) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }); }, 450);
   });
 
   return { open };

@@ -131,6 +131,7 @@ function createWindow() {
     win.show();
     Peek.start(win, { dataDir: dataDir(), minimize: !!lib.settings.peekMinimize, handler: (ev) => { if (win) win.webContents.send('peek', ev); } })
       .then((m) => { if (win) win.webContents.send('peek', { kind: 'mode', mode: m }); });
+    if (process.platform === 'win32') require('./winpad').start(dataDir(), () => peekToggle());
   });
   win.on('closed', () => { win = null; });
   startNet();
@@ -164,7 +165,7 @@ function quiet(on) {
     quietProc.kill(); quietProc = null;
   }
 }
-app.on('will-quit', () => { quiet(false); Peek.stop(); Net.stop(); if (process.platform === 'win32') require('./winaudio').stop(); });
+app.on('will-quit', () => { quiet(false); Peek.stop(); Net.stop(); if (process.platform === 'win32') { require('./winaudio').stop(); require('./winpad').stop(); } });
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
@@ -607,7 +608,10 @@ ipcMain.handle('open-link', (_e, url) => {
 
 // ---------------------------------------------------------------- peek + live view
 ipcMain.handle('peek-back', () => Peek.back());
-ipcMain.handle('peek-toggle', () => Peek.toggle());
+// The controller chord can arrive twice on Windows (the page and the XInput helper both see it).
+let lastToggle = 0;
+const peekToggle = () => { if (Date.now() - lastToggle < 700) return false; lastToggle = Date.now(); return Peek.toggle(); };
+ipcMain.handle('peek-toggle', () => peekToggle());
 
 // ---------------------------------------------------------------- colours of a picture, for the Game theme
 // base: the average colour. vivid: the brightest strong colour, for accents.
@@ -635,8 +639,11 @@ let fontList = null;
 ipcMain.handle('fonts', () => {
   if (fontList) return fontList;
   try {
-    const out = require('child_process').execFileSync('fc-list', [':', 'family'], { encoding: 'utf8', timeout: 5000 });
-    fontList = [...new Set(out.split('\n').map((l) => l.split(',')[0].trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    // Windows has no fc-list; .NET knows the installed families.
+    const out = process.platform === 'win32'
+      ? require('child_process').execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', 'Add-Type -AssemblyName System.Drawing; (New-Object System.Drawing.Text.InstalledFontCollection).Families | ForEach-Object { $_.Name }'], { encoding: 'utf8', timeout: 15000, windowsHide: true })
+      : require('child_process').execFileSync('fc-list', [':', 'family'], { encoding: 'utf8', timeout: 5000 });
+    fontList = [...new Set(out.split(/\r?\n/).map((l) => l.split(',')[0].trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   } catch { fontList = []; }
   return fontList;
 });
