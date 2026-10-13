@@ -1,0 +1,28 @@
+{
+  "id": "aero-aquarium",
+  "name": "Aero Aquarium",
+  "scene": "aquarium",
+  "vars": {
+    "--bg": "linear-gradient(180deg, #9af0ff 0%, #35c4ef 26%, #0f8fd3 62%, #075a9c 100%)",
+    "--ink": "#ffffff",
+    "--ink-dim": "#d4f4ff",
+    "--accent": "#3fb21c",
+    "--accent-hi": "#a6f25a",
+    "--accent-ink": "#ffffff",
+    "--glass-hi": "rgba(255,255,255,0.50)",
+    "--glass": "rgba(255,255,255,0.12)",
+    "--glass-lo": "rgba(255,255,255,0.04)",
+    "--glass-edge": "rgba(255,255,255,0.75)",
+    "--shadow": "rgba(0,40,90,0.30)",
+    "--panel": "rgba(8,92,150,0.55)",
+    "--panel-solid": "#0c6aa6",
+    "--field": "#0a5c93",
+    "--line": "rgba(255,255,255,0.28)",
+    "--btn-hi": "#5fd0ff",
+    "--btn-lo": "#1386c9",
+    "--radius": "16px",
+    "--font": "\"Segoe UI\", \"Frutiger\", \"Myriad Pro\", system-ui, sans-serif"
+  },
+  "ribbon": { "count": 0 },
+  "css": "body { text-shadow: 0 1px 3px rgba(0, 45, 90, .55); } .item.sel b, .item.sel span, button.primary { text-shadow: 0 1px 2px rgba(0,60,0,.45); } .blade { backdrop-filter: blur(3px); }"
+}

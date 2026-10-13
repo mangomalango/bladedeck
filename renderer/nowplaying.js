@@ -186,6 +186,7 @@ const NowPlaying = (() => {
     if (hl) {
       if (a === 'a') back();
       else if (a === 'x') { if (!el.classList.contains('live')) startLive(true); }
+      else if (a === 'down') { highlight(false); Dock.edge(); }
       else if (a === 'right' || a === 'b') highlight(false);
       return true;
     }

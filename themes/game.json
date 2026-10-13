@@ -1,0 +1,30 @@
+{
+  "id": "game",
+  "name": "Game (matches the selected game)",
+  "dynamic": true,
+  "vars": {
+    "--bg": "radial-gradient(90% 80% at 50% 110%, #1d2533, #07090d 70%)",
+    "--ink": "#f2f5fa",
+    "--ink-dim": "#a9b3c4",
+    "--accent": "#5b8cff",
+    "--accent-hi": "#9dbbff",
+    "--accent-ink": "#ffffff",
+    "--glass-hi": "rgba(255,255,255,0.16)",
+    "--glass": "rgba(20,26,38,0.45)",
+    "--glass-lo": "rgba(6,8,12,0.7)",
+    "--glass-edge": "rgba(160,190,255,0.45)",
+    "--shadow": "rgba(0,0,0,0.6)",
+    "--panel": "rgba(10,12,18,0.72)",
+    "--panel-solid": "#11151d",
+    "--field": "#0b0e14",
+    "--line": "rgba(255,255,255,0.14)",
+    "--btn-hi": "#2a3142",
+    "--btn-lo": "#151a24",
+    "--radius": "14px",
+    "--font": "\"Segoe UI\", \"Inter\", system-ui, sans-serif"
+  },
+  "ribbon": {
+    "count": 0
+  },
+  "css": ":root { transition: none; } .blade, .nav.on, .item.sel, button.primary { transition: background .6s, border-color .6s, box-shadow .6s; } .detail .logo { max-width: 100%; max-height: 120px; object-fit: contain; object-position: left; filter: drop-shadow(0 4px 14px rgba(0,0,0,.6)); margin-bottom: 6px; }"
+}

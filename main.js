@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, desktopCapturer } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, desktopCapturer, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -164,13 +164,13 @@ function quiet(on) {
     quietProc.kill(); quietProc = null;
   }
 }
-app.on('will-quit', () => { quiet(false); Peek.stop(); Net.stop(); });
+app.on('will-quit', () => { quiet(false); Peek.stop(); Net.stop(); if (process.platform === 'win32') require('./winaudio').stop(); });
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
 else {
   app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
-  app.whenReady().then(() => { ensureUserFiles(); createWindow(); });
+  app.whenReady().then(() => { ensureUserFiles(); createWindow(); setTimeout(prewarmSteam, 3000); });
   app.on('window-all-closed', () => app.quit());
 }
 
@@ -224,6 +224,36 @@ function splitArgs(s = '') {
   return out;
 }
 
+// ---------------------------------------------------------------- faster starts
+// A big shader cache means a game compiles its shaders once and later starts and runs without
+// recompiling them. Mesa (AMD, Intel) and NVIDIA read these; everything else ignores them.
+const SHADER_ENV = {
+  MESA_SHADER_CACHE_MAX_SIZE: '10G',
+  __GL_SHADER_DISK_CACHE: '1', __GL_SHADER_DISK_CACHE_SIZE: '10737418240', __GL_SHADER_DISK_CACHE_SKIP_CLEANUP: '1',
+  DXVK_STATE_CACHE: '1'
+};
+// Steam takes several seconds to start, and every Steam game waits for it. Starting it quietly
+// in the background when Bladedeck opens means a game launches the moment you pick it.
+function prewarmSteam() {
+  const lib = loadLib();
+  if (lib.settings.prewarmSteam === false || !lib.entries.some((e) => e.type === 'steam')) return;
+  if (process.platform === 'linux') {
+    require('child_process').execFile('pgrep', ['-x', 'steam'], (err) => {
+      if (!err) return; // already running
+      const exe = onPath('steam');
+      const flat = !exe && flatpakHas('com.valvesoftware.Steam');
+      if (!exe && !flat) return;
+      try { spawn(exe || onPath('flatpak') || '/usr/bin/flatpak', exe ? ['-silent'] : ['run', 'com.valvesoftware.Steam', '-silent'], { detached: true, stdio: 'ignore' }).unref(); } catch { /* no Steam */ }
+    });
+  } else if (process.platform === 'win32') {
+    require('child_process').execFile('tasklist', ['/FI', 'IMAGENAME eq steam.exe', '/NH'], (err, out) => {
+      if (err || /steam\.exe/i.test(String(out))) return;
+      const pf = [process.env['ProgramFiles(x86)'], process.env.ProgramFiles].filter(Boolean).map((d) => path.join(d, 'Steam', 'steam.exe')).find((p) => fs.existsSync(p));
+      if (pf) try { spawn(pf, ['-silent'], { detached: true, stdio: 'ignore' }).unref(); } catch { /* no Steam */ }
+    });
+  }
+}
+
 ipcMain.handle('launch', async (_e, { entry, emulator, settings }) => {
   try {
     if (entry.type === 'steam') {
@@ -270,9 +300,13 @@ ipcMain.handle('launch', async (_e, { entry, emulator, settings }) => {
     }
 
     const started = Date.now();
+    // GameMode asks the system for full speed while the game runs.
+    const gm = settings && settings.gamemode && process.platform === 'linux' && onPath('gamemoderun');
+    if (gm) { args = [exe, ...args]; exe = gm; }
     const child = spawn(exe, args, {
       cwd, detached: true, stdio: 'ignore',
-      shell: ext === '.bat' || ext === '.cmd'
+      shell: ext === '.bat' || ext === '.cmd',
+      env: { ...process.env, ...(settings && settings.shaderCache === false ? {} : SHADER_ENV) }
     });
     await new Promise((res, rej) => { child.once('spawn', res); child.once('error', rej); });
     child.unref();
@@ -567,13 +601,77 @@ ipcMain.handle('steam-shots', (_e, appid) => {
 // ---------------------------------------------------------------- friends
 ipcMain.handle('copy', (_e, text) => { clipboard.writeText(String(text)); return true; });
 ipcMain.handle('open-link', (_e, url) => {
-  if (!/^(https?:|mailto:|discord:|steam:\/\/friends)/i.test(String(url))) return false;
+  if (!/^(https?:|mailto:|discord:|steam:\/\/(friends|install\/\d+$|store\/\d+$))/i.test(String(url))) return false;
   shell.openExternal(String(url)); return true;
 });
 
 // ---------------------------------------------------------------- peek + live view
 ipcMain.handle('peek-back', () => Peek.back());
 ipcMain.handle('peek-toggle', () => Peek.toggle());
+
+// ---------------------------------------------------------------- colours of a picture, for the Game theme
+// base: the average colour. vivid: the brightest strong colour, for accents.
+ipcMain.handle('palette', (_e, p) => {
+  try {
+    const img = nativeImage.createFromPath(String(p));
+    if (img.isEmpty()) return null;
+    const bmp = img.resize({ width: 32 }).toBitmap();
+    let r = 0, g = 0, b = 0, n = 0, best = null, bestScore = -1;
+    for (let i = 0; i + 3 < bmp.length; i += 4) {
+      const B = bmp[i], G = bmp[i + 1], R = bmp[i + 2];
+      r += R; g += G; b += B; n++;
+      const mx = Math.max(R, G, B), mn = Math.min(R, G, B);
+      const score = (mx - mn) * (mx > 60 ? 1 : 0.2) * (mx < 250 ? 1 : 0.7);
+      if (score > bestScore) { bestScore = score; best = [R, G, B]; }
+    }
+    if (!n) return null;
+    const base = [r / n, g / n, b / n].map(Math.round);
+    return { base, vivid: bestScore > 40 ? best : base };
+  } catch { return null; }
+});
+
+// ---------------------------------------------------------------- fonts for the Look menu
+let fontList = null;
+ipcMain.handle('fonts', () => {
+  if (fontList) return fontList;
+  try {
+    const out = require('child_process').execFileSync('fc-list', [':', 'family'], { encoding: 'utf8', timeout: 5000 });
+    fontList = [...new Set(out.split('\n').map((l) => l.split(',')[0].trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  } catch { fontList = []; }
+  return fontList;
+});
+
+// ---------------------------------------------------------------- window dock
+ipcMain.handle('win-act', (_e, id, act) => Peek.windowAction(String(id), String(act)));
+// Open a dock app: the first installed program from its list, or else its web page or folder.
+// Which of these apps are installed, so the dock can offer the ones people actually have.
+ipcMain.handle('dock-detect', (_e, list = []) => list.map((a) => !!(a && ((a.cmd && process.platform !== 'win32' && onPath(a.cmd)) || (a.flat && process.platform === 'linux' && flatpakHas(a.flat))))));
+// The way to run one program: on the PATH, or its Flatpak. Null when it is not installed.
+function runner(a) {
+  const exe = a.cmd && process.platform !== 'win32' ? onPath(a.cmd) : null;
+  if (exe) return [exe, []];
+  if (a.flat && process.platform === 'linux' && flatpakHas(a.flat)) return [onPath('flatpak') || '/usr/bin/flatpak', ['run', a.flat]];
+  return null;
+}
+function startFirst(list, extra = []) {
+  for (const a of list || []) {
+    const r = runner(a); if (!r) continue;
+    try { spawn(r[0], [...r[1], ...extra], { detached: true, stdio: 'ignore' }).unref(); return true; } catch { /* try the next one */ }
+  }
+  return false;
+}
+// spec: { apps: [{cmd, flat}], uri, url, home, web, browser: {list: [{cmd, flat}], app} }
+// The app comes first unless the slot wants the web version. Web pages go to the chosen browser,
+// as an app window of its own when asked (Chromium-style browsers), else to the default browser.
+ipcMain.handle('dock-open', async (_e, spec = {}) => {
+  if (!spec.web && startFirst(spec.apps)) return true;
+  if (!spec.web && spec.uri && process.platform === 'win32') { try { await shell.openExternal(spec.uri); return true; } catch { /* not installed */ } }
+  if (spec.home) return !(await shell.openPath(os.homedir()));
+  if (!spec.url || !/^https?:/i.test(spec.url)) return false;
+  const b = spec.browser;
+  if (b && startFirst(b.list || [b], b.app ? [`--app=${spec.url}`] : ['--new-window', spec.url])) return true;
+  await shell.openExternal(spec.url); return true;
+});
 ipcMain.handle('peek-config', (_e, { minimize }) => Peek.reconfigure(!!minimize));
 ipcMain.handle('peek-mode', () => Peek.mode());
 // The window to show live. Wayland asks through the system picker; X11 lists windows, so we match the title.
@@ -632,3 +730,7 @@ ipcMain.handle('net-info', () => ({ ip: Net.myIp(), port: Net.PORT }));
 ipcMain.handle('net-peers', () => Net.peers());
 ipcMain.handle('net-hello', (_e, host) => Net.hello(String(host)));
 ipcMain.handle('net-poke', (_e, host, body) => Net.poke(String(host), body));
+
+// ---------------------------------------------------------------- artwork and RetroAchievements
+require('./online').register({ settings: () => loadLib().settings, mediaDir });
+require('./store').register({ getWin: () => win });

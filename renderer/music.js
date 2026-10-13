@@ -147,5 +147,6 @@ const Music = (() => {
     });
   }
 
-  return { load, toggle, next, prev, open, draw, playing: () => !audio.paused };
+  function setVolume(v) { st().musicVolume = v; audio.volume = v; save(); }
+  return { load, toggle, next, prev, open, draw, setVolume, playing: () => !audio.paused };
 })();

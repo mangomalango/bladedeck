@@ -87,6 +87,7 @@ const Sound = (() => {
     talk: () => voice({ f0: rnd(500, 760), f1: rnd(400, 900), dur: 0.05, vol: 0.02, type: 'square', filter: 1800, rev: 0.1 }),
     // The game shrinking into its panel, and popping back out to full screen.
     shrink: () => { voice({ f0: 900, f1: 180, dur: 0.45, vol: 0.05, rev: 0.8, attack: 0.01, type: 'triangle', filter: 2200 }); bubble(0.025, 0.35); },
+    bubblepop: () => { bubble(0.06); voice({ f0: rnd(1100, 1500), f1: rnd(380, 520), dur: 0.07, vol: 0.035, rev: 0.4, attack: 0.002 }); },
     pop: () => { voice({ f0: 160, f1: 1100, dur: 0.32, vol: 0.05, rev: 0.7, attack: 0.01, type: 'triangle', filter: 2600 }); voice({ f0: 1320, dur: 0.25, vol: 0.02, when: 0.28, rev: 1 }); },
     // A water drop: a quick falling 'bloop', then a bright plink as the surface closes.
     drop: () => {

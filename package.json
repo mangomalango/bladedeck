@@ -16,6 +16,9 @@
     "productName": "Bladedeck",
     "files": [
       "main.js",
+      "online.js",
+      "store.js",
+      "winaudio.js",
       "peek.js",
       "net.js",
       "preload.js",

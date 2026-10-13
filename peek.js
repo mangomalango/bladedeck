@@ -80,6 +80,19 @@ workspace.windowAdded.connect((w) => { if (usable(w)) tell('opened', w); });
 workspace.windowRemoved.connect((w) => {
   if (w === parked || w === last) { tell('gone', w); if (w === parked) parked = null; if (w === last) last = null; }
 });
+// The window dock: what is open, sent again whenever it changes.
+function sendList(gone) {
+  const list = workspace.windowList().filter((w) => usable(w) && w !== gone).map((w) => ({
+    id: String(w.internalId), caption: String(w.caption), cls: String(w.resourceClass), pid: w.pid,
+    min: !!w.minimized, active: workspace.activeWindow === w }));
+  callDBus('dev.bladedeck.Peek', '/Peek', 'dev.bladedeck.Peek', 'Event', 'windows', JSON.stringify(list), '0', '');
+}
+function watch(w) { if (!w || isDeck(w)) return; w.captionChanged.connect(() => sendList()); w.minimizedChanged.connect(() => sendList()); }
+workspace.windowList().forEach(watch);
+workspace.windowAdded.connect((w) => { watch(w); sendList(); });
+workspace.windowRemoved.connect((w) => sendList(w));
+workspace.windowActivated.connect(() => sendList());
+sendList();
 registerShortcut('${SHORTCUT}', 'Bladedeck: peek at the launcher and jump back', 'Ctrl+M', toggle);
 registerShortcut('${RETURN}', 'Bladedeck: return to the game (used by Bladedeck)', '', returnTo);
 `;
@@ -155,6 +168,31 @@ async function back() {
   return false;
 }
 
+// Show, minimize or close one window from the dock. KWin scripts can't take calls, so each
+// action is a tiny script of its own, loaded, run and unloaded. One at a time.
+const ACTIONS = {
+  show: 'w.minimized = false; workspace.activeWindow = w;',
+  min: 'w.minimized = true;',
+  close: 'w.closeWindow();'
+};
+let acting = Promise.resolve();
+function windowAction(id, act) {
+  if (mode !== 'kwin' || !ACTIONS[act]) return Promise.resolve(false);
+  acting = acting.then(async () => {
+    const file = path.join(path.dirname(scriptFile), 'kwin-act.js');
+    fs.writeFileSync(file, `const w = workspace.windowList().find((x) => String(x.internalId) === ${JSON.stringify(String(id))});\nif (w) { ${ACTIONS[act]} }\n`);
+    const name = 'bladedeck-act';
+    await gdbus(['--dest', 'org.kde.KWin', '--object-path', '/Scripting', '--method', 'org.kde.kwin.Scripting.unloadScript', name]);
+    const r = await gdbus(['--dest', 'org.kde.KWin', '--object-path', '/Scripting', '--method', 'org.kde.kwin.Scripting.loadScript', file, name]);
+    const n = r && (r.match(/-?\d+/) || [])[0];
+    if (!n || +n < 0) return false;
+    const ok = !!(await gdbus(['--dest', 'org.kde.KWin', '--object-path', `/Scripting/Script${n}`, '--method', 'org.kde.kwin.Script.run']));
+    await gdbus(['--dest', 'org.kde.KWin', '--object-path', '/Scripting', '--method', 'org.kde.kwin.Scripting.unloadScript', name]);
+    return ok;
+  }).catch(() => false);
+  return acting;
+}
+
 async function reconfigure(minimize) { if (mode === 'kwin') await loadKwin(minimize); }
 
 function stop() {
@@ -164,4 +202,4 @@ function stop() {
   mode = null;
 }
 
-module.exports = { start, back, toggle, reconfigure, stop, mode: () => mode };
+module.exports = { start, back, toggle, windowAction, reconfigure, stop, mode: () => mode };

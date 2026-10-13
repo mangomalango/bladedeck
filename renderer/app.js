@@ -89,6 +89,7 @@ function applyTheme(id) {
   for (const [k, v] of Object.entries(t.vars || {})) root.style.setProperty(k, v);
   $('#theme-css').textContent = t.css || '';
   document.body.dataset.theme = t.id;
+  Scenes.set(t.scene);
   S.theme = t; S.lib.settings.theme = t.id;
 }
 function cycleTheme() {
@@ -114,7 +115,7 @@ function startBg() {
   function draw(t) {
     const R = S.theme?.ribbon || {};
     const cols = R.colors || ['#9fe23c', '#ffffff'];
-    const n = R.count || 5, alpha = R.alpha ?? 0.3, speed = (R.speed ?? 0.3) * (still ? 0 : 1);
+    const n = R.count ?? 5, alpha = R.alpha ?? 0.3, speed = (R.speed ?? 0.3) * (still ? 0 : 1);
     const thick = (R.width || 100) / 2;
     x.clearRect(0, 0, w, h);
     x.globalCompositeOperation = R.blend || 'source-over';
@@ -189,12 +190,17 @@ function systemActions() {
     { id: 'sys-add',   title: 'Add a game or app',  sub: 'Pick a program, Steam ID or game file', glyph: '+', run: () => editEntry() },
     { id: 'sys-steam', title: 'Scan Steam library', sub: 'Find installed Steam games',            glyph: 'S', run: () => scanSteam() },
     { id: 'sys-gog',   title: 'Scan GOG games',     sub: 'Find GOG installs and Heroic games',    glyph: 'G', run: () => scanGog() },
+    { id: 'sys-art',   title: 'Find missing art',   sub: 'Covers and backgrounds from Steam and SteamGridDB', glyph: '🖼', run: () => Art.fillAll() },
     { id: 'sys-store', title: 'Add store launchers', sub: 'Steam, Heroic and Lutris as apps',     glyph: '⇪', run: addLaunchers },
+    { id: 'sys-get',   title: 'Get games',          sub: 'Free games, homebrew and emulators',    glyph: '⬇', run: () => Shop.open() },
+    { id: 'sys-vol',   title: 'Sound',              sub: 'Volume, outputs, mic and every app',    glyph: '🔊', run: () => Volume.open() },
     { id: 'sys-emu',   title: 'Emulators',          sub: 'Add, edit and scan game folders',       glyph: '◉', run: manageEmulators },
     { id: 'sys-ctl',   title: 'Controls',           sub: 'Every button and key',                  glyph: '⌨', run: openControls },
     { id: 'sys-mu',    title: 'Music',              sub: 'Play songs from your music folder',     glyph: '♪', run: () => Music.open() },
+    { id: 'sys-aq',    title: 'Aquarium',           sub: `${(S.lib.settings.aquarium?.flakes ?? 5)} fish flakes to feed your fish`, glyph: '🐟', run: () => Scenes.openTank() },
     { id: 'sys-fr',    title: 'Friends',            sub: `${(S.lib.settings.friends || []).length || 'No'} friends to poke`, glyph: '👉', run: () => Friends.manage() },
     { id: 'sys-pc',    title: 'Switch to PC mode',  sub: 'Windowed library manager',              glyph: '▣', run: () => setMode('pc') },
+    { id: 'sys-look',  title: 'Look and menus',     sub: 'Font, letters, size and tab icons',     glyph: 'Aa', run: () => Look.open() },
     { id: 'sys-theme', title: 'Next theme',         sub: S.theme.name,                            glyph: '◐', run: cycleTheme },
     { id: 'sys-set',   title: 'Settings',           sub: 'Name, blades, sounds, effects',         glyph: '⚙', run: openSettings },
     ...(Secrets.any() ? [{ id: 'sys-sec', title: 'Secret options', sub: 'Hidden settings you have unlocked', glyph: '✧', run: () => Secrets.openOptions() }] : []),
@@ -286,6 +292,7 @@ function markDay(e) {
 function sessionOver(e, seconds) {
   e.playtime = (e.playtime || 0) + seconds;
   e.bestSession = Math.max(e.bestSession || 0, seconds);
+  Scenes.earn(seconds);
   save();
   if (seconds >= 60) toast(`Welcome back! ${Math.round(seconds / 60)} more minutes in ${e.title}.`, 'fun');
   Tasks.sync(e); refreshQuiet();
@@ -316,7 +323,7 @@ function renderConsole() {
   S.blades = S.lib.settings.blades;
   $('#blades').innerHTML = S.blades.map((b, i) => `
     <section class="blade" data-i="${i}"${b.color ? ` style="--accent:${esc(b.color)};--accent-hi:${esc(b.color)}"` : ''}>
-      <div class="tab-v">${esc(b.name)}</div>
+      <div class="tab-v">${Look.tab(b)}</div>
       <div class="inner"><h2 class="title-h">${esc(b.name)}</h2><div class="body"></div></div>
     </section>`).join('');
   S.bi = Math.min(S.bi, S.blades.length - 1);
@@ -373,11 +380,12 @@ function updateDetail() {
   const e = S.sel;
   if (!e) { d.innerHTML = ''; return; }
   const stats = e.run ? '' : `<p class="stat">${esc(fmtPlay(e.playtime))}</p>${e.lastPlayed ? `<p class="stat">Last played ${esc(new Date(e.lastPlayed).toLocaleDateString())}</p>` : ''}`;
-  d.innerHTML = `<div class="poster">${cover(e)}</div><div class="info"><h3>${esc(e.title)}</h3>
+  d.innerHTML = `<div class="poster">${cover(e)}</div><div class="info">${GameTheme.on() && e.logo ? `<img class="logo" src="${fileUrl(e.logo)}" alt="${esc(e.title)}">` : `<h3>${esc(e.title)}</h3>`}
     <p class="sub">${esc(e.run ? e.sub : TYPES[e.type].label + (e.system ? ' on ' + e.system : ''))}</p>${stats}
     ${e.run ? '' : `<span class="task-pill">${Tasks.count(e)} of ${TASKS.length} tasks. Start for more</span>`}
+    ${Ach.fits(e) && Ach.on() ? '<p class="stat ach"></p>' : ''}
     <p class="cta">${e.run ? 'Press A to open' : 'Press A to launch'}</p></div>`;
-  Showcase.show(e);
+  Showcase.show(e); GameTheme.show(e); Ach.fill(e, $('.ach', d));
 }
 // Re-draws the selected game's panel after its tasks or media change, without moving anything.
 function refreshQuiet() {
@@ -387,7 +395,7 @@ function refreshQuiet() {
 
 /* ---------------------------------------------------------------- PC view */
 function pcNavs() {
-  const navs = S.lib.settings.blades.map((b, i) => ({ key: 'blade:' + i, label: b.name, items: () => bladeItems(b), special: !!b.special }))
+  const navs = S.lib.settings.blades.map((b, i) => ({ key: 'blade:' + i, label: b.name, blade: b, items: () => bladeItems(b), special: !!b.special }))
     .filter((n) => !n.special);
   navs.push({ key: 'hidden', label: 'Hidden', items: () => S.lib.entries.filter((e) => e.hidden).sort(byTitle) });
   navs.forEach((n) => { n.count = n.items().length; });
@@ -416,9 +424,10 @@ function renderPc() {
   $('#pc').innerHTML = `
     <aside class="side">
       <div class="side-h">Library</div>
-      ${navs.map((n) => `<button class="nav ${n.key === S.pcNav ? 'on' : ''}" data-nav="${n.key}"><span>${esc(n.label)}</span><i>${n.count}</i></button>`).join('')}
+      ${navs.map((n) => `<button class="nav ${n.key === S.pcNav ? 'on' : ''}" data-nav="${n.key}"><span>${n.blade ? Look.tab(n.blade) : esc(n.label)}</span><i>${n.count}</i></button>`).join('')}
       <div class="side-h">Emulators</div>
       ${S.lib.emulators.map((em) => `<button class="nav ${S.pcNav === 'emu:' + em.id ? 'on' : ''}" data-nav="emu:${em.id}"><span>${esc(em.name)}</span><i>${S.lib.entries.filter((e) => e.emulatorId === em.id).length}</i></button>`).join('')}
+      <button class="nav ghost" data-act="getgames"><span>Get games</span></button>
       <button class="nav ghost" data-act="emulators"><span>Manage emulators</span></button>
     </aside>
     <section class="main">
@@ -450,7 +459,7 @@ function renderGrid() {
 
 function renderDrawer() {
   const d = $('#drawer'); const e = S.sel;
-  Showcase.show(e);
+  Showcase.show(e); GameTheme.show(e);
   if (!e) { d.innerHTML = '<p class="none">Select a game to see its details, or drop a program or game file anywhere on this window to add it.</p>'; return; }
   const where = e.type === 'steam' ? `Steam app ${e.appid}` : e.type === 'rom' ? e.rom : e.exe;
   d.innerHTML = `<div class="cv">${cover(e)}</div><h3>${esc(e.title)}</h3>
@@ -458,7 +467,7 @@ function renderDrawer() {
     <div class="dim">${esc(fmtPlay(e.playtime))}${e.lastPlayed ? `, last played ${esc(new Date(e.lastPlayed).toLocaleDateString())}` : ''}</div>
     <div class="dim">${esc(where || '')}</div>
     <div class="dim" style="color:var(--accent);font-size:16px">${Tasks.stars(e)}</div>
-    <div class="btns"><button class="primary" data-act="launch">Launch</button><button data-act="tasks">Tasks</button><button data-act="poke">Poke a friend</button><button data-act="fav">${e.favorite ? 'Unfavorite' : 'Favorite'}</button><button data-act="edit">Edit</button><button data-act="hide">${e.hidden ? 'Unhide' : 'Hide'}</button></div>`;
+    <div class="btns"><button class="primary" data-act="launch">Launch</button><button data-act="tasks">Tasks</button><button data-act="poke">Poke a friend</button><button data-act="fav">${e.favorite ? 'Unfavorite' : 'Favorite'}</button><button data-act="edit">Edit</button><button data-act="art">Artwork</button>${Ach.fits(e) ? '<button data-act="ach">Achievements</button>' : ''}<button data-act="hide">${e.hidden ? 'Unhide' : 'Hide'}</button></div>`;
 }
 
 function pcSelect(e) {
@@ -539,6 +548,7 @@ function editEntry(existing, preset = {}) {
       <div class="checks"><label><input type="checkbox" name="favorite" ${e.favorite ? 'checked' : ''}> Favorite</label><label><input type="checkbox" name="hidden" ${e.hidden ? 'checked' : ''}> Hide from lists</label></div>
       <p class="note">Arguments support {rom}, {romdir} and {title}. For recompiled ports, point Program at the port's executable.</p>`,
     buttons: [
+      ...(existing ? [{ label: 'Artwork', left: true, onClick: () => { setTimeout(() => Art.open(existing), 0); } }] : []),
       ...(existing ? [{ label: 'Remove', danger: true, left: true, onClick: (_r, btn) => {
         if (!armed) { armed = true; btn.textContent = 'Click again to remove'; return false; }
         S.lib.entries = S.lib.entries.filter((x) => x.id !== existing.id); S.sel = null; save(); refresh(); } }] : []),
@@ -575,7 +585,7 @@ function manageEmulators() {
     html: emus.length
       ? emus.map((em) => `<div class="emu"><b>${esc(em.name)}</b><span>${esc(em.system || '')}</span><button data-em-scan="${em.id}">Scan</button><button data-em-edit="${em.id}">Edit</button></div>`).join('')
       : '<p class="note">No emulators yet. Add one, choose its program, and Bladedeck will scan your game folders and list every game it finds.</p>',
-    buttons: [{ label: 'Close' }, { label: 'Add emulator', primary: true, onClick: () => { setTimeout(() => editEmulator(), 0); } }],
+    buttons: [{ label: 'Install emulators', left: true, onClick: () => { setTimeout(() => Shop.open('emus'), 0); } }, { label: 'Close' }, { label: 'Add emulator', primary: true, onClick: () => { setTimeout(() => editEmulator(), 0); } }],
     onOpen: (root) => root.addEventListener('click', (ev) => {
       const sc = ev.target.closest('[data-em-scan]'), ed = ev.target.closest('[data-em-edit]');
       if (sc) { closeModal(); scanRoms(emus.find((x) => x.id === sc.dataset.emScan)); }
@@ -739,11 +749,36 @@ const CONTROLS = [
   ]],
   ['While playing', [
     ['Jump out to Bladedeck (the game shrinks into a live panel)', 'View + Menu together', 'Ctrl+M'],
-    ['Jump back in (the game pops back to full screen)', 'View + Menu, or push left onto the panel, then A', 'Ctrl+M, or click the panel']
+    ['Jump back in (the game pops back to full screen)', 'View + Menu, or push left onto the panel, then A', 'Ctrl+M, or click the panel'],
+    ['Live view of the game', 'X on the panel', 'Show live view']
+  ]],
+  ['Dock (YouTube, music, Discord, files)', [
+    ['Go to the dock', 'push left past the first blade (or down from the panel)', 'point at it'],
+    ['Open, bring up, or tuck away an app', 'A', 'click'],
+    ['Minimize or close it', 'X or Y', 'the – and ✕ on its card']
+  ]],
+  ['Guide (quick questions about a game, or Bladedeck)', [
+    ['Pull the guide flap out', 'hold LT, then push the stick the way it opens', 'G, or drag the tab on the edge'],
+    ['Move and pick', 'D-pad, then A', 'arrows and Enter, or click'],
+    ['Back, then put it away', 'B', 'Esc'],
+    ['Push it shut', 'hold LT, push the stick back into the edge', 'drag the tab back']
+  ]],
+  ['Sound', [
+    ['Sound card (volume, where sound plays, mic, every app)', 'Home button (Stadia, PS or Xbox)', 'V, or the 🔊 at the top'],
+    ['Choose and change', 'up and down, then left and right (LB / RB for big steps)', 'arrows, or drag'],
+    ['Mute what is chosen', 'A', 'Enter, or click its icon'],
+    ['Volume down or up from anywhere', '', '- and =']
+  ]],
+  ['Extras', [
+    ['Get games: free games, homebrew and emulators', 'System, Get games', 'Get games in PC mode'],
+    ['RetroAchievements for an emulated game', 'Left stick click', 'R'],
+    ['Artwork for a game', 'Y (Edit), then Artwork', 'Artwork in PC mode'],
+    ['Feed the fish (Aero Aquarium theme)', 'System, Aquarium, Feed', 'click the water'],
+    ['Pop bubbles (Sky Bubbles theme)', '', 'click them']
   ]],
   ['Music', [
     ['Play or pause', 'Right stick click', 'M'],
-    ['Previous or next song', 'LT / RT', '[ / ]'],
+    ['Previous or next song', 'tap LT / RT', '[ / ]'],
     ['Song list', '', 'the ☰ button, or System, Music']
   ]],
   ['Breaking things', [
@@ -782,9 +817,23 @@ function openSettings() {
       <label>Music folder (leave empty for your Music folder)${row('musicDir', 'dir', st.musicDir)}</label>
       <div class="checks"><label><input type="checkbox" name="musicDuringGames" ${st.musicDuringGames ? 'checked' : ''}> Keep music playing during games</label><label><input type="checkbox" name="peekMinimize" ${st.peekMinimize ? 'checked' : ''}> Minimize the game when peeking with Ctrl+M</label></div>
       <p class="note">Ctrl+M jumps between a game or app and Bladedeck. On KDE you can change the key in System Settings, Shortcuts, KWin, "Bladedeck: peek". Minimizing the game can freeze its live view, so it is off by default.</p>
+      <h3 class="set-h">Watched folders</h3>
+      ${Watch.settingsHtml()}
+      <h3 class="set-h">Guide</h3>
+      ${Guide.settingsHtml()}
+      <h3 class="set-h">Faster starts</h3>
+      <div class="checks"><label><input type="checkbox" name="prewarmSteam" ${st.prewarmSteam !== false ? 'checked' : ''}> Start Steam quietly when Bladedeck opens, so Steam games launch right away</label></div>
+      <div class="checks"><label><input type="checkbox" name="shaderCache" ${st.shaderCache !== false ? 'checked' : ''}> Big shader cache for games Bladedeck starts itself (fewer stutters, faster second starts)</label><label><input type="checkbox" name="gamemode" ${st.gamemode ? 'checked' : ''}> Run games with GameMode, if it is installed</label></div>
+      <p class="note">Steam games start through Steam, so set these in Steam too: Settings, Downloads, turn on Shader Pre-Caching and "Allow background processing of Vulkan shaders". Then Steam compiles shaders while you're not playing, instead of while you wait. For a game that still compiles a lot, put <code>MESA_SHADER_CACHE_MAX_SIZE=10G %command%</code> in its Launch Options.</p>
+      <h3 class="set-h">Accounts</h3>
+      <label>SteamGridDB API key (free: steamgriddb.com, Preferences, API) for cover art and backgrounds<input type="password" name="sgdbKey" value="${esc(st.sgdbKey || '')}" autocomplete="off"></label>
+      <div class="row2"><label>RetroAchievements name<input type="text" name="raUser" value="${esc(st.raUser || '')}" autocomplete="off"></label>
+        <label>RetroAchievements web API key (retroachievements.org, Settings, Keys)<input type="password" name="raKey" value="${esc(st.raKey || '')}" autocomplete="off"></label></div>
+      <div style="display:flex;gap:8px;align-items:center"><button type="button" data-x="ratest">Check RetroAchievements</button><span class="note ra-res"></span></div>
+      <h3 class="set-h">Everything else</h3>
       <label>Command for Windows games (leave empty for wine)<input type="text" name="wineCommand" value="${esc(st.wineCommand || '')}" placeholder="wine"></label>
       <label>Blades (JSON). Rename, reorder, remove, or add filters. Each blade is { "name", "filter": { "types": [...], "system": "...", "emulator": "id", "favorite": true, "recent": 12 } }.<textarea name="blades" rows="9">${esc(JSON.stringify(st.blades, null, 2))}</textarea></label>
-      <div class="btns" style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-x="themes">Open themes folder</button><button type="button" data-x="css">Show custom.css</button><button type="button" data-x="blades">Reset blades</button></div>
+      <div class="btns" style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-x="look">Look and menus</button><button type="button" data-x="themes">Open themes folder</button><button type="button" data-x="css">Show custom.css</button><button type="button" data-x="blades">Reset blades</button></div>
       <p class="note">Themes are JSON files in the themes folder. custom.css is loaded last and can restyle anything.</p>`,
     buttons: [{ label: 'Cancel' }, { label: 'Save', primary: true, onClick: (root) => {
       let blades;
@@ -796,6 +845,9 @@ function openSettings() {
         gogDirs: val(root, 'gogDirs').split('\n').map((x) => x.trim()).filter(Boolean) });
       const peekWas = st.peekMinimize, dirWas = st.musicDir;
       Object.assign(st, { musicDir: val(root, 'musicDir'), musicDuringGames: chk(root, 'musicDuringGames'), peekMinimize: chk(root, 'peekMinimize') });
+      Object.assign(st, { prewarmSteam: chk(root, 'prewarmSteam'), shaderCache: chk(root, 'shaderCache'), gamemode: chk(root, 'gamemode'),
+        sgdbKey: val(root, 'sgdbKey'), raUser: val(root, 'raUser'), raKey: val(root, 'raKey') });
+      Guide.readSettings(root); Watch.readSettings(root);
       if (peekWas !== st.peekMinimize) api.peekConfig({ minimize: st.peekMinimize });
       if (dirWas !== st.musicDir) Music.load(true).then(Music.draw);
       Sound.sync(); Showcase.reset();
@@ -804,6 +856,13 @@ function openSettings() {
     } }],
     onOpen: (root) => root.addEventListener('click', (ev) => {
       const x = ev.target.closest('[data-x]')?.dataset.x;
+      if (x === 'look') { closeModal(); Look.open(); }
+      if (x === 'ratest') {
+        const out = $('.ra-res', root), keep = { raUser: st.raUser, raKey: st.raKey };
+        Object.assign(st, { raUser: val(root, 'raUser'), raKey: val(root, 'raKey') }); save();
+        out.textContent = 'Checking…';
+        setTimeout(async () => { out.textContent = await Ach.test(); if (!val(root, 'raKey')) Object.assign(st, keep); }, 400);
+      }
       if (x === 'themes') api.openThemes();
       if (x === 'css') api.openCss();
       if (x === 'blades') $('[name=blades]', root).value = JSON.stringify(S.defaultBlades, null, 2);
@@ -819,6 +878,10 @@ function handle(a) {
   Water.cancel();
   if (Crash.handle(a)) return;
   if (S.modal) { modalInput(a); return; }
+  if (Volume.handle(a)) return;
+  if (a === 'guide') { Guide.toggle('type'); return; }
+  if (Guide.handle(a)) return;
+  if (Dock.handle(a)) return;
   if (NowPlaying.handle(a)) return;
   if (a === 'music') { Music.toggle(); return; }
   if (a === 'help') { openControls(); return; }
@@ -828,6 +891,7 @@ function handle(a) {
   if (a === 'back') { setMode(S.mode === 'console' ? 'pc' : 'console'); return; }
   if (a === 'tasks') { if (S.sel && !S.sel.run) Tasks.open(S.sel); return; }
   if (a === 'poke') { if (S.sel && !S.sel.run) Friends.poke(S.sel); return; }
+  if (a === 'ach') { if (S.sel && !S.sel.run) Ach.open(S.sel); return; }
   const before = S.mode === 'console' ? `${S.bi}:${S.ii[S.bi] || 0}` : S.pcItems.indexOf(S.sel);
   if (S.mode === 'console') consoleInput(a); else pcInput(a);
   // Slamming the cursor into one end of the menu and then the other is what breaks it.
@@ -853,7 +917,7 @@ function modalInput(a) {
 function consoleInput(a) {
   const j = S.ii[S.bi] || 0;
   switch (a) {
-    case 'left': if (S.bi === 0 && NowPlaying.edge()) break; setBlade(S.bi - 1); break;
+    case 'left': if (S.bi === 0 && (NowPlaying.edge() || Dock.edge())) break; setBlade(S.bi - 1); break;
     case 'lb': setBlade(S.bi - 1); break;
     case 'right': case 'rb': setBlade(S.bi + 1); break;
     case 'up': setItem(j - 1); break;
@@ -872,7 +936,7 @@ function pcInput(a) {
   const i = Math.max(0, S.pcItems.indexOf(S.sel));
   const to = (k) => { if (n) { pcSelect(S.pcItems[Math.max(0, Math.min(n - 1, k))]); sndTick(); } };
   switch (a) {
-    case 'left': if (i % cols === 0 && NowPlaying.edge()) break; to(i - 1); break;
+    case 'left': if (i % cols === 0 && (NowPlaying.edge() || Dock.edge())) break; to(i - 1); break;
     case 'right': to(i + 1); break;
     case 'up': to(i - cols); break;
     case 'down': to(i + cols); break;
@@ -884,7 +948,7 @@ function pcInput(a) {
   }
 }
 
-const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b', f: 'x', e: 'y', s: 'start', t: 'tasks', p: 'poke', m: 'music', F1: 'help', '?': 'help', '[': 'lt', ']': 'rt', F10: 'back', PageUp: 'lb', PageDown: 'rb' };
+const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b', f: 'x', e: 'y', s: 'start', t: 'tasks', p: 'poke', r: 'ach', m: 'music', g: 'guide', v: 'vol', F1: 'help', '?': 'help', '[': 'lt', ']': 'rt', F10: 'back', PageUp: 'lb', PageDown: 'rb' };
 
 function bindInput() {
   addEventListener('keydown', (ev) => {
@@ -911,12 +975,16 @@ function bindInput() {
     if (!p) return;
     const b = (i) => !!p.buttons[i]?.pressed;
     const st = { up: b(12) || p.axes[1] < -0.6, down: b(13) || p.axes[1] > 0.6, left: b(14) || p.axes[0] < -0.6, right: b(15) || p.axes[0] > 0.6,
-      a: b(0), b: b(1), x: b(2), y: b(3), lb: b(4), rb: b(5), lt: b(6), rt: b(7), back: b(8), start: b(9), music: b(11) };
+      a: b(0), b: b(1), x: b(2), y: b(3), lb: b(4), rb: b(5), lt: b(6), rt: b(7), back: b(8), start: b(9), ach: b(10), music: b(11), vol: b(16) };
     if (st.back && st.start && !paired) { paired = true; api.peekToggle(); }
     const focused = document.hasFocus();
+    // Holding the guide trigger pulls the flap out with the stick; the stick is not the menu's then.
+    const pulling = focused && !S.modal && !Volume.isOpen() && Guide.frame(p, now);
     for (const k in st) {
       const dir = k === 'up' || k === 'down' || k === 'left' || k === 'right';
       if (!focused) { /* the game is using the pad */ }
+      else if (pulling && (dir || k === 'lt' || k === 'rt')) { /* the flap has it */ }
+      else if (k === 'lt' || k === 'rt') { if (!st[k] && prev[k] && (!Guide.isTrigger(k) || Guide.tapped())) { Secrets.bump(); handle(k); } }
       else if (k === 'back' || k === 'start') { if (!st[k] && prev[k] && !paired) { Secrets.bump(); handle(k); } }
       else if (st[k] && !prev[k]) { Secrets.bump(); handle(k); rep[k] = now + 420; }
       else if (st[k] && dir && now > rep[k]) { handle(k); rep[k] = now + 90; }
@@ -948,7 +1016,7 @@ function bindInput() {
     const act = ev.target.closest('[data-act]')?.dataset.act;
     if (act) {
       ({ add: () => editEntry(), steam: scanSteam, settings: openSettings, console: () => setMode('console'), emulators: manageEmulators,
-        launch: () => S.sel && launch(S.sel), tasks: () => Tasks.open(S.sel), poke: () => Friends.poke(S.sel), gog: scanGog, fav: () => S.sel && toggleFav(S.sel), edit: () => S.sel && editEntry(S.sel),
+        launch: () => S.sel && launch(S.sel), tasks: () => Tasks.open(S.sel), poke: () => Friends.poke(S.sel), gog: scanGog, getgames: () => Shop.open(), art: () => Art.open(S.sel), ach: () => Ach.open(S.sel), fav: () => S.sel && toggleFav(S.sel), edit: () => S.sel && editEntry(S.sel),
         hide: () => { if (S.sel) { S.sel.hidden = !S.sel.hidden; S.sel = null; save(); renderPc(); } } })[act]?.();
       return;
     }
@@ -978,11 +1046,13 @@ function bindInput() {
   $('#custom-css').textContent = b.customCss || '';
   Secrets.installThemes();
   applyTheme(S.lib.settings.theme);
+  Look.apply();
   $('#who').textContent = S.lib.settings.playerName;
   startBg(); startClock(); bindInput();
   setMode(S.lib.settings.mode || 'console', true);
   Sound.startAmbient(); Secrets.bump();
   Music.load().then(Music.draw);
+  Dock.draw(); Guide.init(); Watch.start();
   Friends.presence();
   api.onDownloads((list) => Downloads.update(list));
   // First run: go and find everything so the library is never empty.

@@ -1,0 +1,27 @@
+{
+  "id": "sky-bubbles",
+  "name": "Sky Bubbles",
+  "scene": "bubbles",
+  "vars": {
+    "--bg": "linear-gradient(180deg, #3f9cf2 0%, #7cc2fb 38%, #bfe4ff 72%, #f2faff 100%)",
+    "--ink": "#0b2e55",
+    "--ink-dim": "#3f6690",
+    "--accent": "#ff7aa8",
+    "--accent-hi": "#ffb1cc",
+    "--accent-ink": "#ffffff",
+    "--glass-hi": "rgba(255,255,255,0.78)",
+    "--glass": "rgba(255,255,255,0.30)",
+    "--glass-lo": "rgba(210,236,255,0.22)",
+    "--glass-edge": "rgba(255,255,255,0.9)",
+    "--shadow": "rgba(20,80,150,0.25)",
+    "--panel": "rgba(255,255,255,0.55)",
+    "--panel-solid": "#f3faff",
+    "--field": "#ffffff",
+    "--line": "rgba(20,80,150,0.18)",
+    "--btn-hi": "#ffffff",
+    "--btn-lo": "#d9eeff",
+    "--radius": "22px",
+    "--font": "\"Nunito\", \"Varela Round\", \"Segoe UI\", system-ui, sans-serif"
+  },
+  "ribbon": { "colors": ["#ffffff"], "alpha": 0.22, "blend": "source-over", "width": 220, "count": 3, "speed": 0.08 }
+}

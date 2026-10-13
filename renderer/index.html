@@ -3,15 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy"
-      content="default-src 'self'; img-src 'self' file: data:; media-src 'self' file: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'">
+      content="default-src 'self'; img-src 'self' file: data: https:; media-src 'self' file: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'">
 <title>Bladedeck</title>
 <link rel="stylesheet" href="style.css">
 <style id="theme-css"></style>
+<style id="look-css"></style>
 <style id="custom-css"></style>
 </head>
 <body data-mode="console">
   <div id="showcase" aria-hidden="true"><div class="layer"></div><div class="layer"></div><div class="grime"></div></div>
   <canvas id="bg"></canvas>
+  <canvas id="scene" hidden></canvas>
 
   <header id="top">
     <div class="orb" title=""></div>
@@ -30,6 +32,7 @@
     <button id="dl" hidden aria-label="Steam downloads"><i class="dl-ring"></i><span></span></button>
     <div id="dl-pop" hidden></div>
     <span id="rec" hidden>REC</span>
+    <button id="vol-btn" type="button" aria-label="Sound (V)">🔊</button>
     <time id="clock"></time>
   </header>
 
@@ -41,6 +44,9 @@
     <p class="np-hint"><i class="pad k">Ctrl+M</i> or click to jump back in</p>
     <button type="button" class="np-live-btn">Show live view (X)</button>
   </aside>
+
+  <nav id="dock" hidden aria-label="Apps"></nav>
+  <aside id="flap" aria-label="Guide"></aside>
 
   <main id="console"><div id="blades"></div></main>
   <main id="pc"></main>
@@ -54,6 +60,8 @@
     <span class="h"><i class="pad k">Back</i>PC mode</span>
   </footer>
 
+  <div id="vol" hidden aria-label="Sound"></div>
+  <div id="vol-pill" aria-hidden="true"></div>
   <div id="modal"></div>
   <div id="toasts" aria-live="polite"></div>
 
@@ -67,6 +75,13 @@
   <script src="play.js"></script>
   <script src="music.js"></script>
   <script src="nowplaying.js"></script>
+  <script src="dock.js"></script>
+  <script src="guide.js"></script>
+  <script src="volume.js"></script>
+  <script src="shop.js"></script>
+  <script src="scenes.js"></script>
+  <script src="look.js"></script>
+  <script src="art.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
