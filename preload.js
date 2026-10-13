@@ -64,6 +64,8 @@ contextBridge.exposeInMainWorld('bladedeck', {
   companionReply: (id, value) => ipcRenderer.send('companion-reply', { id, value }),
   companionState: (s) => ipcRenderer.send('companion-state', s),
   onDeckFocus: (fn) => ipcRenderer.on('deck-focus', (_e, on) => fn(on)),
+  splitStatus: () => ipcRenderer.invoke('split-status'),
+  splitLaunch: (o) => ipcRenderer.invoke('split-launch', o),
   fsList: (d) => ipcRenderer.invoke('fs-list', d),
   fsOpen: (p) => ipcRenderer.invoke('fs-open', p),
   fsPlaces: () => ipcRenderer.invoke('fs-places'),

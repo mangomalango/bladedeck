@@ -197,6 +197,7 @@ function systemActions() {
     { id: 'sys-store', title: 'Add store launchers', sub: 'Steam, Heroic and Lutris as apps',     glyph: '⇪', run: addLaunchers },
     { id: 'sys-get',   title: 'Get games',          sub: 'Free games, homebrew and emulators',    glyph: '⬇', run: () => Shop.open() },
     { id: 'sys-qr',    title: 'Quick Resume',       sub: 'Switch between running games and apps, or freeze them', glyph: '▣', run: () => Resume.open() },
+    { id: 'sys-split', title: 'Split screen',       sub: 'Up to 4 players on this screen (PartyDeck)', glyph: '👥', run: () => SplitScreen.open() },
     { id: 'sys-phone', title: 'Phone app',          sub: 'Control Bladedeck from your phone',     glyph: '📱', run: () => Companion.open() },
     { id: 'sys-cap',   title: 'Captures',           sub: 'Your recordings and saved clips',       glyph: '🎬', run: () => Capture.gallery() },
     { id: 'sys-rec',   title: 'Record',             sub: 'Start or stop recording (View + X)',    glyph: '⏺', run: () => Capture.toggleRecord() },
@@ -581,7 +582,7 @@ function renderDrawer() {
     <div class="dim">${esc(fmtPlay(e.playtime))}${e.lastPlayed ? `, last played ${esc(new Date(e.lastPlayed).toLocaleDateString())}` : ''}</div>
     <div class="dim">${esc(where || '')}</div>
     <div class="dim" style="color:var(--accent);font-size:16px">${Tasks.stars(e)}</div>
-    <div class="btns"><button class="primary" data-act="launch">Launch</button><button data-act="tasks">Tasks</button><button data-act="poke">Poke a friend</button><button data-act="fav">${e.favorite ? 'Unfavorite' : 'Favorite'}</button><button data-act="edit">Edit</button><button data-act="art">Artwork</button>${Ach.fits(e) ? '<button data-act="ach">Achievements</button>' : ''}<button data-act="hide">${e.hidden ? 'Unhide' : 'Hide'}</button></div>`;
+    <div class="btns"><button class="primary" data-act="launch">Launch</button><button data-act="tasks">Tasks</button><button data-act="poke">Poke a friend</button><button data-act="fav">${e.favorite ? 'Unfavorite' : 'Favorite'}</button><button data-act="edit">Edit</button><button data-act="art">Artwork</button>${['steam', 'exe', 'gog', 'recomp'].includes(e.type) ? '<button data-act="split">👥 Split screen</button>' : ''}${Ach.fits(e) ? '<button data-act="ach">Achievements</button>' : ''}<button data-act="hide">${e.hidden ? 'Unhide' : 'Hide'}</button></div>`;
 }
 
 function pcSelect(e) {
@@ -907,6 +908,10 @@ const CONTROLS = [
     ['Close it', 'Y', ''],
     ['Show Steam while a game is starting', 'X', 'X']
   ]],
+  ['Split screen (PartyDeck)', [
+    ['Play a game split screen, up to 4 players', 'Start on the game, then Split screen', 'Split screen in PC mode'],
+    ['Pick a game for it', 'System, Split screen', 'System, Split screen']
+  ]],
   ['Recording and clips', [
     ['Start or stop recording (works in games)', 'View + X', 'Ctrl+Alt+R'],
     ['Save the last moments (replay)', 'View + RB', 'Ctrl+Alt+S'],
@@ -1188,7 +1193,7 @@ function bindInput() {
     const act = ev.target.closest('[data-act]')?.dataset.act;
     if (act) {
       ({ add: () => editEntry(), steam: scanSteam, settings: openSettings, console: () => setMode('console'), emulators: manageEmulators,
-        launch: () => S.sel && launch(S.sel), tasks: () => Tasks.open(S.sel), poke: () => Friends.poke(S.sel), gog: scanGog, getgames: () => Shop.open(), art: () => Art.open(S.sel), ach: () => Ach.open(S.sel), fav: () => S.sel && toggleFav(S.sel), edit: () => S.sel && editEntry(S.sel),
+        launch: () => S.sel && launch(S.sel), tasks: () => Tasks.open(S.sel), poke: () => Friends.poke(S.sel), gog: scanGog, getgames: () => Shop.open(), split: () => SplitScreen.open(S.sel), art: () => Art.open(S.sel), ach: () => Ach.open(S.sel), fav: () => S.sel && toggleFav(S.sel), edit: () => S.sel && editEntry(S.sel),
         hide: () => { if (S.sel) { S.sel.hidden = !S.sel.hidden; S.sel = null; save(); renderPc(); } } })[act]?.();
       return;
     }

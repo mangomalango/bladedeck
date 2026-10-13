@@ -646,6 +646,45 @@ ipcMain.handle('palette', (_e, p) => {
   } catch { return null; }
 });
 
+// ---------------------------------------------------------------- split screen (PartyDeck)
+/* PartyDeck runs up to four copies of a game side by side, each with its own controller and
+   saves, joined to each other through an emulated Steam network. Bladedeck installs it (from
+   GitHub, into ~/Games/Emulators/PartyDeck) and starts it for a game's program; on KDE it runs in
+   its own KWin session that tiles the players. The game needs online or LAN multiplayer. */
+const partydeckPath = () => {
+  const d = path.join(os.homedir(), 'Games', 'Emulators', 'PartyDeck');
+  try { const f = fs.readdirSync(d).filter((n) => /^partydeck.*\.AppImage$/i.test(n)).sort().pop(); return f ? path.join(d, f) : null; } catch { return null; }
+};
+// The program a library entry runs: its own, or for Steam games the one in the game's folder.
+function gameProgram(entry, custom) {
+  if (entry.type !== 'steam') return entry.exe && fs.existsSync(entry.exe) ? entry.exe : null;
+  const root = steamRoot(custom); if (!root) return null;
+  const libs = new Set([root]);
+  try { for (const m of fs.readFileSync(path.join(root, 'steamapps', 'libraryfolders.vdf'), 'utf8').matchAll(/"path"\s+"([^"]+)"/g)) libs.add(m[1].replace(/\\\\/g, '\\')); } catch { /* one library */ }
+  for (const lib of libs) {
+    const mf = path.join(lib, 'steamapps', `appmanifest_${String(entry.appid).replace(/\D/g, '')}.acf`);
+    if (!fs.existsSync(mf)) continue;
+    const dir = (fs.readFileSync(mf, 'utf8').match(/"installdir"\s+"([^"]+)"/) || [])[1];
+    if (dir) return require('./store').findLauncher(path.join(lib, 'steamapps', 'common', dir));
+  }
+  return null;
+}
+ipcMain.handle('split-status', () => ({ linux: process.platform === 'linux', installed: !!partydeckPath(), bwrap: !!onPath('bwrap'), gamescope: !!onPath('gamescope'), kde: /KDE/i.test(process.env.XDG_CURRENT_DESKTOP || '') }));
+ipcMain.handle('split-launch', (_e, { entry, steamPath }) => {
+  if (process.platform !== 'linux') return { ok: false, error: 'Split screen with PartyDeck works on Linux. On Windows, Nucleus Co-op does the same (splitscreen.me).' };
+  const pd = partydeckPath(); if (!pd) return { ok: false, error: 'Install PartyDeck first.' };
+  if (entry.type === 'rom') return { ok: false, error: 'Emulators have their own multiplayer: plug in more controllers and start the game as usual.' };
+  const exe = gameProgram(entry, steamPath);
+  if (!exe) return { ok: false, error: entry.type === 'steam' ? 'The game\'s program was not found in its Steam folder. Is it installed?' : 'This game has no program file to run.' };
+  const kde = /KDE/i.test(process.env.XDG_CURRENT_DESKTOP || '') && onPath('kwin_wayland');
+  const t0 = Date.now();
+  let child;
+  try { child = spawn(pd, ['--exec', exe, ...(kde ? ['--kwin'] : []), '--fullscreen'], { cwd: path.dirname(exe), stdio: 'ignore' }); }
+  catch (err) { return { ok: false, error: String(err.message || err) }; }
+  child.on('exit', () => { if (win && !win.isDestroyed()) win.webContents.send('launch-ended', { id: entry.id, seconds: Math.round((Date.now() - t0) / 1000) }); });
+  return { ok: true, pid: child.pid, exe };
+});
+
 // ---------------------------------------------------------------- the Files panel
 // Folders and files for the built-in file browser; opening a file uses the system's app for it.
 ipcMain.handle('fs-list', (_e, dir) => {

@@ -301,7 +301,8 @@ function register({ getWin }) {
     flatpak: ['/usr/bin/flatpak', '/usr/local/bin/flatpak'].find((p) => fs.existsSync(p)) || '' }));
   /* Emulators published on GitHub (Xenia Canary): the newest build for this system is downloaded
      into ~/Games/Emulators/<name> and unpacked; the program is found and returned. */
-  const GH = { xenia: { repo: 'xenia-canary/xenia-canary-releases', name: 'Xenia Canary', asset: { linux: /linux.*\.tar/i, win32: /windows.*\.zip/i }, exe: { linux: /^xenia_canary$/i, win32: /^xenia_canary\.exe$/i } } };
+  const GH = { partydeck: { repo: 'partydeck/partydeck', name: 'PartyDeck', asset: { linux: /anylinux-x86_64\.AppImage$/i }, exe: { linux: /^partydeck.*\.AppImage$/i } },
+    xenia: { repo: 'xenia-canary/xenia-canary-releases', name: 'Xenia Canary', asset: { linux: /linux.*\.tar/i, win32: /windows.*\.zip/i }, exe: { linux: /^xenia_canary$/i, win32: /^xenia_canary\.exe$/i } } };
   const ghDir = (g) => path.join(os.homedir(), 'Games', 'Emulators', g.name);
   const ghFind = (g) => { const want = g.exe[process.platform]; if (!want) return null; const walk = (d, n) => { let it; try { it = fs.readdirSync(d, { withFileTypes: true }); } catch { return null; } for (const x of it) { if (x.isFile() && want.test(x.name)) return path.join(d, x.name); } for (const x of it) if (x.isDirectory() && n < 6) { const f = walk(path.join(d, x.name), n + 1); if (f) return f; } return null; }; return walk(ghDir(g), 0); };
   ipcMain.handle('emu-gh-installed', (_e, id) => { const g = GH[id]; return g ? ghFind(g) : null; });
@@ -314,10 +315,15 @@ function register({ getWin }) {
     send('emu-progress', { id: `gh:${id}`, pct: 5 });
     const r = await fetch(asset.browser_download_url, { headers: UA, signal: AbortSignal.timeout(600000) });
     if (!r.ok) throw new Error(`The download failed (${r.status}).`);
+    const dest = ghDir(g); fs.mkdirSync(dest, { recursive: true });
+    // An AppImage is the program itself: no unpacking.
+    if (/\.AppImage$/i.test(asset.name)) {
+      const f = path.join(dest, asset.name); fs.writeFileSync(f, Buffer.from(await r.arrayBuffer())); fs.chmodSync(f, 0o755);
+      return { exe: f, already: false, version: rel.tag_name };
+    }
     const tmp = path.join(os.tmpdir(), `bladedeck-${id}-${asset.name.replace(/[^\w.-]/g, '')}`);
     fs.writeFileSync(tmp, Buffer.from(await r.arrayBuffer()));
     send('emu-progress', { id: `gh:${id}`, pct: 70 });
-    const dest = ghDir(g); fs.mkdirSync(dest, { recursive: true });
     try {
       if (/\.zip$/i.test(tmp)) await run('unzip', ['-o', '-q', tmp, '-d', dest], 300000).catch(() => run('tar', ['-xf', tmp, '-C', dest], 300000));
       else await run('tar', ['-xf', tmp, '-C', dest], 300000);
@@ -442,4 +448,4 @@ async function soundSetFn({ kind, id, volume, mute } = {}) {
     return soundState();
 }
 
-module.exports = { register, romsDir, soundGet, soundSetFn };
+module.exports = { register, romsDir, soundGet, soundSetFn, findLauncher };

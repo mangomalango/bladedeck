@@ -92,7 +92,7 @@ const Tasks = (() => {
     };
     openModal({
       title: `Tasks: ${e.title}`, wide: true, html: '',
-      buttons: [{ label: 'Done', primary: true }],
+      buttons: [...(['steam', 'exe', 'gog', 'recomp'].includes(e.type) ? [{ label: '👥 Split screen', left: true, onClick: () => { setTimeout(() => SplitScreen.open(e), 0); } }] : []), { label: 'Done', primary: true }],
       onOpen: (root) => {
         draw(root);
         root.addEventListener('click', async (ev) => {

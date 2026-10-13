@@ -997,3 +997,14 @@ body.np-on .poster, body.run-on .poster { width: clamp(150px, 12vw, 220px); flex
 @keyframes bt-letter { to { opacity: 1; transform: none; } }
 .bt-sub { position: absolute; left: 0; right: 0; top: calc(72% + clamp(46px, 7vw, 100px)); text-align: center; color: rgba(255,255,255,.7); font: 400 clamp(14px, 1.4vw, 20px) system-ui, sans-serif; letter-spacing: .2em; text-transform: uppercase; opacity: 0; }
 #boot.go .bt-sub { animation: bt-letter .6s 2.3s forwards; }
+
+/* ---------------------------------------------------------------- split screen */
+.sp { display: flex; flex-direction: column; gap: 10px; }
+.sp-top { display: grid; grid-template-columns: 130px 1fr; gap: 18px; align-items: start; }
+.sp-art { display: block; aspect-ratio: 2 / 3; border-radius: 10px; overflow: hidden; position: relative; background: linear-gradient(135deg, var(--accent), #300); }
+.sp-art > img, .sp-art > .art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sp-top p { margin: 0 0 8px; } .sp-steps { margin: 0; padding-left: 20px; line-height: 1.7; font-size: 14px; }
+.sp-warn { color: #ffb347 !important; } .sp-status { font-weight: 600; color: var(--accent); }
+.sp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+.dlg .sp-g { display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: 12px; text-align: left; }
+.sp-g b { font-size: 12.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
