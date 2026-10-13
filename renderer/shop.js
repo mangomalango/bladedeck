@@ -168,9 +168,9 @@ const Shop = (() => {
         <div class="sh-emus">${EMU_CATALOG.map((e, i) => {
           const k = key(e), inLib = k && S.lib.emulators.some((x) => x.installKey === k || x.flatpak === k);
           const note = e.note || (!paths.win && e.linuxNote) || (paths.win && !k ? 'No Windows package to install from. Get it from its website, then add it in Emulators.' : '');
-          const state = !k ? 'Website' : busy[k] != null ? `Installing ${busy[k]}%` : inLib ? 'Ready' : have[k] ? 'Set up' : 'Install';
+          const state = !k ? 'Website' : busy[k] != null ? `Installing ${busy[k]}%` : inLib ? 'Open' : have[k] ? 'Set up' : 'Install';
           return `<div class="sh-emu"><b>${esc(e.name)}</b><span>${esc(e.system)}${e.also ? `, ${esc(e.also)}` : ''}</span>${note ? `<small>${esc(note)}</small>` : ''}
-            <button type="button" data-emu="${i}" ${busy[k] != null || state === 'Ready' ? 'disabled' : ''} class="${state === 'Install' || state === 'Set up' ? 'primary' : ''}">${esc(state)}</button></div>`;
+            <button type="button" data-emu="${i}" ${busy[k] != null ? 'disabled' : ''} class="${state === 'Install' || state === 'Set up' ? 'primary' : ''}">${esc(state)}</button></div>`;
         }).join('')}</div>`;
     }
     el.innerHTML = `<div class="sh-tabs">${tabs.map(([k, n]) => `<button type="button" data-tab="${k}" class="${k === tab ? 'primary' : ''}">${n}</button>`).join('')}</div><div class="sh-body">${body}</div>`;
@@ -190,8 +190,8 @@ const Shop = (() => {
       save(); refresh(); draw(); toast(`${e.name} is ready in Apps.`, 'fun'); return null;
     }
     em = { id: uid(), name: e.name, exe: run.exe, args: `${run.pre}${e.args}`, system: e.system, exts: e.exts, romDirs: [dir], installKey: k, ...(paths.win ? {} : { flatpak: e.id }) };
-    S.lib.emulators.push(em); save(); refresh(); draw();
-    toast(`${e.name} is ready. Games in ${dir} show up when you press Scan.`, 'fun');
+    S.lib.emulators.push(em); save(); ensureEmuApps(); refresh(); draw();
+    toast(`${e.name} is ready on the Emulation blade. Put games in ${dir}; they join it by themselves.`, 'fun');
     return em;
   }
   window.bladedeck.onEmuProgress(({ id, pct }) => { if (busy[id] != null) { busy[id] = pct; draw(); } });
@@ -262,7 +262,14 @@ const Shop = (() => {
     if (b.dataset.plat != null) { hb.platform = b.dataset.plat; hb.page = 1; loadHb(); return; }
     if (b.dataset.more) { hb.page++; loadHb(true); return; }
     if (b.dataset.hb) { getHomebrew(hb.games[+b.dataset.hb]); return; }
-    if (b.dataset.emu) { const e = EMU_CATALOG[+b.dataset.emu]; if (!key(e)) web(e.site); else setUp(e); }
+    if (b.dataset.emu) {
+      const e = EMU_CATALOG[+b.dataset.emu]; if (!key(e)) { web(e.site); return; }
+      const em = S.lib.emulators.find((x) => x.installKey === key(e) || (x.flatpak && x.flatpak === e.id));
+      // Already set up: open it, and show where its tile lives.
+      const tile = em && S.lib.entries.find((x) => x.emuApp === em.id);
+      if (tile) { closeModal(); launch(tile); toast(`${e.name} is on the Emulation blade too.`); return; }
+      setUp(e);
+    }
   });
   document.addEventListener('change', (ev) => { if (ev.target.classList.contains('sh-all')) { itch.all = ev.target.checked; loadItch(); } });
   document.addEventListener('input', (ev) => {

@@ -206,7 +206,7 @@ const Guide = (() => {
       <input class="gd-q" type="search" placeholder="${g ? `How do I… in ${esc(g.title)}` : 'Search a question or topic'}" value="${esc(view === 'home' ? '' : last)}" aria-label="Question">`;
     let body = '';
     if (view === 'home') {
-      body = `<div class="gd-chips">${g ? GUIDE_TOPICS.map(([n, q]) => `<button type="button" class="gd-f" data-q="${esc(q)}">${esc(n)}</button>`).join('') : ''}<button type="button" class="gd-f" data-deck="1">Bladedeck tips</button></div>
+      body = `<div class="gd-chips">${g ? GUIDE_TOPICS.map(([n, q]) => `<button type="button" class="gd-f" data-q="${esc(q)}">${esc(n)}</button>`).join('') : ''}<button type="button" class="gd-f" data-deck="1">Bladedeck tips</button><button type="button" class="gd-f" data-tour="1">🧭 Take the tour</button></div>
         <p class="gd-note">Type a question, or pick a topic. ${g ? 'Answers come from the game\'s wikis.' : ''}</p>`;
     } else if (view === 'results') {
       const r = results;
@@ -243,6 +243,7 @@ const Guide = (() => {
     if (t.dataset.g === 'close') close();
     else if (t.dataset.g === 'back') { view = view === 'page' ? 'results' : 'home'; focusI = 0; draw(); }
     else if (t.dataset.deck) { focusI = 0; search('', 'deck'); }
+    else if (t.dataset.tour) { close(); Tour.open(); }
     else if (t.dataset.q) { focusI = 0; search(t.dataset.q); }
     else if (t.dataset.r) read(results.web[+t.dataset.r]);
     else if (t.dataset.u) web(t.dataset.u);

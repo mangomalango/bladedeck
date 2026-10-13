@@ -155,6 +155,8 @@ function genCover(title, type) {
 }
 function cover(e) {
   if (e.glyph) return `<div class="art sys"><span>${esc(e.glyph)}</span></div>`;
+  // An emulator's tile: its icon on a glow, with the systems it plays.
+  if (e.emuApp && !e.cover) return `<div class="art emuart">${e.icon ? `<img src="${fileUrl(e.icon)}" alt="">` : `<i>${esc(initials(e.title))}</i>`}<b>${esc(e.system || 'Emulator')}</b></div>`;
   if (e.cover) return `<img loading="lazy" src="${fileUrl(e.cover)}" data-t="${esc(e.title)}" data-ty="${esc(e.type)}" alt="">`;
   return genCover(e.title, e.type);
 }
@@ -171,7 +173,8 @@ function bladeItems(b) {
   if (b.special === 'system') return systemActions();
   let list = S.lib.entries.filter((e) => !e.hidden);
   const f = b.filter || {};
-  if (f.types) list = list.filter((e) => f.types.includes(e.type));
+  // Emulators themselves live with the games they play.
+  if (f.types) list = list.filter((e) => (e.emuApp ? f.types.includes('rom') : f.types.includes(e.type)));
   if (f.system) list = list.filter((e) => (e.system || '') === f.system);
   if (f.emulator) list = list.filter((e) => e.emulatorId === f.emulator);
   if (f.favorite) list = list.filter((e) => e.favorite);
@@ -196,6 +199,7 @@ function systemActions() {
     { id: 'sys-qr',    title: 'Quick Resume',       sub: 'Switch between running games and apps, or freeze them', glyph: '▣', run: () => Resume.open() },
     { id: 'sys-vol',   title: 'Sound',              sub: 'Volume, outputs, mic and every app',    glyph: '🔊', run: () => Volume.open() },
     { id: 'sys-emu',   title: 'Emulators',          sub: 'Add, edit and scan game folders',       glyph: '◉', run: manageEmulators },
+    { id: 'sys-tour',  title: 'Tour',               sub: 'Every feature, one card at a time',     glyph: '🧭', run: () => Tour.open() },
     { id: 'sys-ctl',   title: 'Controls',           sub: 'Every button and key',                  glyph: '⌨', run: openControls },
     { id: 'sys-mu',    title: 'Music',              sub: 'Play songs from your music folder',     glyph: '♪', run: () => Music.open() },
     { id: 'sys-aq',    title: 'Aquarium',           sub: `${(S.lib.settings.aquarium?.flakes ?? 5)} fish flakes to feed your fish`, glyph: '🐟', run: () => Scenes.openTank() },
@@ -212,6 +216,7 @@ function systemActions() {
 
 function subline(e) {
   if (e.sub) return e.sub;
+  if (e.emuApp) return `Emulator · ${e.system || ''}`.replace(/ · $/, '');
   return e.type === 'rom' && e.system ? e.system : TYPES[e.type]?.label || '';
 }
 
@@ -248,6 +253,7 @@ async function launch(e) {
   if (opened) { S.playing.winPid = opened.pid; S.playing.covered = false; api.keepOnTop(false); }
   // Every game started this run, so several can run at once (see Quick Resume).
   S.sessions = [...S.sessions.filter((x) => x.id !== e.id), S.playing];
+  if (S.playing.covered) { const p0 = S.playing; setTimeout(() => uncoverSteam(p0), 25000); }
   Tasks.sync(e);
   if (e.recordNext) { e.recordNext = false; save(); Recorder.start(e); }
   setTimeout(() => {
@@ -268,8 +274,10 @@ async function launch(e) {
   }, fxOn() ? 1500 : 0);
 }
 
-// Stop covering Steam's windows: the game is here, or the player wants to see what Steam is asking.
+// Stop covering Steam's windows: the game is here, the player went somewhere else, or they want to
+// see what Steam is asking. Staying on top never lasts long, so it can never trap focus.
 function uncoverSteam(p) { if (p && p.covered) { p.covered = false; api.keepOnTop(false); } }
+addEventListener('blur', () => setTimeout(() => { if (S.playing?.covered && !document.hasFocus()) uncoverSteam(S.playing); }, 300));
 // The first real window to open after a launch is the game (Steam's own windows don't count).
 let launchedAt = 0, opened = null;
 const steamWin = (cls) => /^steam(webhelper)?$/i.test(cls || '');
@@ -604,6 +612,26 @@ function editEntry(existing, preset = {}) {
 }
 
 /* ---------------------------------------------------------------- emulators */
+// Every emulator also gets a tile of its own on the Emulation blade, to open it (for settings,
+// controllers, or games it finds itself). Tiles for removed emulators go.
+function ensureEmuApps() {
+  const ids = new Set(S.lib.emulators.map((em) => em.id));
+  const before = S.lib.entries.length;
+  S.lib.entries = S.lib.entries.filter((e) => !e.emuApp || ids.has(e.emuApp));
+  let changed = S.lib.entries.length !== before;
+  for (const em of S.lib.emulators) {
+    let e = S.lib.entries.find((x) => x.emuApp === em.id);
+    const args = em.flatpak ? `run ${em.flatpak}` : '';
+    if (!e) { e = { id: uid(), type: 'app', emuApp: em.id, title: em.name, added: Date.now(), playtime: 0 }; S.lib.entries.push(e); changed = true; }
+    if (e.exe !== em.exe || e.args !== args || e.system !== em.system || e.title !== em.name) { Object.assign(e, { exe: em.exe, args, system: em.system, title: em.name }); changed = true; }
+    if (em.flatpak && !e.icon && !e.iconTried) {
+      e.iconTried = true;
+      api.artSave(e.id, `https://dl.flathub.org/repo/appstream/x86_64/icons/128x128/${em.flatpak}.png`, 'icon').then((r) => { if (r.ok) { e.icon = r.data; save(); refreshQuiet(); } });
+    }
+  }
+  if (changed) { save(); refreshQuiet(); }
+}
+
 function manageEmulators() {
   const emus = S.lib.emulators;
   openModal({
@@ -640,7 +668,7 @@ function editEmulator(existing) {
       ...(existing ? [{ label: 'Remove', danger: true, left: true, onClick: (_r, btn) => {
         if (!armed) { armed = true; btn.textContent = 'Click again to remove'; return false; }
         S.lib.emulators = S.lib.emulators.filter((x) => x.id !== existing.id);
-        S.lib.entries = S.lib.entries.filter((x) => x.emulatorId !== existing.id); save(); refresh(); } }] : []),
+        S.lib.entries = S.lib.entries.filter((x) => x.emulatorId !== existing.id); save(); ensureEmuApps(); refresh(); } }] : []),
       { label: 'Cancel' },
       { label: 'Save', primary: true, onClick: (root) => {
         const o = { ...em, name: val(root, 'name'), exe: val(root, 'exe'), args: val(root, 'args'), system: val(root, 'system'), exts: val(root, 'exts'),
@@ -648,7 +676,7 @@ function editEmulator(existing) {
         if (!o.name || !o.exe) { toast('An emulator needs a name and a program.', 'err'); return false; }
         if (existing) { Object.assign(existing, o); S.lib.entries.filter((x) => x.emulatorId === o.id).forEach((x) => { x.system = o.system || o.name; }); }
         else S.lib.emulators.push(o);
-        save(); refresh();
+        save(); ensureEmuApps(); refresh();
         if (chk(root, 'scan') && o.romDirs.length) setTimeout(() => scanRoms(existing || o), 0);
       } }
     ],
@@ -828,7 +856,7 @@ function openControls() {
     html: CONTROLS.map(([group, rows]) => `<div class="side-h" style="margin:6px 0 0">${esc(group)}</div>
       <table class="ctl"><tbody>${rows.map(([what, pad, keys]) => `<tr><td>${esc(what)}</td><td>${pad ? esc(pad) : '<span class="dim">—</span>'}</td><td>${esc(keys)}</td></tr>`).join('')}</tbody></table>`).join('')
       + '<p class="note">Controller column first, keyboard second. Secrets are not listed. Some are found by doing things you are not supposed to.</p>',
-    buttons: [{ label: 'Close', primary: true }]
+    buttons: [{ label: 'Take the tour', left: true, onClick: () => { setTimeout(() => Tour.open(), 0); } }, { label: 'Close', primary: true }]
   });
 }
 
@@ -912,6 +940,7 @@ function handle(a) {
   Water.cancel();
   if (Intro.handle(a)) return;
   if (OSK.handle(a)) return;
+  if (Tour.handle(a)) return;
   if (Crash.handle(a)) return;
   if (S.modal) { modalInput(a); return; }
   if (Resume.handle(a)) return;
@@ -1091,7 +1120,7 @@ function bindInput() {
   setMode(S.lib.settings.mode || 'console', true);
   Sound.startAmbient(); Secrets.bump();
   Music.load().then(Music.draw);
-  Dock.draw(); Guide.init(); Watch.start();
+  Dock.draw(); Guide.init(); Watch.start(); ensureEmuApps(); Tour.maybeOffer();
   Friends.presence();
   api.onDownloads((list) => Downloads.update(list));
   // First run: go and find everything so the library is never empty.

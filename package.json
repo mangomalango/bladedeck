@@ -20,6 +20,7 @@
       "store.js",
       "winaudio.js",
       "winpad.js",
+      "winlist.js",
       "webapp-preload.js",
       "webapps.js",
       "procs.js",

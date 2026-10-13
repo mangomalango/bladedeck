@@ -130,7 +130,11 @@ function createWindow() {
   win.once('ready-to-show', () => {
     win.show();
     Peek.start(win, { dataDir: dataDir(), minimize: !!lib.settings.peekMinimize, handler: (ev) => { if (win) win.webContents.send('peek', ev); } })
-      .then((m) => { if (win) win.webContents.send('peek', { kind: 'mode', mode: m }); });
+      .then((m) => {
+        if (win) win.webContents.send('peek', { kind: 'mode', mode: m });
+        // Without KWin, list windows another way (Windows, or Linux on X11 with wmctrl).
+        require('./winlist').start({ dir: dataDir(), mode: m, onList: (l) => { if (win && !win.isDestroyed()) win.webContents.send('peek', { kind: 'windows', caption: JSON.stringify(l), pid: 0, cls: '' }); } });
+      });
     if (process.platform === 'win32') require('./winpad').start(dataDir(), () => peekToggle());
   });
   win.on('closed', () => { win = null; });
@@ -165,7 +169,7 @@ function quiet(on) {
     quietProc.kill(); quietProc = null;
   }
 }
-app.on('will-quit', () => { require('./procs').thawAll(); quiet(false); Peek.stop(); Net.stop(); if (process.platform === 'win32') { require('./winaudio').stop(); require('./winpad').stop(); } });
+app.on('will-quit', () => { require('./procs').thawAll(); require('./winlist').stop(); quiet(false); Peek.stop(); Net.stop(); if (process.platform === 'win32') { require('./winaudio').stop(); require('./winpad').stop(); } });
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
@@ -652,6 +656,7 @@ ipcMain.handle('fonts', () => {
 ipcMain.handle('win-act', async (_e, id, act) => {
   id = String(id);
   if (id.startsWith('web:')) return require('./webapps').act(id.slice(4), String(act));
+  if (id.startsWith('w32:') || id.startsWith('x11:')) return require('./winlist').act(id, String(act));
   return Peek.windowAction(id, String(act));
 });
 // Open a dock app: the first installed program from its list, or else its web page or folder.

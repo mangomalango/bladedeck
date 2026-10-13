@@ -806,3 +806,32 @@ input.pad-hl[type=checkbox] { outline: none !important; box-shadow: none !import
 .qr-b.fz { background: #cfeaff; color: #0b2a44; }
 .qr-empty { color: #fff; opacity: .7; padding: 40px; }
 .qr-tip { margin: 0; color: #fff; opacity: .85; font-size: 13px; display: flex; gap: 8px; align-items: center; justify-content: center; }
+
+/* An emulator's own tile */
+.art.emuart { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8%;
+  background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--accent) 55%, #fff) 0%, var(--accent) 35%, color-mix(in srgb, var(--accent) 30%, #000) 100%); overflow: hidden; }
+.art.emuart img { width: 52%; height: auto; aspect-ratio: 1; object-fit: contain; position: static; filter: drop-shadow(0 6px 14px rgba(0,0,0,.45)); }
+.art.emuart i { font-style: normal; font-size: 40px; font-weight: 800; color: #fff; }
+.art.emuart b { font-size: 11px; line-height: 1.2; text-align: center; color: #fff; padding: 0 8%; text-shadow: 0 1px 4px rgba(0,0,0,.5); text-transform: uppercase; letter-spacing: .06em; }
+
+/* ---------------------------------------------------------------- tour */
+#tour { position: fixed; inset: 0; z-index: 55; display: grid; place-items: center; background: rgba(0,0,0,0); transition: background .25s; }
+#tour[hidden] { display: none; }
+#tour.open { background: rgba(0,0,0,.55); backdrop-filter: blur(5px); }
+.tr-card { width: min(720px, 94vw); max-height: 92vh; overflow-y: auto; padding: 22px 28px 20px; border-radius: 28px; color: var(--ink); background: var(--panel-solid);
+  border: 1px solid var(--glass-edge); box-shadow: 0 40px 100px rgba(0,0,0,.55); display: flex; flex-direction: column; gap: 10px;
+  transform: translateY(24px) scale(.97); opacity: 0; transition: transform .3s cubic-bezier(.2, 1.3, .3, 1), opacity .2s; }
+#tour.open .tr-card { transform: none; opacity: 1; }
+.tr-top { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--ink-dim); }
+.tr-x { width: 30px; height: 30px; border-radius: 50%; padding: 0; }
+.tr-ic { font-size: 58px; line-height: 1; text-align: center; filter: drop-shadow(0 6px 14px rgba(0,0,0,.25)); animation: tr-pop .4s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes tr-pop { from { transform: scale(.5); opacity: 0; } }
+.tr-card h2 { margin: 0; text-align: center; font-size: 26px; font-weight: 600; }
+.tr-card > p { margin: 0; font-size: 15.5px; line-height: 1.55; text-align: center; color: var(--ink); }
+.tr-keys { margin-top: 6px; font-size: 13.5px; } .tr-keys th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-dim); font-weight: 600; }
+.tr-dots { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 4px; }
+.tr-dots i { width: 8px; height: 8px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 25%, transparent); cursor: pointer; transition: width .2s, background .2s; }
+.tr-dots i.on { width: 22px; border-radius: 4px; background: var(--accent); }
+.tr-foot { display: flex; gap: 10px; justify-content: center; margin-top: 4px; }
+.tr-foot button { border-radius: 999px; padding: 9px 18px; display: inline-flex; align-items: center; gap: 6px; }
+.thumb .art.emuart b, .item .art.emuart b { display: none; }
