@@ -125,9 +125,12 @@ const Dock = (() => {
 
   // Under the now-playing view when it is out, otherwise a slim strip down the left edge.
   function place() {
-    const under = document.body.classList.contains('np-on') && !np.hidden;
+    const run = document.getElementById('run');
+    const npOn = document.body.classList.contains('np-on') && !np.hidden, runOn = run && !run.hidden;
+    const under = npOn || runOn;
     el.classList.toggle('row', under);
-    el.style.top = under ? `${Math.round(np.getBoundingClientRect().bottom + 12)}px` : '';
+    const bottom = Math.max(npOn ? np.getBoundingClientRect().bottom : 0, runOn ? run.getBoundingClientRect().bottom : 0);
+    el.style.top = under ? `${Math.round(bottom + 12)}px` : '';
   }
   new ResizeObserver(place).observe(np);
   new MutationObserver(place).observe(document.body, { attributes: true, attributeFilter: ['class'] });
@@ -176,12 +179,12 @@ const Dock = (() => {
     if (focus < 0) return false;
     const row = el.classList.contains('row');
     const prev = row ? 'left' : 'up', next = row ? 'right' : 'down';
-    if (a === prev) { if (focus > 0) { focus--; draw(); Sound.play('tick'); } else if (row) { leave(); NowPlaying.edge(); } }
+    if (a === prev) { if (focus > 0) { focus--; draw(); Sound.play('tick'); } else if (row) { leave(); Running.edge(true) || NowPlaying.edge(); } }
     else if (a === next) { if (focus < count() - 1) { focus++; draw(); Sound.play('tick'); } else if (row) leave(); }
     else if (a === 'a') { if (focus === count() - 1) edit(); else act(focus, null); }
     else if (a === 'x') act(focus, 'min');
     else if (a === 'y') act(focus, 'close');
-    else if (a === 'b' || (!row && a === 'right') || (row && a === 'up')) { leave(); if (row && a === 'up') NowPlaying.edge(); }
+    else if (a === 'b' || (!row && a === 'right') || (row && a === 'up')) { leave(); if (row && a === 'up') Running.edge(true) || NowPlaying.edge(); }
     return true;
   }
 

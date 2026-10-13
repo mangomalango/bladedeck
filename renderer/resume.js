@@ -28,6 +28,7 @@ const Resume = (() => {
 
   const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
   function entryFor(w) {
+    if (w.web) return null; // a web app (even "Castle Crashers walkthrough") is not the game
     const ses = (S.sessions || []).find((x) => w.pid && (x.winPid === w.pid || x.pid === w.pid));
     if (ses) return S.lib.entries.find((e) => e.id === ses.id);
     const app = String(w.cls || '').match(/^steam_app_(\d+)$/i);
@@ -42,7 +43,7 @@ const Resume = (() => {
     if (wins.length) {
       items = wins.map((w) => {
         const e = entryFor(w), slot = !e && Dock.slotFor(w);
-        return { w, e, pid: w.pid || 0, title: e ? e.title : slot ? slot.name : w.caption || w.cls, sub: e ? (w.caption && w.caption !== e.title ? w.caption : 'Running') : slot ? w.caption : w.cls, icon: slot?.icon || '' };
+        return { w, e, pid: w.pid || 0, title: e ? e.title : w.key === 'walkthrough' ? 'Walkthrough' : slot ? slot.name : w.caption || w.cls, sub: e ? (w.caption && w.caption !== e.title ? w.caption : 'Running') : slot ? w.caption : w.cls, icon: w.key === 'walkthrough' ? '📺' : slot?.icon || '' };
       });
     } else {
       // No window list (Windows, or another desktop): the games Bladedeck started.
@@ -88,6 +89,7 @@ const Resume = (() => {
     const ok = await api.procFreeze(it.pid, to);
     if (!ok) { toast(to ? `${it.title} cannot be frozen.` : `${it.title} would not thaw.`, 'err'); return false; }
     if (to) frozen.add(it.pid); else frozen.delete(it.pid);
+    document.dispatchEvent(new CustomEvent('running-changed'));
     Sound.play(to ? 'clank' : 'pop');
     toast(to ? `${it.title} is frozen. It uses no processor or graphics until you come back.` : `${it.title} is running again.`);
     return true;
@@ -116,6 +118,7 @@ const Resume = (() => {
     if (frozen.has(it.pid)) await freeze(it, false);
     await api.winAct(it.w.id, 'close');
     Sound.play('back');
+    setTimeout(() => document.dispatchEvent(new CustomEvent('running-changed')), 700);
     setTimeout(() => build().then(draw), 600);
   }
 
@@ -141,5 +144,7 @@ const Resume = (() => {
   addEventListener('pointerdown', (ev) => { if (on && !el.contains(ev.target) && !ev.target.closest('#qr-btn')) close(); }, true);
 
   document.getElementById('qr-btn')?.addEventListener('click', () => (on ? close() : open()));
-  return { open, close, handle, isOpen: () => on };
+  // For the Running list on the left: the same items, and the same actions.
+  async function snapshot() { await build(); return { items: items.slice(), frozen: new Set(frozen), order: order.slice() }; }
+  return { open, close, handle, isOpen: () => on, snapshot, switchTo, freeze, closeApp, entryFor };
 })();

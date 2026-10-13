@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, desktopCapturer, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, desktopCapturer, nativeImage, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -135,7 +135,7 @@ function createWindow() {
         // Without KWin, list windows another way (Windows, or Linux on X11 with wmctrl).
         require('./winlist').start({ dir: dataDir(), mode: m, onList: (l) => { if (win && !win.isDestroyed()) win.webContents.send('peek', { kind: 'windows', caption: JSON.stringify(l), pid: 0, cls: '' }); } });
       });
-    if (process.platform === 'win32') require('./winpad').start(dataDir(), () => peekToggle());
+    if (process.platform === 'win32') require('./winpad').start(dataDir(), () => peekToggle(), () => { if (win) win.webContents.send('peek', { kind: 'pip', caption: '', pid: 0, cls: '' }); });
   });
   win.on('closed', () => { win = null; });
   startNet();
@@ -562,15 +562,8 @@ ipcMain.handle('find-launchers', () => {
 // ---------------------------------------------------------------- media: clips and screenshots
 const mediaDir = (id) => path.join(dataDir(), 'media', String(id).replace(/[^\w-]/g, ''));
 const clips = new Map();
-// The screen to record. On Wayland this opens the system's screen picker once per recording.
 // On Wayland a 0x0 thumbnail makes getSources wait forever after the picker, so ask for a tiny one.
 const THUMB = { width: 160, height: 90 };
-ipcMain.handle('capture-source', async () => {
-  try {
-    const src = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: THUMB });
-    return src.length ? src[0].id : null;
-  } catch { return null; }
-});
 ipcMain.handle('clip-open', (_e, id) => {
   fs.mkdirSync(mediaDir(id), { recursive: true });
   const file = path.join(mediaDir(id), `clip-${new Date().toISOString().replace(/[:.]/g, '-')}.webm`);
@@ -692,18 +685,27 @@ ipcMain.handle('dock-open', async (_e, spec = {}) => {
 });
 ipcMain.handle('peek-config', (_e, { minimize }) => Peek.reconfigure(!!minimize));
 ipcMain.handle('peek-mode', () => Peek.mode());
-// The window to show live. Wayland asks through the system picker; X11 lists windows, so we match the title.
-// The picker steals focus, so on Wayland it only opens when the player asks for the live view.
-ipcMain.handle('capture-window', async (_e, caption = '', ask = false) => {
-  if (process.platform === 'linux' && process.env.XDG_SESSION_TYPE === 'wayland' && !ask) return null;
-  try {
-    const src = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: THUMB });
-    if (src.length <= 1) return src[0] ? src[0].id : null;
-    const want = String(caption).toLowerCase();
-    const hit = want && src.find((s) => s.name.toLowerCase() === want) || want && src.find((s) => s.name.toLowerCase().includes(want) || want.includes(s.name.toLowerCase()));
-    return hit ? hit.id : null;
-  } catch { return null; }
+// The window to show live. Wayland asks through the system picker; X11 and Windows list windows,
+// so we match the title. The picker steals focus, so on Wayland it only opens when asked.
+// Live view and clips ask the system once. The page calls getDisplayMedia; this hands it the
+// window or screen the player picked (on Wayland the system picker opens just this one time),
+// instead of asking for a source first and then again for the video.
+let captureWant = { caption: '', types: ['window'] };
+ipcMain.handle('capture-want', (_e, caption = '', types = ['window'], ask = false) => {
+  if (process.platform === 'linux' && process.env.XDG_SESSION_TYPE === 'wayland' && !ask) return false;
+  captureWant = { caption: String(caption), types: types.filter((t) => t === 'window' || t === 'screen') };
+  return true;
 });
+app.whenReady().then(() => session.defaultSession.setDisplayMediaRequestHandler(async (_req, cb) => {
+  try {
+    const src = await desktopCapturer.getSources({ types: captureWant.types.length ? captureWant.types : ['window'], thumbnailSize: THUMB });
+    const want = captureWant.caption.toLowerCase();
+    const hit = src.length <= 1 ? src[0]
+      : want && (src.find((s) => s.name.toLowerCase() === want) || src.find((s) => s.name.toLowerCase().includes(want) || want.includes(s.name.toLowerCase())));
+    if (!hit) return cb({});
+    cb({ video: hit });
+  } catch { cb({}); }
+}));
 
 // A picture of the whole menu for the water effect to ripple.
 ipcMain.handle('snap', async () => {

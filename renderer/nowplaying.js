@@ -135,8 +135,8 @@ const NowPlaying = (() => {
     let id = null, s = null;
     try {
       // Without KDE we don't learn the window's title, so look for one named like the game.
-      id = await api.captureWindow(cur.caption || cur.entry?.title || '', !!ask);
-      if (id) s = await navigator.mediaDevices.getUserMedia({ audio: false, video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: id, maxFrameRate: 30, maxWidth: 1280, maxHeight: 720 } } });
+      id = await api.captureWant(cur.caption || cur.entry?.title || '', ['window'], !!ask);
+      if (id) s = await navigator.mediaDevices.getDisplayMedia({ audio: false, video: { frameRate: { max: 30 }, width: { max: 1280 }, height: { max: 720 } } });
     } catch { /* picker cancelled or capture refused */ }
     starting = false;
     if (!s || !cur || cur.key !== key) { s?.getTracks().forEach((t) => t.stop()); el.classList.remove('live'); return; }
@@ -197,7 +197,7 @@ const NowPlaying = (() => {
     if (hl) {
       if (a === 'a') back();
       else if (a === 'x') { if (!el.classList.contains('live')) startLive(true); }
-      else if (a === 'down') { highlight(false); Dock.edge(); }
+      else if (a === 'down') { highlight(false); Running.edge() || Dock.edge(); }
       else if (a === 'right' || a === 'b') highlight(false);
       return true;
     }

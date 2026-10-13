@@ -197,6 +197,7 @@ function systemActions() {
     { id: 'sys-store', title: 'Add store launchers', sub: 'Steam, Heroic and Lutris as apps',     glyph: '⇪', run: addLaunchers },
     { id: 'sys-get',   title: 'Get games',          sub: 'Free games, homebrew and emulators',    glyph: '⬇', run: () => Shop.open() },
     { id: 'sys-qr',    title: 'Quick Resume',       sub: 'Switch between running games and apps, or freeze them', glyph: '▣', run: () => Resume.open() },
+    { id: 'sys-pip',   title: 'Walkthrough window', sub: 'A small YouTube that floats over your game', glyph: '📺', run: () => walkthrough() },
     { id: 'sys-vol',   title: 'Sound',              sub: 'Volume, outputs, mic and every app',    glyph: '🔊', run: () => Volume.open() },
     { id: 'sys-emu',   title: 'Emulators',          sub: 'Add, edit and scan game folders',       glyph: '◉', run: manageEmulators },
     { id: 'sys-tour',  title: 'Tour',               sub: 'Every feature, one card at a time',     glyph: '🧭', run: () => Tour.open() },
@@ -292,6 +293,12 @@ api.onPeek((ev) => {
     if (S.lib.settings.hideOnLaunch) { Sound.duck(true); api.minimize(); }
   }
 });
+// The walkthrough window: a small YouTube over the game, searching for whatever is being played.
+function walkthrough(q) {
+  const e = (S.playing && S.lib.entries.find((x) => x.id === S.playing.id)) || (S.sel && !S.sel.run && S.sel.title ? S.sel : null);
+  return api.pipToggle({ query: q || (e ? `${e.title} walkthrough` : '') });
+}
+api.onPeek((ev) => { if (ev.kind === 'pip') walkthrough(); });
 // A game running in the background (not the one in the now-playing panel) closed: its session ends.
 api.onPeek((ev) => {
   if (ev.kind !== 'gone' || !ev.pid) return;
@@ -825,6 +832,10 @@ const CONTROLS = [
     ['Close it', 'Y', ''],
     ['Show Steam while a game is starting', 'X', 'X']
   ]],
+  ['Walkthrough window', [
+    ['Pop a walkthrough video up or away (works in games)', 'View + Y', 'Ctrl+Alt+Y'],
+    ['Open it for a question', 'Guide flap, YouTube', 'Guide flap, YouTube']
+  ]],
   ['Sound', [
     ['Sound card (volume, where sound plays, mic, every app)', 'Home button (Stadia, PS or Xbox)', 'V, or the 🔊 at the top'],
     ['Choose and change', 'up and down, then left and right (LB / RB for big steps)', 'arrows, or drag'],
@@ -870,6 +881,7 @@ function openSettings() {
       <label>Theme<select name="theme">${S.themes.map((t) => `<option value="${t.id}" ${t.id === st.theme ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
       <label>Steam folder (leave empty to detect)${row('steamPath', 'dir', st.steamPath)}</label>
       <div class="checks"><label><input type="checkbox" name="sounds" ${st.sounds ? 'checked' : ''}> Menu sounds</label><label><input type="checkbox" name="ambient" ${st.ambient ? 'checked' : ''}> Deep-sea ambience</label><label><input type="checkbox" name="fx" ${st.fx !== false ? 'checked' : ''}> Animations</label><label><input type="checkbox" name="intro" ${st.intro !== false ? 'checked' : ''}> Launch intro</label></div>
+      <div class="checks"><label><input type="checkbox" name="runningList" ${st.runningList !== false ? 'checked' : ''}> Show what's running on the left</label><label><input type="checkbox" name="autoFreeze" ${st.autoFreeze ? 'checked' : ''}> Pause games when I switch away</label></div>
       <div class="checks"><label><input type="checkbox" name="hideOnLaunch" ${st.hideOnLaunch ? 'checked' : ''}> Minimize while a game runs</label><label><input type="checkbox" name="quietWhilePlaying" ${st.quietWhilePlaying ? 'checked' : ''}> Silence desktop pop-ups while playing</label></div>
       <div class="checks"><label><input type="checkbox" name="showcase" ${st.showcase !== false ? 'checked' : ''}> Play clips and pictures behind games</label></div>
       <label class="range-row">Ambience volume<input type="range" name="ambientVolume" min="0" max="1" step="0.05" value="${st.ambientVolume ?? 0.5}"></label>
@@ -902,14 +914,14 @@ function openSettings() {
       try { blades = JSON.parse($('[name=blades]', root).value); if (!Array.isArray(blades) || !blades.length || blades.some((b) => !b.name)) throw new Error('shape'); }
       catch { toast('Blades must be a JSON list where every blade has a name.', 'err'); return false; }
       Object.assign(st, { playerName: val(root, 'playerName') || 'Player 1', steamPath: val(root, 'steamPath'), sounds: chk(root, 'sounds'), hideOnLaunch: chk(root, 'hideOnLaunch'), blades,
-        ambient: chk(root, 'ambient'), fx: chk(root, 'fx'), intro: chk(root, 'intro'), quietWhilePlaying: chk(root, 'quietWhilePlaying'), showcase: chk(root, 'showcase'),
+        ambient: chk(root, 'ambient'), fx: chk(root, 'fx'), intro: chk(root, 'intro'), runningList: chk(root, 'runningList'), autoFreeze: chk(root, 'autoFreeze'), quietWhilePlaying: chk(root, 'quietWhilePlaying'), showcase: chk(root, 'showcase'),
         ambientVolume: +val(root, 'ambientVolume'), showcaseAlpha: +val(root, 'showcaseAlpha'), wineCommand: val(root, 'wineCommand'),
         gogDirs: val(root, 'gogDirs').split('\n').map((x) => x.trim()).filter(Boolean) });
       const peekWas = st.peekMinimize, dirWas = st.musicDir;
       Object.assign(st, { musicDir: val(root, 'musicDir'), musicDuringGames: chk(root, 'musicDuringGames'), peekMinimize: chk(root, 'peekMinimize') });
       Object.assign(st, { prewarmSteam: chk(root, 'prewarmSteam'), shaderCache: chk(root, 'shaderCache'), gamemode: chk(root, 'gamemode'),
         sgdbKey: val(root, 'sgdbKey'), raUser: val(root, 'raUser'), raKey: val(root, 'raKey') });
-      Guide.readSettings(root); Watch.readSettings(root);
+      Guide.readSettings(root); Watch.readSettings(root); Running.refresh();
       if (peekWas !== st.peekMinimize) api.peekConfig({ minimize: st.peekMinimize });
       if (dirWas !== st.musicDir) Music.load(true).then(Music.draw);
       Sound.sync(); Showcase.reset();
@@ -949,6 +961,7 @@ function handle(a) {
   if (a === 'x' && S.playing?.covered) { uncoverSteam(S.playing); api.minimize(); return; }
   if (a === 'guide') { Guide.toggle('type'); return; }
   if (Guide.handle(a)) return;
+  if (Running.handle(a)) return;
   if (Dock.handle(a)) return;
   if (NowPlaying.handle(a)) return;
   if (a === 'music') { Music.toggle(); return; }
@@ -976,7 +989,7 @@ function modalInput(a) {
 function consoleInput(a) {
   const j = S.ii[S.bi] || 0;
   switch (a) {
-    case 'left': if (S.bi === 0 && (NowPlaying.edge() || Dock.edge())) break; setBlade(S.bi - 1); break;
+    case 'left': if (S.bi === 0 && (NowPlaying.edge() || Running.edge() || Dock.edge())) break; setBlade(S.bi - 1); break;
     case 'lb': setBlade(S.bi - 1); break;
     case 'right': case 'rb': setBlade(S.bi + 1); break;
     case 'up': setItem(j - 1); break;
@@ -995,7 +1008,7 @@ function pcInput(a) {
   const i = Math.max(0, S.pcItems.indexOf(S.sel));
   const to = (k) => { if (n) { pcSelect(S.pcItems[Math.max(0, Math.min(n - 1, k))]); sndTick(); } };
   switch (a) {
-    case 'left': if (i % cols === 0 && (NowPlaying.edge() || Dock.edge())) break; to(i - 1); break;
+    case 'left': if (i % cols === 0 && (NowPlaying.edge() || Running.edge() || Dock.edge())) break; to(i - 1); break;
     case 'right': to(i + 1); break;
     case 'up': to(i - cols); break;
     case 'down': to(i + cols); break;
@@ -1039,6 +1052,8 @@ function bindInput() {
     const st = { up: b(12) || p.axes[1] < -0.6, down: b(13) || p.axes[1] > 0.6, left: b(14) || p.axes[0] < -0.6, right: b(15) || p.axes[0] > 0.6,
       a: b(0), b: b(1), x: b(2), y: b(3), lb: b(4), rb: b(5), lt: b(6), rt: b(7), back: b(8), start: b(9), ach: b(10), music: b(11), vol: b(16) };
     if (st.back && st.start && !paired) { paired = true; api.peekToggle(); }
+    // View + Y: the walkthrough window, from inside a game too.
+    if (st.back && st.y && !paired) { paired = true; walkthrough(); }
     if (!S.pad && document.hasFocus()) for (const k in st) if (st[k]) { S.pad = true; break; }
     const focused = document.hasFocus();
     // Holding the guide trigger pulls the flap out with the stick; the stick is not the menu's then.
@@ -1047,6 +1062,7 @@ function bindInput() {
       const dir = k === 'up' || k === 'down' || k === 'left' || k === 'right';
       if (!focused) { /* the game is using the pad */ }
       else if (pulling && (dir || k === 'lt' || k === 'rt')) { /* the flap has it */ }
+      else if (k === 'y' && st.back) { /* View + Y is the walkthrough window */ }
       else if (k === 'lt' || k === 'rt') { if (!st[k] && prev[k] && (!Guide.isTrigger(k) || Guide.tapped())) { Secrets.bump(); handle(k); } }
       else if (k === 'back' && st.back && !paired && !viewHeld && viewAt && now - viewAt > 550) { viewHeld = true; handle('resume'); }
       else if (k === 'back' || k === 'start') { if (!st[k] && prev[k] && !paired && !(k === 'back' && viewHeld)) { Secrets.bump(); handle(k); } }
@@ -1120,7 +1136,7 @@ function bindInput() {
   setMode(S.lib.settings.mode || 'console', true);
   Sound.startAmbient(); Secrets.bump();
   Music.load().then(Music.draw);
-  Dock.draw(); Guide.init(); Watch.start(); ensureEmuApps(); Tour.maybeOffer();
+  Dock.draw(); Guide.init(); Watch.start(); ensureEmuApps(); Tour.maybeOffer(); Running.refresh();
   Friends.presence();
   api.onDownloads((list) => Downloads.update(list));
   // First run: go and find everything so the library is never empty.

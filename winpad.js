@@ -27,25 +27,28 @@ public static class BDPad {
   }
 }
 '@
-$was = $false
+$was = $false; $wasY = $false
 while ($true) {
   $b = [BDPad]::Buttons()
-  # BACK is 0x20, START is 0x10.
+  # BACK is 0x20, START is 0x10, Y is 0x8000.
   $now = (($b -band 0x30) -eq 0x30)
   if ($now -and -not $was) { [Console]::Out.WriteLine('chord'); [Console]::Out.Flush() }
   $was = $now
+  $y = (($b -band 0x8020) -eq 0x8020)
+  if ($y -and -not $wasY) { [Console]::Out.WriteLine('pip'); [Console]::Out.Flush() }
+  $wasY = $y
   Start-Sleep -Milliseconds 40
 }
 `;
 
 let proc = null;
-function start(dir, onChord) {
+function start(dir, onChord, onPip = () => {}) {
   if (process.platform !== 'win32' || proc) return;
   const file = path.join(dir, 'bladedeck-pad.ps1');
   try { fs.writeFileSync(file, PS1); } catch { return; }
   proc = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', file], { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
   proc.stdout.setEncoding('utf8');
-  proc.stdout.on('data', (d) => { if (/chord/.test(d)) onChord(); });
+  proc.stdout.on('data', (d) => { if (/chord/.test(d)) onChord(); if (/pip/.test(d)) onPip(); });
   proc.on('exit', () => { proc = null; });
   proc.on('error', () => { proc = null; });
 }

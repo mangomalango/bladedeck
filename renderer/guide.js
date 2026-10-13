@@ -191,6 +191,7 @@ const Guide = (() => {
     const g = game(), topic = `${g ? g.title + ' ' : ''}${q || 'guide'}`.trim();
     const e = encodeURIComponent;
     return [
+      ['📺', 'Watch in the walkthrough window', null, topic],
       ['▶', 'YouTube videos', `https://www.youtube.com/results?search_query=${e(topic)}`],
       ['💬', 'Reddit', `https://www.reddit.com/search/?q=${e(topic)}`],
       ...(g && g.type === 'steam' && g.appid ? [['♨', 'Steam guides', `https://steamcommunity.com/app/${e(g.appid)}/guides/?searchText=${e(q)}&browsefilter=trend`]] : []),
@@ -216,7 +217,7 @@ const Guide = (() => {
         + (r.from === 'deck' ? '' : r.web === null ? '<p class="gd-note">Looking it up…</p>'
           : (r.web.length ? r.web.map((x, i) => `<button type="button" class="gd-res gd-f" data-r="${i}"><small>${esc(SRC[x.src.split(':')[0]])}</small><b>${esc(x.title.replace(/_/g, ' '))}</b>${x.snippet ? `<span>${esc(x.snippet)}</span>` : ''}</button>`).join('')
             : `<p class="gd-note">${esc(r.err || 'No wiki pages for that. Try the links below.')}</p>`)
-          + `<div class="gd-h">Search elsewhere</div><div class="gd-links">${elsewhere(r.q).map(([ic, n, u]) => `<button type="button" class="gd-f" data-u="${esc(u)}">${ic} ${esc(n)}</button>`).join('')}</div>`);
+          + `<div class="gd-h">Search elsewhere</div><div class="gd-links">${elsewhere(r.q).map(([ic, n, u, pip]) => `<button type="button" class="gd-f" ${pip ? `data-pip="${esc(pip)}"` : `data-u="${esc(u)}"`}>${ic} ${esc(n)}</button>`).join('')}</div>`);
     } else if (view === 'page') {
       body = `<div class="gd-pbar"><button type="button" class="gd-f gd-back" data-g="back">‹ Answers</button><button type="button" class="gd-f" data-u="${esc(page.url)}">Open in browser</button></div>
         <h3 class="gd-pt">${esc(page.title)}</h3><div class="gd-page">${page.html}</div>`;
@@ -246,6 +247,7 @@ const Guide = (() => {
     else if (t.dataset.tour) { close(); Tour.open(); }
     else if (t.dataset.q) { focusI = 0; search(t.dataset.q); }
     else if (t.dataset.r) read(results.web[+t.dataset.r]);
+    else if (t.dataset.pip) { walkthrough(t.dataset.pip); toast('The walkthrough window is up. Ctrl+Alt+Y or View + Y hides it.'); }
     else if (t.dataset.u) web(t.dataset.u);
   }
   el.addEventListener('input', (ev) => {

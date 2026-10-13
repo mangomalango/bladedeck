@@ -191,11 +191,11 @@ const Recorder = (() => {
 
   async function start(e) {
     if (rec) return;
-    const id = await api.captureSource();
-    if (!id) { toast('Recording was cancelled, so this session is not recorded.', 'err'); return; }
+    // One question to the system: which screen to record.
+    await api.captureWant('', ['screen'], true);
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: id, maxFrameRate: 30, maxWidth: 1920, maxHeight: 1080 } } });
-    } catch { toast('The screen could not be recorded.', 'err'); return; }
+      stream = await navigator.mediaDevices.getDisplayMedia({ audio: false, video: { frameRate: { max: 30 }, width: { max: 1920 }, height: { max: 1080 } } });
+    } catch { toast('Recording was cancelled, so this session is not recorded.', 'err'); return; }
     const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find((t) => MediaRecorder.isTypeSupported(t));
     key = await api.clipOpen(e.id); entry = e; started = Date.now(); chain = Promise.resolve();
     rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 4e6 });

@@ -11,6 +11,21 @@ const path = require('path');
 const { execFile } = require('child_process');
 
 let file = '', frozen = new Map(); // key (root pid) -> [pids]
+const muted = new Map(); // key (root pid) -> sink-input ids we muted
+
+// A stopped program's sound stream keeps replaying its last bit of audio: a buzz. Mute its
+// streams before freezing and unmute them after (PipeWire or PulseAudio, through pactl).
+const pactl = (args) => new Promise((res) => execFile('pactl', args, { timeout: 4000 }, (err, out) => res(err ? null : String(out))));
+async function muteTree(root, pids, on) {
+  if (process.platform !== 'linux') return;
+  if (!on) { for (const id of muted.get(root) || []) await pactl(['set-sink-input-mute', String(id), '0']); muted.delete(root); return; }
+  const out = await pactl(['-f', 'json', 'list', 'sink-inputs']); if (!out) return;
+  let list; try { list = JSON.parse(out); } catch { return; }
+  const mine = new Set(pids.map(String));
+  const ids = list.filter((i) => !i.mute && mine.has(String(i.properties?.['application.process.id']))).map((i) => i.index);
+  for (const id of ids) await pactl(['set-sink-input-mute', String(id), '1']);
+  muted.set(root, ids);
+}
 
 function procTable() {
   const kids = new Map(), parent = new Map();
@@ -81,8 +96,10 @@ async function freeze(pid, on) {
   const { root, pids } = on ? gameTree(pid) : known ? { root: known[0], pids: known[1] } : gameTree(pid);
   if (!pids.length) return false;
   const sig = on ? 'SIGSTOP' : 'SIGCONT';
+  if (on) await muteTree(root, pids, true);
   // Stop children first and continue parents first, so nothing waits on a stopped parent.
   for (const p of on ? [...pids].reverse() : pids) { try { process.kill(p, sig); } catch { /* exited */ } }
+  if (!on) await muteTree(root, pids, false);
   if (on) frozen.set(root, pids); else frozen.delete(root);
   save();
   return true;
@@ -94,7 +111,7 @@ const list = () => [...frozen.values()].flat();
 async function thawAll() {
   for (const [root, pids] of [...frozen.entries()]) {
     if (process.platform === 'win32') await setWin(pids, false);
-    else for (const p of pids) { try { process.kill(p, 'SIGCONT'); } catch { /* exited */ } }
+    else { for (const p of pids) { try { process.kill(p, 'SIGCONT'); } catch { /* exited */ } } await muteTree(root, pids, false); }
     frozen.delete(root);
   }
   save();

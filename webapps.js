@@ -5,7 +5,7 @@
    B goes back, X plays and pauses, and View or the home button hops back to Bladedeck.
    YouTube can open its TV interface, which is made for a controller.
    Sites that need DRM (Netflix, Spotify) still go to the browser; Electron cannot play them. */
-const { BrowserWindow, ipcMain, session, shell } = require('electron');
+const { BrowserWindow, ipcMain, session, shell, screen } = require('electron');
 const path = require('path');
 
 // The TV interface only shows for TV browsers.
@@ -16,7 +16,7 @@ let deck = null, send = () => {};
 
 function list() {
   return [...apps.entries()].filter(([, w]) => !w.isDestroyed()).map(([key, w]) => ({
-    id: `web:${key}`, key, caption: w.getTitle(), cls: 'bladedeck-web', pid: 0, min: w.isMinimized(), active: w.isFocused(), web: true }));
+    id: `web:${key}`, key, caption: w.getTitle(), cls: 'bladedeck-web', pid: 0, min: w.isMinimized() || !w.isVisible(), active: w.isFocused(), web: true }));
 }
 const tell = () => send('webapps', list());
 
@@ -58,6 +58,42 @@ function open({ key, name, url, tv }) {
   return true;
 }
 
+/* The walkthrough window: a small YouTube that floats over games, for following a guide while
+   playing. It pops up without taking focus from the game, and hides again (pausing the video).
+   Mobile YouTube fits a small window best. */
+const MOBILE_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36';
+const searchUrl = (q) => `https://m.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+function pipToggle({ query = '', show } = {}) {
+  let w = apps.get('walkthrough');
+  if (w && !w.isDestroyed()) {
+    const visible = w.isVisible() && !w.isMinimized();
+    if (visible && show !== true) {
+      w.webContents.executeJavaScript("document.querySelectorAll('video').forEach((v) => v.pause()); 1").catch(() => {});
+      w.hide(); tell(); return 'hidden';
+    }
+    if (query && query !== w.__q) { w.__q = query; w.loadURL(searchUrl(query), { userAgent: MOBILE_UA }); }
+    if (w.isMinimized()) w.restore();
+    w.showInactive(); w.setAlwaysOnTop(true, 'screen-saver'); tell(); return 'shown';
+  }
+  setupSession();
+  const area = screen.getPrimaryDisplay().workArea, W = Math.round(Math.min(560, area.width * 0.32)), H = Math.round(W * 0.66);
+  w = new BrowserWindow({
+    width: W, height: H, x: area.x + area.width - W - 24, y: area.y + area.height - H - 24, minWidth: 280, minHeight: 200,
+    title: 'Walkthrough', backgroundColor: '#000000', autoHideMenuBar: true, show: false, alwaysOnTop: true, skipTaskbar: false, fullscreenable: false,
+    webPreferences: { partition: PARTITION, sandbox: true, contextIsolation: true, nodeIntegration: false, preload: path.join(__dirname, 'webapp-preload.js'), backgroundThrottling: false }
+  });
+  w.setMenuBarVisibility(false); w.setAlwaysOnTop(true, 'screen-saver'); w.setVisibleOnAllWorkspaces?.(true);
+  w.__q = query;
+  apps.set('walkthrough', w);
+  w.loadURL(query ? searchUrl(query) : 'https://m.youtube.com', { userAgent: MOBILE_UA });
+  w.webContents.setUserAgent(MOBILE_UA);
+  w.once('ready-to-show', () => { w.showInactive(); tell(); });
+  w.webContents.setWindowOpenHandler(({ url: u }) => { if (/youtube\.com|youtu\.be/.test(u)) w.loadURL(u); else if (/^https?:/i.test(u)) shell.openExternal(u); return { action: 'deny' }; });
+  for (const ev of ['page-title-updated', 'minimize', 'restore', 'focus', 'blur', 'show', 'hide']) w.on(ev, tell);
+  w.on('closed', () => { apps.delete('walkthrough'); tell(); });
+  return 'shown';
+}
+
 function act(key, a) {
   const w = apps.get(key); if (!w || w.isDestroyed()) return false;
   if (a === 'close') w.close();
@@ -72,6 +108,7 @@ function register({ getDeck }) {
   ipcMain.handle('webapp-open', (_e, spec) => { deck = getDeck(); return open(spec || {}); });
   ipcMain.handle('webapp-list', () => list());
   ipcMain.handle('webapp-act', (_e, key, a) => act(String(key), String(a)));
+  ipcMain.handle('pip-toggle', (_e, o) => pipToggle(o || {}));
   ipcMain.on('webapp-key', (e, key) => {
     const w = BrowserWindow.fromWebContents(e.sender);
     if (!w || ![...apps.values()].includes(w)) return;
@@ -85,4 +122,4 @@ function register({ getDeck }) {
   return { setSend: (fn) => { send = fn; } };
 }
 
-module.exports = { register, act, list, open };
+module.exports = { register, act, list, open, pipToggle };
