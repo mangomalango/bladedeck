@@ -108,7 +108,7 @@ const Resume = (() => {
       const ses = (S.sessions || []).find((x) => it.e && x.id === it.e.id);
       if (ses) S.playing = ses;
       close();
-      if (it.w) await api.winAct(it.w.id, 'show');
+      if (it.w) await winAct(it.w.id, 'show');
       else if (it.pid) { const ok = await api.focusPid(it.pid); if (!ok) toast(`Could not bring ${it.title} to the front.`, 'err'); }
     } finally { busy = false; }
   }
@@ -116,7 +116,7 @@ const Resume = (() => {
   async function closeApp(it) {
     if (!it?.w) return;
     if (frozen.has(it.pid)) await freeze(it, false);
-    await api.winAct(it.w.id, 'close');
+    await winAct(it.w.id, 'close');
     Sound.play('back');
     setTimeout(() => document.dispatchEvent(new CustomEvent('running-changed')), 700);
     setTimeout(() => build().then(draw), 600);

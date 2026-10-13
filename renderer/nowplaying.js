@@ -189,7 +189,7 @@ const NowPlaying = (() => {
     // Straight to the game's window when that is what the panel shows; otherwise wherever you were.
     // A paused game is thawed first, so you never land in a frozen window.
     if (cur.pid && ((await api.procFrozen()) || []).includes(cur.pid)) { await api.procFreeze(cur.pid, false); document.dispatchEvent(new CustomEvent('running-changed')); }
-    const ok = (cur.winId && await api.winAct(cur.winId, 'show')) || await api.peekBack();
+    const ok = (cur.winId && await winAct(cur.winId, 'show')) || await api.peekBack();
     going = false;
     if (!ok) { toast('Could not switch back to the game.', 'err'); shrink(); return; }
     // The game has the screen now; the menu underneath goes back to normal, hidden by the cover.

@@ -122,10 +122,22 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       // Recording a clip has to keep running while the launcher is minimized behind the game.
-      backgroundThrottling: false
+      backgroundThrottling: false,
+      // Floating panels (YouTube, the browser) are <webview>s inside the menu.
+      webviewTag: true
     }
   });
   win.setMenuBarVisibility(false);
+  // Panels get no Node, no preload of their own, and the shared web-app session, whatever the page asks for.
+  win.webContents.on('will-attach-webview', (_e, prefs, params) => {
+    delete prefs.preload; prefs.nodeIntegration = false; prefs.contextIsolation = true; prefs.sandbox = true;
+    if (!/^https:\/\//.test(params.src || '') && params.src !== 'about:blank') params.src = 'about:blank';
+    params.partition = 'persist:webapps';
+  });
+  win.webContents.on('did-attach-webview', (_e, wc) => {
+    // Links that open new windows stay in the panel.
+    wc.setWindowOpenHandler(({ url }) => { if (/^https?:/i.test(url)) wc.loadURL(url); return { action: 'deny' }; });
+  });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.once('ready-to-show', () => {
     win.show();
@@ -138,6 +150,9 @@ function createWindow() {
     if (process.platform === 'win32') require('./winpad').start(dataDir(), () => peekToggle(), (kind = 'pip') => { if (win) win.webContents.send('peek', { kind, caption: '', pid: 0, cls: '' }); });
   });
   win.on('closed', () => { win = null; });
+  // Whether Bladedeck's window has the screen's focus, whatever is focused inside it (a panel's page).
+  win.on('focus', () => win.webContents.send('deck-focus', true));
+  win.on('blur', () => win.webContents.send('deck-focus', false));
   startNet();
   // Coming back to the launcher means the player is done with whatever they started.
   win.on('focus', () => { quiet(false); win.webContents.send('returned'); });
@@ -629,6 +644,27 @@ ipcMain.handle('palette', (_e, p) => {
     const base = [r / n, g / n, b / n].map(Math.round);
     return { base, vivid: bestScore > 40 ? best : base };
   } catch { return null; }
+});
+
+// ---------------------------------------------------------------- the Files panel
+// Folders and files for the built-in file browser; opening a file uses the system's app for it.
+ipcMain.handle('fs-list', (_e, dir) => {
+  const d = path.resolve(String(dir || os.homedir()));
+  let items; try { items = fs.readdirSync(d, { withFileTypes: true }); } catch (err) { return { dir: d, error: err.code === 'EACCES' ? 'You do not have access to this folder.' : 'This folder could not be opened.', items: [] }; }
+  const out = [];
+  for (const it of items) {
+    if (it.name.startsWith('.')) continue;
+    let st; try { st = fs.statSync(path.join(d, it.name)); } catch { continue; }
+    out.push({ name: it.name, path: path.join(d, it.name), dir: st.isDirectory(), size: st.size, at: st.mtimeMs });
+  }
+  out.sort((a, b) => (b.dir - a.dir) || a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+  return { dir: d, parent: path.dirname(d) !== d ? path.dirname(d) : null, items: out.slice(0, 2000) };
+});
+ipcMain.handle('fs-open', async (_e, p) => !(await shell.openPath(path.resolve(String(p)))));
+ipcMain.handle('fs-places', () => {
+  const h = os.homedir(), get = (k) => { try { return app.getPath(k); } catch { return null; } };
+  return [['🏠', 'Home', h], ['🖥️', 'Desktop', get('desktop')], ['⬇️', 'Downloads', get('downloads')], ['📄', 'Documents', get('documents')], ['🖼️', 'Pictures', get('pictures')],
+    ['🎬', 'Videos', get('videos')], ['🎵', 'Music', get('music')], ['🎮', 'Games', path.join(h, 'Games')]].filter(([, , p]) => p && fs.existsSync(p)).map(([icon, name, p]) => ({ icon, name, path: p }));
 });
 
 // ---------------------------------------------------------------- fonts for the Look menu

@@ -44,6 +44,7 @@ const DOCK_APPS = [
   ]],
   ['Tools', [
     { id: 'files', name: 'Files', icon: '🗂', match: 'dolphin|nautilus|thunar|nemo|pcmanfm|caja|explorer', apps: [{ cmd: 'dolphin' }, { cmd: 'nautilus' }, { cmd: 'thunar' }, { cmd: 'nemo' }, { cmd: 'pcmanfm' }], home: true, label: 'Files (your file manager)' },
+    { id: 'browser', name: 'Browser', icon: '🌐', match: '$^', url: 'https://duckduckgo.com', label: 'Web browser (a Bladedeck panel)' },
     { id: 'obs', name: 'OBS', icon: '⏺', match: 'obs', apps: [{ cmd: 'obs', flat: 'com.obsproject.Studio' }] },
     { id: 'custom', name: '', icon: '', match: '', label: 'Something else…' }
   ]]
@@ -52,7 +53,7 @@ const DOCK_PRESET = Object.fromEntries(DOCK_APPS.flatMap(([, l]) => l).map((x) =
 const DOCK_DEFAULTS = ['youtube', 'music', 'discord', 'files'];
 // Browsers that can run a web page as an app window of its own have `app`.
 const BROWSERS = [
-  { id: 'bladedeck', name: "Bladedeck's own app windows (no tabs or address bar)", inApp: true, list: [] },
+  { id: 'bladedeck', name: "Bladedeck panels (inside the menu, no tabs or address bar)", inApp: true, list: [] },
   { id: 'firefox', name: 'Firefox', list: [{ cmd: 'firefox' }, { flat: 'org.mozilla.firefox' }] },
   { id: 'chrome', name: 'Google Chrome', app: true, list: [{ cmd: 'google-chrome-stable' }, { cmd: 'google-chrome' }, { flat: 'com.google.Chrome' }] },
   { id: 'chromium', name: 'Chromium', app: true, list: [{ cmd: 'chromium' }, { flat: 'org.chromium.Chromium' }] },
@@ -68,7 +69,8 @@ const fromPreset = (id) => { const p = DOCK_PRESET[id] || DOCK_PRESET.custom; co
 const Dock = (() => {
   const el = document.getElementById('dock');
   const np = document.getElementById('np');
-  let wins = [], webs = [], live = false, focus = -1;
+  let wins = [], webs = [], pans = [], live = false, focus = -1;
+  document.addEventListener('panels-changed', (ev) => { pans = ev.detail || []; draw(); });
   const keyOf = (s) => String(s.pick && s.pick !== 'custom' ? s.pick : s.name).replace(/[^\w-]/g, '').slice(0, 40);
 
   const cfg = () => {
@@ -84,7 +86,7 @@ const Dock = (() => {
   // Each open window belongs to the first slot it matches, by app name or window title.
   function windowsOf(i) {
     const all = slots();
-    return [...webs.filter((w) => w.key === keyOf(all[i])),
+    return [...pans.filter((w) => w.key === keyOf(all[i])), ...webs.filter((w) => w.key === keyOf(all[i])),
       ...wins.filter((w) => all.findIndex((s) => re(s.match).test(w.cls) || re(s.match).test(w.caption)) === i)];
   }
   window.bladedeck.onWebapps((l) => { webs = l || []; live = true; draw(); });
@@ -144,7 +146,8 @@ const Dock = (() => {
   // Web apps open in Bladedeck's own windows; returns true when one opened.
   function webapp(s) {
     if (!s.url) return false;
-    api.webappOpen({ key: s.pick && s.pick !== 'custom' ? s.pick : s.name, name: s.name, url: s.url, tv: s.pick === 'youtube' && cfg().ytTv !== false });
+    // Inside Bladedeck, as a floating panel, rather than a window of its own.
+    Panels.show({ kind: s.pick === 'browser' ? 'browser' : 'web', key: keyOf(s), title: s.name, icon: s.icon || '🌐', url: s.url, tv: s.pick === 'youtube' && cfg().ytTv !== false });
     return true;
   }
 
@@ -152,8 +155,10 @@ const Dock = (() => {
     const s = slots()[i]; if (!s) return;
     const ws = windowsOf(i), w = ws.find((x) => x.active) || ws[0];
     Sound.play('tick');
-    if (a === 'min' || a === 'close') { if (w) api.winAct(w.id, a); return; }
+    if (a === 'min' || a === 'close') { if (w) winAct(w.id, a); return; }
     if (!w) {
+      // Files opens Bladedeck's own file browser panel, unless that is turned off.
+      if (s.pick === 'files' && cfg().filesPanel !== false) { Panels.show({ kind: 'files', key: keyOf(s), title: 'Files', icon: s.icon || '🗂' }); return; }
       const r = await api.dockOpen({ ...s, browser: browser(), inApp: browserId() === 'bladedeck' });
       if (r === 'webapp') { webapp(s); toast(`Opening ${s.name}…`); }
       else if (r) toast(`Opening ${s.name}…${s.drm && browserId() === 'bladedeck' ? ' It needs your browser to play protected music and video.' : ''}`);
@@ -161,8 +166,8 @@ const Dock = (() => {
       return;
     }
     // Several windows of one app: each press brings up the next.
-    if (w.active && ws.length > 1) { const k = ws.indexOf(w); api.winAct(ws[(k + 1) % ws.length].id, 'show'); return; }
-    api.winAct(w.id, w.active ? 'min' : 'show');
+    if (w.active && ws.length > 1) { const k = ws.indexOf(w); winAct(ws[(k + 1) % ws.length].id, 'show'); return; }
+    winAct(w.id, w.active ? 'min' : 'show');
   }
 
   el.addEventListener('click', (ev) => {
@@ -226,6 +231,7 @@ const Dock = (() => {
     const body = () => `<div class="checks"><label><input type="checkbox" name="dockOn" ${c.on ? 'checked' : ''}> Show the dock</label></div>
       <div class="row2"><label>Web pages open in<select name="browser">${browsers.filter((b) => b.inApp).map((b) => `<option value="${b.id}" ${b.id === c.browser ? 'selected' : ''}>${esc(b.name)}</option>`).join('')}<option value="" ${c.browser === '' ? 'selected' : ''}>Your default browser</option>${browsers.filter((b) => !b.inApp).map((b) => `<option value="${b.id}" ${b.id === c.browser ? 'selected' : ''}>${esc(b.name)}</option>`).join('')}</select></label>
         ${c.browser === 'bladedeck' ? `<label class="dk-appwin"><span><input type="checkbox" name="ytTv" ${c.ytTv ? 'checked' : ''}> YouTube in its TV mode, made for controllers</span></label>` : `<label class="dk-appwin ${BROWSERS.find((b) => b.id === c.browser)?.app ? '' : 'off'}"><span><input type="checkbox" name="appWindow" ${c.appWindow ? 'checked' : ''}> Give each web app its own window, without tabs</span></label>`}</div>
+      <div class="checks"><label><input type="checkbox" name="filesPanel" ${cfg().filesPanel !== false ? 'checked' : ''}> Files opens in Bladedeck's own file browser panel</label></div>
       <p class="note">Up to six apps. One press opens the app, brings it up, or tucks it away. ✓ means it's installed and opens as an app; the rest open as websites. Pick "Something else…" for anything not listed.</p>
       <div class="dk-rows">${list.map(rowHtml).join('')}</div>
       <div style="display:flex;gap:8px"><button type="button" data-add="1" ${list.length >= 6 ? 'disabled' : ''}>Add an app</button><button type="button" data-reset="1">Back to the four defaults</button></div>`;
@@ -241,7 +247,7 @@ const Dock = (() => {
     openModal({
       title: 'Dock', wide: true, html: `<div class="dk-edit-body">${body()}</div>`,
       buttons: [{ label: 'Cancel' }, { label: 'Save', primary: true, onClick: (root) => {
-        Object.assign(cfg(), { on: $('[name=dockOn]', root).checked, browser: $('[name=browser]', root).value, appWindow: !!$('[name=appWindow]', root)?.checked, ytTv: $('[name=ytTv]', root) ? $('[name=ytTv]', root).checked : c.ytTv, slots: read(root).slice(0, 6) });
+        Object.assign(cfg(), { on: $('[name=dockOn]', root).checked, browser: $('[name=browser]', root).value, appWindow: !!$('[name=appWindow]', root)?.checked, ytTv: $('[name=ytTv]', root) ? $('[name=ytTv]', root).checked : c.ytTv, filesPanel: $('[name=filesPanel]', root).checked, slots: read(root).slice(0, 6) });
         save(); draw();
       } }],
       onOpen: (root) => {
@@ -265,5 +271,5 @@ const Dock = (() => {
     });
   }
 
-  return { draw, edge, handle, edit, browser, windows: () => [...webs, ...wins], slotFor: (w) => slots().find((s, i) => windowsOf(i).includes(w)), active: () => focus >= 0 };
+  return { draw, edge, handle, edit, browser, windows: () => [...pans, ...webs, ...wins], slotFor: (w) => slots().find((s, i) => windowsOf(i).includes(w)), active: () => focus >= 0 };
 })();

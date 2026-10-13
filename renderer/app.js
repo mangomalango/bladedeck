@@ -380,8 +380,13 @@ api.onPeek((ev) => {
 /* A game has the screen. Linux desktops often never mark a minimized or covered window hidden,
    so losing focus while a game runs counts too. Music, the sea and the live view listen for 'deck-away'. */
 let away = false;
+// Whether Bladedeck has the screen: the window's own focus (from the main process), because a
+// panel's page holding the keyboard makes document.hasFocus() say no while Bladedeck is in front.
+let osFocus = true;
+const deckFocused = () => osFocus || document.hasFocus();
+api.onDeckFocus((on) => { osFocus = on; syncAway(); });
 function syncAway() {
-  const on = document.hidden || (!!(S.playing || launching) && !document.hasFocus());
+  const on = document.hidden || (!!(S.playing || launching) && !deckFocused());
   if (on === away) return;
   away = on;
   document.dispatchEvent(new CustomEvent('deck-away', { detail: on }));
@@ -956,7 +961,7 @@ function openSettings() {
       <label>Your name<input type="text" name="playerName" value="${esc(st.playerName)}"></label>
       <label>Theme<select name="theme">${S.themes.map((t) => `<option value="${t.id}" ${t.id === st.theme ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
       <label>Steam folder (leave empty to detect)${row('steamPath', 'dir', st.steamPath)}</label>
-      <div class="checks"><label><input type="checkbox" name="sounds" ${st.sounds ? 'checked' : ''}> Menu sounds</label><label><input type="checkbox" name="ambient" ${st.ambient ? 'checked' : ''}> Deep-sea ambience</label><label><input type="checkbox" name="fx" ${st.fx !== false ? 'checked' : ''}> Animations</label><label><input type="checkbox" name="intro" ${st.intro !== false ? 'checked' : ''}> Launch intro</label></div>
+      <div class="checks"><label><input type="checkbox" name="sounds" ${st.sounds ? 'checked' : ''}> Menu sounds</label><label><input type="checkbox" name="ambient" ${st.ambient ? 'checked' : ''}> Deep-sea ambience</label><label><input type="checkbox" name="fx" ${st.fx !== false ? 'checked' : ''}> Animations</label><label><input type="checkbox" name="intro" ${st.intro !== false ? 'checked' : ''}> Launch intro</label><label><input type="checkbox" name="bootAnim" ${st.bootAnim !== false ? 'checked' : ''}> Boot animation</label></div>
       <div class="checks"><label><input type="checkbox" name="runningList" ${st.runningList !== false ? 'checked' : ''}> Show what's running on the left</label><label><input type="checkbox" name="autoFreeze" ${st.autoFreeze ? 'checked' : ''}> Pause games when I switch away</label></div>
       <div class="checks"><label><input type="checkbox" name="hideOnLaunch" ${st.hideOnLaunch ? 'checked' : ''}> Minimize while a game runs</label><label><input type="checkbox" name="quietWhilePlaying" ${st.quietWhilePlaying ? 'checked' : ''}> Silence desktop pop-ups while playing</label></div>
       <div class="checks"><label><input type="checkbox" name="showcase" ${st.showcase !== false ? 'checked' : ''}> Play clips and pictures behind games</label></div>
@@ -992,14 +997,14 @@ function openSettings() {
       try { blades = JSON.parse($('[name=blades]', root).value); if (!Array.isArray(blades) || !blades.length || blades.some((b) => !b.name)) throw new Error('shape'); }
       catch { toast('Blades must be a JSON list where every blade has a name.', 'err'); return false; }
       Object.assign(st, { playerName: val(root, 'playerName') || 'Player 1', steamPath: val(root, 'steamPath'), sounds: chk(root, 'sounds'), hideOnLaunch: chk(root, 'hideOnLaunch'), blades,
-        ambient: chk(root, 'ambient'), fx: chk(root, 'fx'), intro: chk(root, 'intro'), runningList: chk(root, 'runningList'), autoFreeze: chk(root, 'autoFreeze'), quietWhilePlaying: chk(root, 'quietWhilePlaying'), showcase: chk(root, 'showcase'),
+        ambient: chk(root, 'ambient'), fx: chk(root, 'fx'), intro: chk(root, 'intro'), bootAnim: chk(root, 'bootAnim'), runningList: chk(root, 'runningList'), autoFreeze: chk(root, 'autoFreeze'), quietWhilePlaying: chk(root, 'quietWhilePlaying'), showcase: chk(root, 'showcase'),
         ambientVolume: +val(root, 'ambientVolume'), showcaseAlpha: +val(root, 'showcaseAlpha'), wineCommand: val(root, 'wineCommand'),
         gogDirs: val(root, 'gogDirs').split('\n').map((x) => x.trim()).filter(Boolean) });
       const peekWas = st.peekMinimize, dirWas = st.musicDir;
       Object.assign(st, { musicDir: val(root, 'musicDir'), musicDuringGames: chk(root, 'musicDuringGames'), peekMinimize: chk(root, 'peekMinimize') });
       Object.assign(st, { prewarmSteam: chk(root, 'prewarmSteam'), shaderCache: chk(root, 'shaderCache'), gamemode: chk(root, 'gamemode'),
         sgdbKey: val(root, 'sgdbKey'), raUser: val(root, 'raUser'), raKey: val(root, 'raKey') });
-      Guide.readSettings(root); Watch.readSettings(root); Capture.readSettings(root); Running.refresh();
+      Boot.setOn(st.bootAnim !== false); Guide.readSettings(root); Watch.readSettings(root); Capture.readSettings(root); Running.refresh();
       if (peekWas !== st.peekMinimize) api.peekConfig({ minimize: st.peekMinimize });
       if (dirWas !== st.musicDir) Music.load(true).then(Music.draw);
       Sound.sync(); Showcase.reset();
@@ -1026,6 +1031,8 @@ function openSettings() {
 function activate() { if (S.sel) launch(S.sel); }
 
 function handle(a) {
+  // A press during the boot animation only skips it.
+  if (Boot.playing?.()) { Boot.done(); return; }
   // The water is a picture of the menu; the moment you do anything, let the real menu back.
   Water.cancel();
   if (Intro.handle(a)) return;
@@ -1035,6 +1042,7 @@ function handle(a) {
   if (S.modal) { modalInput(a); return; }
   if (Resume.handle(a)) return;
   if (Volume.handle(a)) return;
+  if (Panels.handle(a)) return;
   // While a game starts behind Bladedeck, X shows whatever Steam is asking.
   if (a === 'x' && S.playing?.covered) { revealSteam(); uncoverSteam(S.playing); api.minimize(); return; }
   if (a === 'guide') { Guide.toggle('type'); return; }
@@ -1134,8 +1142,8 @@ function bindInput() {
     if (st.back && st.y && !paired) { paired = true; walkthrough(); }
     if (st.back && st.x && !paired) { paired = true; Capture.toggleRecord(); }
     if (st.back && st.rb && !paired) { paired = true; Capture.saveReplay(); }
-    if (!S.pad && document.hasFocus()) for (const k in st) if (st[k]) { S.pad = true; break; }
-    const focused = document.hasFocus();
+    if (!S.pad && deckFocused()) for (const k in st) if (st[k]) { S.pad = true; break; }
+    const focused = deckFocused();
     // Holding the guide trigger pulls the flap out with the stick; the stick is not the menu's then.
     const pulling = focused && !S.modal && !Volume.isOpen() && !Resume.isOpen() && Guide.frame(p, now);
     for (const k in st) {
@@ -1212,6 +1220,7 @@ function bindInput() {
   applyTheme(S.lib.settings.theme);
   Look.apply();
   $('#who').textContent = S.lib.settings.playerName;
+  { const b = document.querySelector('.bt-sub'); if (b) b.textContent = `Welcome back, ${S.lib.settings.playerName || 'player'}`; }
   Player.header();
   $('.who').addEventListener('click', () => Player.profile());
   startBg(); startClock(); bindInput();
