@@ -35,7 +35,7 @@ const PRESETS = [
 const S = {
   lib: null, themes: [], theme: null, defaultBlades: [],
   mode: 'console', blades: [], bi: 0, ii: {}, items: [], sel: null,
-  pcNav: 'blade:0', search: '', sort: 'auto', pcItems: [], modal: false
+  pcNav: 'blade:0', search: '', sort: 'auto', pcItems: [], modal: false, sessions: []
 };
 
 /* ---------------------------------------------------------------- helpers */
@@ -193,6 +193,7 @@ function systemActions() {
     { id: 'sys-art',   title: 'Find missing art',   sub: 'Covers and backgrounds from Steam and SteamGridDB', glyph: '🖼', run: () => Art.fillAll() },
     { id: 'sys-store', title: 'Add store launchers', sub: 'Steam, Heroic and Lutris as apps',     glyph: '⇪', run: addLaunchers },
     { id: 'sys-get',   title: 'Get games',          sub: 'Free games, homebrew and emulators',    glyph: '⬇', run: () => Shop.open() },
+    { id: 'sys-qr',    title: 'Quick Resume',       sub: 'Switch between running games and apps, or freeze them', glyph: '▣', run: () => Resume.open() },
     { id: 'sys-vol',   title: 'Sound',              sub: 'Volume, outputs, mic and every app',    glyph: '🔊', run: () => Volume.open() },
     { id: 'sys-emu',   title: 'Emulators',          sub: 'Add, edit and scan game folders',       glyph: '◉', run: manageEmulators },
     { id: 'sys-ctl',   title: 'Controls',           sub: 'Every button and key',                  glyph: '⌨', run: openControls },
@@ -231,17 +232,22 @@ async function launch(e) {
   launchedAt = Date.now(); opened = null;
   Sound.play('go');
   el?.classList.add('charging');
+  // Steam and Heroic show their own "launching" pop-ups; stay on top of them until the game arrives.
+  const cover = e.type === 'steam' || (e.type === 'gog' && !e.exe);
+  if (cover) api.keepOnTop(true);
   const pending = api.launch({ entry: e, emulator, settings: S.lib.settings });
   const arrived = FX.tracers(el);
   const r = await pending;
-  if (!r.ok) { el?.classList.remove('charging'); FX.fizzle(el); toast(r.error, 'err'); launching = false; return; }
+  if (!r.ok) { el?.classList.remove('charging'); FX.fizzle(el); toast(r.error, 'err'); launching = false; if (cover) api.keepOnTop(false); return; }
   await arrived;
   el?.classList.remove('charging');
   FX.ripple(el); Sound.play('ripple');
   Intro.play(e);
   e.lastPlayed = Date.now(); markDay(e); save();
-  S.playing = { id: e.id, t: Date.now(), pid: r.pid, tracked: !(e.type === 'steam' || (e.type === 'gog' && !e.exe)) };
-  if (opened) S.playing.winPid = opened.pid;
+  S.playing = { id: e.id, t: Date.now(), pid: r.pid, tracked: !(e.type === 'steam' || (e.type === 'gog' && !e.exe)), covered: cover };
+  if (opened) { S.playing.winPid = opened.pid; S.playing.covered = false; api.keepOnTop(false); }
+  // Every game started this run, so several can run at once (see Quick Resume).
+  S.sessions = [...S.sessions.filter((x) => x.id !== e.id), S.playing];
   Tasks.sync(e);
   if (e.recordNext) { e.recordNext = false; save(); Recorder.start(e); }
   setTimeout(() => {
@@ -251,15 +257,19 @@ async function launch(e) {
     // On KDE we see the game's window arrive, so stay up until it does instead of dropping to the
     // desktop while Steam is still getting the game ready.
     if (p && !p.winPid && NowPlaying.mode() === 'kwin') {
-      p.waiting = true; toast(`Starting ${e.title}…`);
-      setTimeout(() => { if (p.waiting) p.waiting = false; }, 180000);
+      p.waiting = true; toast(cover ? `Starting ${e.title}… Press X if Steam needs you.` : `Starting ${e.title}…`);
+      setTimeout(() => { if (p.waiting) { p.waiting = false; uncoverSteam(p); } }, 180000);
       return;
     }
+    // Without KDE we cannot see the game's window arrive; a few seconds covers Steam's pop-up.
+    if (p?.covered) setTimeout(() => uncoverSteam(p), 7000);
     // Let the intro finish before tucking Bladedeck away.
     if (S.lib.settings.hideOnLaunch) setTimeout(() => { Sound.duck(true); api.minimize(); }, Intro.playing() ? 3000 : 0);
   }, fxOn() ? 1500 : 0);
 }
 
+// Stop covering Steam's windows: the game is here, or the player wants to see what Steam is asking.
+function uncoverSteam(p) { if (p && p.covered) { p.covered = false; api.keepOnTop(false); } }
 // The first real window to open after a launch is the game (Steam's own windows don't count).
 let launchedAt = 0, opened = null;
 const steamWin = (cls) => /^steam(webhelper)?$/i.test(cls || '');
@@ -268,9 +278,20 @@ api.onPeek((ev) => {
   const p = S.playing;
   if (!p) { if (launching) opened = ev; return; }
   if (!p.winPid) p.winPid = ev.pid;
+  uncoverSteam(p);
   if (p.waiting) {
     p.waiting = false;
     if (S.lib.settings.hideOnLaunch) { Sound.duck(true); api.minimize(); }
+  }
+});
+// A game running in the background (not the one in the now-playing panel) closed: its session ends.
+api.onPeek((ev) => {
+  if (ev.kind !== 'gone' || !ev.pid) return;
+  for (const ses of S.sessions.filter((x) => x.winPid === ev.pid)) {
+    S.sessions = S.sessions.filter((x) => x !== ses);
+    if (ses === S.playing || ses.tracked) continue; // the panel, or the main process, handles those
+    const e = S.lib.entries.find((x) => x.id === ses.id);
+    if (e) sessionOver(e, Math.round((Date.now() - ses.t) / 1000));
   }
 });
 /* A game has the screen. Linux desktops often never mark a minimized or covered window hidden,
@@ -302,6 +323,7 @@ function sessionOver(e, seconds) {
 api.onEnded(({ id, seconds }) => {
   const e = S.lib.entries.find((x) => x.id === id);
   if (S.playing?.id === id) { S.playing = null; NowPlaying.end(); }
+  S.sessions = S.sessions.filter((x) => x.id !== id);
   if (Recorder.busy()) Recorder.stop();
   if (e) sessionOver(e, seconds);
 });
@@ -313,7 +335,7 @@ api.onReturned(() => {
   if (Recorder.busy() && Recorder.since() > 20000) Recorder.stop();
   const p = S.playing;
   if (p && !p.tracked && Date.now() - p.t > 15000) {
-    S.playing = null;
+    S.playing = null; S.sessions = S.sessions.filter((x) => x !== p);
     const e = S.lib.entries.find((x) => x.id === p.id);
     if (e) sessionOver(e, Math.round((Date.now() - p.t) / 1000));
   }
@@ -740,7 +762,7 @@ const CONTROLS = [
     ['Next or previous blade', 'LB / RB', 'Page Up / Page Down'],
     ['Launch or open', 'A', 'Enter, or click twice'],
     ['Back to Home', 'B', 'Esc or Backspace'],
-    ['Console or PC mode', 'Back', 'F10'],
+    ['Console or PC mode', 'tap View', 'F10'],
     ['Search the library (PC mode)', 'RB', 'Ctrl+F or /'],
     ['Type with a controller', 'A on any text box opens the on-screen keyboard: A types, X deletes, Y space, Start done', 'just type'],
     ['This list', '', 'F1 or ?']
@@ -767,6 +789,13 @@ const CONTROLS = [
     ['Move and pick', 'D-pad, then A', 'arrows and Enter, or click'],
     ['Back, then put it away', 'B', 'Esc'],
     ['Push it shut', 'hold LT, push the stick back into the edge', 'drag the tab back']
+  ]],
+  ['Quick Resume (several games and apps at once)', [
+    ['Open Quick Resume', 'hold View', 'Q, or ▣ at the top'],
+    ['Switch to a game or app (thaws it if frozen)', 'A', 'click it'],
+    ['Freeze or thaw a game', 'X', 'right-click it'],
+    ['Close it', 'Y', ''],
+    ['Show Steam while a game is starting', 'X', 'X']
   ]],
   ['Sound', [
     ['Sound card (volume, where sound plays, mic, every app)', 'Home button (Stadia, PS or Xbox)', 'V, or the 🔊 at the top'],
@@ -885,7 +914,10 @@ function handle(a) {
   if (OSK.handle(a)) return;
   if (Crash.handle(a)) return;
   if (S.modal) { modalInput(a); return; }
+  if (Resume.handle(a)) return;
   if (Volume.handle(a)) return;
+  // While a game starts behind Bladedeck, X shows whatever Steam is asking.
+  if (a === 'x' && S.playing?.covered) { uncoverSteam(S.playing); api.minimize(); return; }
   if (a === 'guide') { Guide.toggle('type'); return; }
   if (Guide.handle(a)) return;
   if (Dock.handle(a)) return;
@@ -947,7 +979,7 @@ function pcInput(a) {
   }
 }
 
-const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b', f: 'x', e: 'y', s: 'start', t: 'tasks', p: 'poke', r: 'ach', m: 'music', g: 'guide', v: 'vol', F1: 'help', '?': 'help', '[': 'lt', ']': 'rt', F10: 'back', PageUp: 'lb', PageDown: 'rb' };
+const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b', f: 'x', e: 'y', s: 'start', t: 'tasks', p: 'poke', r: 'ach', m: 'music', g: 'guide', v: 'vol', q: 'resume', F1: 'help', '?': 'help', '[': 'lt', ']': 'rt', F10: 'back', PageUp: 'lb', PageDown: 'rb' };
 
 function bindInput() {
   addEventListener('keydown', (ev) => { if (ev.isTrusted) S.pad = false; }, true);
@@ -969,7 +1001,7 @@ function bindInput() {
   // View + Menu together is the controller's Ctrl+M, and works while a game has focus too, so
   // View and Menu on their own act when let go, once it is clear they were not that pair.
   const prev = {}, rep = {};
-  let paired = false;
+  let paired = false, viewAt = 0, viewHeld = false;
   (function poll(now) {
     requestAnimationFrame(poll);
     const p = [...(navigator.getGamepads?.() || [])].find(Boolean);
@@ -981,18 +1013,23 @@ function bindInput() {
     if (!S.pad && document.hasFocus()) for (const k in st) if (st[k]) { S.pad = true; break; }
     const focused = document.hasFocus();
     // Holding the guide trigger pulls the flap out with the stick; the stick is not the menu's then.
-    const pulling = focused && !S.modal && !Volume.isOpen() && Guide.frame(p, now);
+    const pulling = focused && !S.modal && !Volume.isOpen() && !Resume.isOpen() && Guide.frame(p, now);
     for (const k in st) {
       const dir = k === 'up' || k === 'down' || k === 'left' || k === 'right';
       if (!focused) { /* the game is using the pad */ }
       else if (pulling && (dir || k === 'lt' || k === 'rt')) { /* the flap has it */ }
       else if (k === 'lt' || k === 'rt') { if (!st[k] && prev[k] && (!Guide.isTrigger(k) || Guide.tapped())) { Secrets.bump(); handle(k); } }
-      else if (k === 'back' || k === 'start') { if (!st[k] && prev[k] && !paired) { Secrets.bump(); handle(k); } }
+      else if (k === 'back' && st.back && !paired && !viewHeld && viewAt && now - viewAt > 550) { viewHeld = true; handle('resume'); }
+      else if (k === 'back' || k === 'start') { if (!st[k] && prev[k] && !paired && !(k === 'back' && viewHeld)) { Secrets.bump(); handle(k); } }
       else if (st[k] && !prev[k]) { Secrets.bump(); handle(k); rep[k] = now + 420; }
       else if (st[k] && dir && now > rep[k]) { handle(k); rep[k] = now + 90; }
       prev[k] = st[k];
     }
     if (!st.back && !st.start) paired = false;
+    // Holding View opens Quick Resume; a quick press still swaps console and PC mode.
+    if (st.back && !prev.backHeld) viewAt = now;
+    if (!st.back) { viewAt = 0; viewHeld = false; }
+    prev.backHeld = st.back;
   })(0);
 
   // mouse

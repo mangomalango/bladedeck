@@ -12,8 +12,8 @@ const DOCK_APPS = [
     { id: 'youtube', name: 'YouTube', icon: '▶', match: 'YouTube(?! Music)', url: 'https://www.youtube.com' },
     { id: 'freetube', name: 'FreeTube', icon: '▶', match: 'freetube', apps: [{ cmd: 'freetube', flat: 'io.freetubeapp.FreeTube' }], url: 'https://www.youtube.com' },
     { id: 'twitch', name: 'Twitch', icon: '📺', match: 'Twitch', url: 'https://www.twitch.tv' },
-    { id: 'netflix', name: 'Netflix', icon: '🎬', match: 'Netflix', url: 'https://www.netflix.com' },
-    { id: 'crunchyroll', name: 'Crunchyroll', icon: '🍥', match: 'Crunchyroll', url: 'https://www.crunchyroll.com' },
+    { id: 'netflix', drm: true, name: 'Netflix', icon: '🎬', match: 'Netflix', url: 'https://www.netflix.com' },
+    { id: 'crunchyroll', drm: true, name: 'Crunchyroll', icon: '🍥', match: 'Crunchyroll', url: 'https://www.crunchyroll.com' },
     { id: 'plex', name: 'Plex', icon: '🎞', match: 'Plex', apps: [{ cmd: 'plex-desktop', flat: 'tv.plex.PlexDesktop' }], url: 'https://app.plex.tv' },
     { id: 'jellyfin', name: 'Jellyfin', icon: '🎞', match: 'jellyfin', apps: [{ cmd: 'jellyfinmediaplayer', flat: 'com.github.iwalton3.jellyfin-media-player' }] },
     { id: 'vlc', name: 'VLC', icon: '🔶', match: 'vlc', apps: [{ cmd: 'vlc', flat: 'org.videolan.VLC' }] }
@@ -23,14 +23,14 @@ const DOCK_APPS = [
       apps: [{ cmd: 'spotify', flat: 'com.spotify.Client' }, { cmd: 'cider', flat: 'sh.cider.Cider' }, { cmd: 'youtube-music', flat: 'app.ytmdesktop.ytmdesktop' }, { cmd: 'tidal-hifi', flat: 'com.mastermindzh.tidal-hifi' },
         { cmd: 'strawberry', flat: 'org.strawberrymusicplayer.strawberry' }, { cmd: 'elisa', flat: 'org.kde.elisa' }, { cmd: 'rhythmbox', flat: 'org.gnome.Rhythmbox3' }],
       url: 'https://music.youtube.com', label: 'Any music app you have' },
-    { id: 'spotify', name: 'Spotify', icon: '🎧', match: 'spotify', apps: [{ cmd: 'spotify', flat: 'com.spotify.Client' }], uri: 'spotify:', url: 'https://open.spotify.com' },
-    { id: 'apple', name: 'Apple Music', icon: '🍎', match: 'Apple Music|cider', apps: [{ cmd: 'cider', flat: 'sh.cider.Cider' }], url: 'https://music.apple.com' },
+    { id: 'spotify', drm: true, name: 'Spotify', icon: '🎧', match: 'spotify', apps: [{ cmd: 'spotify', flat: 'com.spotify.Client' }], uri: 'spotify:', url: 'https://open.spotify.com' },
+    { id: 'apple', drm: true, name: 'Apple Music', icon: '🍎', match: 'Apple Music|cider', apps: [{ cmd: 'cider', flat: 'sh.cider.Cider' }], url: 'https://music.apple.com' },
     { id: 'ytmusic', name: 'YouTube Music', icon: '♫', match: 'YouTube Music', apps: [{ cmd: 'youtube-music', flat: 'app.ytmdesktop.ytmdesktop' }], url: 'https://music.youtube.com' },
-    { id: 'tidal', name: 'Tidal', icon: '〰', match: 'tidal', apps: [{ cmd: 'tidal-hifi', flat: 'com.mastermindzh.tidal-hifi' }], uri: 'tidal:', url: 'https://listen.tidal.com' },
-    { id: 'amazon', name: 'Amazon Music', icon: '♪', match: 'Amazon Music', url: 'https://music.amazon.com' },
-    { id: 'deezer', name: 'Deezer', icon: '♪', match: 'deezer', url: 'https://www.deezer.com' },
+    { id: 'tidal', drm: true, name: 'Tidal', icon: '〰', match: 'tidal', apps: [{ cmd: 'tidal-hifi', flat: 'com.mastermindzh.tidal-hifi' }], uri: 'tidal:', url: 'https://listen.tidal.com' },
+    { id: 'amazon', drm: true, name: 'Amazon Music', icon: '♪', match: 'Amazon Music', url: 'https://music.amazon.com' },
+    { id: 'deezer', drm: true, name: 'Deezer', icon: '♪', match: 'deezer', url: 'https://www.deezer.com' },
     { id: 'soundcloud', name: 'SoundCloud', icon: '☁', match: 'SoundCloud', url: 'https://soundcloud.com' },
-    { id: 'pandora', name: 'Pandora', icon: '♪', match: 'Pandora', url: 'https://www.pandora.com' },
+    { id: 'pandora', drm: true, name: 'Pandora', icon: '♪', match: 'Pandora', url: 'https://www.pandora.com' },
     { id: 'strawberry', name: 'Strawberry', icon: '🍓', match: 'strawberry', apps: [{ cmd: 'strawberry', flat: 'org.strawberrymusicplayer.strawberry' }] },
     { id: 'elisa', name: 'Elisa', icon: '♪', match: 'elisa', apps: [{ cmd: 'elisa', flat: 'org.kde.elisa' }] }
   ]],
@@ -52,6 +52,7 @@ const DOCK_PRESET = Object.fromEntries(DOCK_APPS.flatMap(([, l]) => l).map((x) =
 const DOCK_DEFAULTS = ['youtube', 'music', 'discord', 'files'];
 // Browsers that can run a web page as an app window of its own have `app`.
 const BROWSERS = [
+  { id: 'bladedeck', name: "Bladedeck's own app windows (no tabs or address bar)", inApp: true, list: [] },
   { id: 'firefox', name: 'Firefox', list: [{ cmd: 'firefox' }, { flat: 'org.mozilla.firefox' }] },
   { id: 'chrome', name: 'Google Chrome', app: true, list: [{ cmd: 'google-chrome-stable' }, { cmd: 'google-chrome' }, { flat: 'com.google.Chrome' }] },
   { id: 'chromium', name: 'Chromium', app: true, list: [{ cmd: 'chromium' }, { flat: 'org.chromium.Chromium' }] },
@@ -67,7 +68,8 @@ const fromPreset = (id) => { const p = DOCK_PRESET[id] || DOCK_PRESET.custom; co
 const Dock = (() => {
   const el = document.getElementById('dock');
   const np = document.getElementById('np');
-  let wins = [], live = false, focus = -1;
+  let wins = [], webs = [], live = false, focus = -1;
+  const keyOf = (s) => String(s.pick && s.pick !== 'custom' ? s.pick : s.name).replace(/[^\w-]/g, '').slice(0, 40);
 
   const cfg = () => {
     const st = S.lib.settings;
@@ -82,8 +84,10 @@ const Dock = (() => {
   // Each open window belongs to the first slot it matches, by app name or window title.
   function windowsOf(i) {
     const all = slots();
-    return wins.filter((w) => all.findIndex((s) => re(s.match).test(w.cls) || re(s.match).test(w.caption)) === i);
+    return [...webs.filter((w) => w.key === keyOf(all[i])),
+      ...wins.filter((w) => all.findIndex((s) => re(s.match).test(w.cls) || re(s.match).test(w.caption)) === i)];
   }
+  window.bladedeck.onWebapps((l) => { webs = l || []; live = true; draw(); });
 
   window.bladedeck.onPeek((ev) => {
     if (ev.kind !== 'windows') return;
@@ -129,9 +133,16 @@ const Dock = (() => {
   new MutationObserver(place).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
   // The browser web pages open in, from Edit dock. Nothing means the system's default browser.
+  const browserId = () => (cfg().browser === undefined ? 'bladedeck' : cfg().browser);
   function browser() {
-    const b = BROWSERS.find((x) => x.id === cfg().browser);
+    const b = BROWSERS.find((x) => x.id === browserId() && !x.inApp);
     return b ? { list: b.list, app: !!(b.app && cfg().appWindow) } : null;
+  }
+  // Web apps open in Bladedeck's own windows; returns true when one opened.
+  function webapp(s) {
+    if (!s.url) return false;
+    api.webappOpen({ key: s.pick && s.pick !== 'custom' ? s.pick : s.name, name: s.name, url: s.url, tv: s.pick === 'youtube' && cfg().ytTv !== false });
+    return true;
   }
 
   async function act(i, a) {
@@ -140,7 +151,9 @@ const Dock = (() => {
     Sound.play('tick');
     if (a === 'min' || a === 'close') { if (w) api.winAct(w.id, a); return; }
     if (!w) {
-      if (await api.dockOpen({ ...s, browser: browser() })) toast(`Opening ${s.name}…`);
+      const r = await api.dockOpen({ ...s, browser: browser(), inApp: browserId() === 'bladedeck' });
+      if (r === 'webapp') { webapp(s); toast(`Opening ${s.name}…`); }
+      else if (r) toast(`Opening ${s.name}…${s.drm && browserId() === 'bladedeck' ? ' It needs your browser to play protected music and video.' : ''}`);
       else toast(`Couldn't find ${s.name}. Pick the app in Edit dock.`, 'err');
       return;
     }
@@ -189,7 +202,7 @@ const Dock = (() => {
     leave();
     const have = await installed();
     const list = slots().map((s) => ({ ...s }));
-    const c = { on: cfg().on !== false, browser: cfg().browser || '', appWindow: !!cfg().appWindow };
+    const c = { on: cfg().on !== false, browser: browserId(), appWindow: !!cfg().appWindow, ytTv: cfg().ytTv !== false };
     const appOpt = (p, cur) => `<option value="${p.id}" ${p.id === cur ? 'selected' : ''}>${esc(p.label || p.name)}${have.app[p.id] ? '  ✓' : ''}${!p.apps && p.url ? '  (web)' : ''}</option>`;
     const rowHtml = (s, i) => {
       const p = DOCK_PRESET[s.pick] || DOCK_PRESET.custom, custom = p.id === 'custom';
@@ -206,10 +219,10 @@ const Dock = (() => {
           <input type="text" name="match" value="${esc(s.match || '')}" placeholder="Window names it owns, e.g. discord|vesktop" aria-label="Matches"></div>` : ''}
       </div>`;
     };
-    const browsers = BROWSERS.filter((b) => have.browser[b.id] || b.id === c.browser);
+    const browsers = BROWSERS.filter((b) => b.inApp || have.browser[b.id] || b.id === c.browser);
     const body = () => `<div class="checks"><label><input type="checkbox" name="dockOn" ${c.on ? 'checked' : ''}> Show the dock</label></div>
-      <div class="row2"><label>Web pages open in<select name="browser"><option value="">Your default browser</option>${browsers.map((b) => `<option value="${b.id}" ${b.id === c.browser ? 'selected' : ''}>${esc(b.name)}</option>`).join('')}</select></label>
-        <label class="dk-appwin ${BROWSERS.find((b) => b.id === c.browser)?.app ? '' : 'off'}"><span><input type="checkbox" name="appWindow" ${c.appWindow ? 'checked' : ''}> Give each web app its own window, without tabs</span></label></div>
+      <div class="row2"><label>Web pages open in<select name="browser">${browsers.filter((b) => b.inApp).map((b) => `<option value="${b.id}" ${b.id === c.browser ? 'selected' : ''}>${esc(b.name)}</option>`).join('')}<option value="" ${c.browser === '' ? 'selected' : ''}>Your default browser</option>${browsers.filter((b) => !b.inApp).map((b) => `<option value="${b.id}" ${b.id === c.browser ? 'selected' : ''}>${esc(b.name)}</option>`).join('')}</select></label>
+        ${c.browser === 'bladedeck' ? `<label class="dk-appwin"><span><input type="checkbox" name="ytTv" ${c.ytTv ? 'checked' : ''}> YouTube in its TV mode, made for controllers</span></label>` : `<label class="dk-appwin ${BROWSERS.find((b) => b.id === c.browser)?.app ? '' : 'off'}"><span><input type="checkbox" name="appWindow" ${c.appWindow ? 'checked' : ''}> Give each web app its own window, without tabs</span></label>`}</div>
       <p class="note">Up to six apps. One press opens the app, brings it up, or tucks it away. ✓ means it's installed and opens as an app; the rest open as websites. Pick "Something else…" for anything not listed.</p>
       <div class="dk-rows">${list.map(rowHtml).join('')}</div>
       <div style="display:flex;gap:8px"><button type="button" data-add="1" ${list.length >= 6 ? 'disabled' : ''}>Add an app</button><button type="button" data-reset="1">Back to the four defaults</button></div>`;
@@ -225,12 +238,12 @@ const Dock = (() => {
     openModal({
       title: 'Dock', wide: true, html: `<div class="dk-edit-body">${body()}</div>`,
       buttons: [{ label: 'Cancel' }, { label: 'Save', primary: true, onClick: (root) => {
-        Object.assign(cfg(), { on: $('[name=dockOn]', root).checked, browser: $('[name=browser]', root).value, appWindow: $('[name=appWindow]', root).checked, slots: read(root).slice(0, 6) });
+        Object.assign(cfg(), { on: $('[name=dockOn]', root).checked, browser: $('[name=browser]', root).value, appWindow: !!$('[name=appWindow]', root)?.checked, ytTv: $('[name=ytTv]', root) ? $('[name=ytTv]', root).checked : c.ytTv, slots: read(root).slice(0, 6) });
         save(); draw();
       } }],
       onOpen: (root) => {
         const wrap = $('.dk-edit-body', root);
-        const keep = () => { Object.assign(c, { on: $('[name=dockOn]', root).checked, browser: $('[name=browser]', root).value, appWindow: $('[name=appWindow]', root).checked }); list.splice(0, list.length, ...read(root)); };
+        const keep = () => { Object.assign(c, { on: $('[name=dockOn]', root).checked, browser: $('[name=browser]', root).value, appWindow: !!$('[name=appWindow]', root)?.checked, ytTv: $('[name=ytTv]', root) ? $('[name=ytTv]', root).checked : c.ytTv }); list.splice(0, list.length, ...read(root)); };
         const redraw = (focusSel) => { wrap.innerHTML = body(); if (focusSel) $(focusSel, root)?.focus(); };
         root.addEventListener('change', (ev) => {
           const r = ev.target.closest('.dk-row');
@@ -249,5 +262,5 @@ const Dock = (() => {
     });
   }
 
-  return { draw, edge, handle, edit, browser, active: () => focus >= 0 };
+  return { draw, edge, handle, edit, browser, windows: () => [...webs, ...wins], slotFor: (w) => slots().find((s, i) => windowsOf(i).includes(w)), active: () => focus >= 0 };
 })();

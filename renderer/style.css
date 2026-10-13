@@ -651,7 +651,7 @@ body.dock-on #flap[data-side="left"] .gd-tab { top: 22%; }
 .gd-page .dim { color: var(--ink-dim); }
 
 /* ---------------------------------------------------------------- sound card (console style) */
-#vol-btn { width: 36px; height: 36px; border-radius: 50%; padding: 0; font-size: 16px; line-height: 1; border: 1px solid var(--glass-edge);
+#qr-btn, #vol-btn { width: 36px; height: 36px; border-radius: 50%; padding: 0; font-size: 16px; line-height: 1; border: 1px solid var(--glass-edge);
   background: linear-gradient(var(--glass-hi), var(--glass-lo)); box-shadow: 0 3px 10px var(--shadow); }
 #vol { position: fixed; inset: auto 0 0 0; z-index: 18; display: flex; justify-content: center; pointer-events: none; }
 #vol[hidden] { display: none; }
@@ -778,3 +778,31 @@ input.pad-hl[type=checkbox] { outline: none !important; box-shadow: none !import
 @keyframes in-up { from { transform: translateY(18px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes in-wobble { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-14deg) scale(1.1); } 75% { transform: rotate(12deg) scale(1.05); } }
 @keyframes in-steam { from { transform: skewX(-7deg); opacity: 1; filter: blur(0); } to { transform: translateY(-40px) skewX(-7deg) scale(1.05); opacity: 0; filter: blur(16px); } }
+
+/* ---------------------------------------------------------------- Quick Resume */
+#qr { position: fixed; inset: 0; z-index: 19; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0); transition: background .25s; }
+#qr[hidden] { display: none; }
+#qr.open { background: rgba(0,0,0,.55); backdrop-filter: blur(4px); }
+.qr-wrap { width: min(1200px, 96vw); display: flex; flex-direction: column; gap: 14px; transform: translateY(30px); opacity: 0; transition: transform .3s cubic-bezier(.2, 1.2, .3, 1), opacity .2s; }
+#qr.open .qr-wrap { transform: none; opacity: 1; }
+.qr-head { display: flex; align-items: baseline; gap: 14px; color: #fff; padding: 0 8px; }
+.qr-head b { font-size: 28px; font-weight: 300; } .qr-head span { flex: 1; opacity: .7; }
+.qr-auto { display: flex; align-items: center; gap: 8px; font-size: 13px; opacity: .9; cursor: pointer; }
+.qr-row { display: flex; gap: 18px; overflow-x: auto; padding: 16px 8px 18px; scroll-snap-type: x mandatory; }
+#qr .qr-card { flex: none; width: 210px; min-height: 0; align-items: stretch; justify-content: flex-start; scroll-snap-align: center; display: flex; flex-direction: column; gap: 4px; padding: 0; background: none; border: 0; box-shadow: none; border-radius: 0; color: #fff; text-align: left; cursor: pointer; filter: none;
+  transition: transform .2s cubic-bezier(.2, 1.4, .4, 1); }
+.qr-art { position: relative; width: 100%; aspect-ratio: 2 / 3; border-radius: 16px; overflow: hidden; background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 25%, #000));
+  box-shadow: 0 14px 40px rgba(0,0,0,.5); display: grid; place-items: center; }
+.qr-art > img, .qr-art > .art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.qr-card.app .qr-art { aspect-ratio: 16 / 10; margin-top: auto; }
+.qr-icon { font-size: 54px; font-weight: 800; color: rgba(255,255,255,.9); }
+.qr-card b { font-size: 15px; margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qr-card small { font-size: 12.5px; opacity: .65; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#qr .qr-card.cur { transform: scale(1.08); }
+.qr-card.cur .qr-art { box-shadow: 0 0 0 4px var(--accent-hi), 0 20px 50px rgba(0,0,0,.6); }
+.qr-card.frozen .qr-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(160deg, rgba(190,230,255,.55), rgba(120,170,220,.25)); backdrop-filter: grayscale(.7) blur(1px);
+  box-shadow: inset 0 0 40px rgba(220,245,255,.8); }
+.qr-b { position: absolute; z-index: 2; top: 10px; left: 10px; font-style: normal; font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: rgba(0,0,0,.6); color: #fff; }
+.qr-b.fz { background: #cfeaff; color: #0b2a44; }
+.qr-empty { color: #fff; opacity: .7; padding: 40px; }
+.qr-tip { margin: 0; color: #fff; opacity: .85; font-size: 13px; display: flex; gap: 8px; align-items: center; justify-content: center; }

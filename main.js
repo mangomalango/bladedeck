@@ -165,7 +165,7 @@ function quiet(on) {
     quietProc.kill(); quietProc = null;
   }
 }
-app.on('will-quit', () => { quiet(false); Peek.stop(); Net.stop(); if (process.platform === 'win32') { require('./winaudio').stop(); require('./winpad').stop(); } });
+app.on('will-quit', () => { require('./procs').thawAll(); quiet(false); Peek.stop(); Net.stop(); if (process.platform === 'win32') { require('./winaudio').stop(); require('./winpad').stop(); } });
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
@@ -649,7 +649,11 @@ ipcMain.handle('fonts', () => {
 });
 
 // ---------------------------------------------------------------- window dock
-ipcMain.handle('win-act', (_e, id, act) => Peek.windowAction(String(id), String(act)));
+ipcMain.handle('win-act', async (_e, id, act) => {
+  id = String(id);
+  if (id.startsWith('web:')) return require('./webapps').act(id.slice(4), String(act));
+  return Peek.windowAction(id, String(act));
+});
 // Open a dock app: the first installed program from its list, or else its web page or folder.
 // Which of these apps are installed, so the dock can offer the ones people actually have.
 ipcMain.handle('dock-detect', (_e, list = []) => list.map((a) => !!(a && ((a.cmd && process.platform !== 'win32' && onPath(a.cmd)) || (a.flat && process.platform === 'linux' && flatpakHas(a.flat))))));
@@ -675,6 +679,8 @@ ipcMain.handle('dock-open', async (_e, spec = {}) => {
   if (!spec.web && spec.uri && process.platform === 'win32') { try { await shell.openExternal(spec.uri); return true; } catch { /* not installed */ } }
   if (spec.home) return !(await shell.openPath(os.homedir()));
   if (!spec.url || !/^https?:/i.test(spec.url)) return false;
+  // Bladedeck's own app window, unless the site needs DRM that Electron cannot play.
+  if (spec.inApp && !spec.drm) return 'webapp';
   const b = spec.browser;
   if (b && startFirst(b.list || [b], b.app ? [`--app=${spec.url}`] : ['--new-window', spec.url])) return true;
   await shell.openExternal(spec.url); return true;
@@ -741,3 +747,18 @@ ipcMain.handle('net-poke', (_e, host, body) => Net.poke(String(host), body));
 // ---------------------------------------------------------------- artwork and RetroAchievements
 require('./online').register({ settings: () => loadLib().settings, mediaDir });
 require('./store').register({ getWin: () => win });
+
+// ---------------------------------------------------------------- running apps: freeze, web apps, focus
+const Procs = require('./procs');
+app.whenReady().then(() => Procs.init(dataDir()));
+ipcMain.handle('proc-freeze', (_e, pid, on) => Procs.freeze(pid, !!on));
+ipcMain.handle('proc-frozen', () => Procs.list());
+const WebApps = require('./webapps').register({ getDeck: () => win });
+WebApps.setSend((ch, d) => { if (win && !win.isDestroyed()) win.webContents.send(ch, d); });
+// Keep Bladedeck over Steam's "launching" pop-ups until the game's own window arrives.
+ipcMain.handle('keep-on-top', (_e, on) => { if (win) win.setAlwaysOnTop(!!on, process.platform === 'win32' ? 'screen-saver' : 'floating'); return true; });
+// Windows has no KWin: bring a program to the front by its process.
+ipcMain.handle('focus-pid', (_e, pid) => new Promise((res) => {
+  if (process.platform !== 'win32' || !(+pid)) return res(false);
+  require('child_process').execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `(New-Object -ComObject WScript.Shell).AppActivate(${+pid})`], { windowsHide: true, timeout: 8000 }, (err, out) => res(!err && /True/.test(String(out))));
+}));
