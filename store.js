@@ -99,6 +99,7 @@ function winFind(hint, exe) {
   }
   return null;
 }
+const onPathStore = (cmd) => { for (const dir of (process.env.PATH || '').split(path.delimiter)) { const p = path.join(dir, cmd); try { fs.accessSync(p, fs.constants.X_OK); return p; } catch { /* next */ } } return null; };
 const flatpakHas = (id) => [path.join(os.homedir(), '.local/share/flatpak/app', id), path.join('/var/lib/flatpak/app', id)].some((p) => fs.existsSync(p));
 
 /* ---------------------------------------------------------------- retro art */
@@ -301,14 +302,24 @@ function register({ getWin }) {
     flatpak: ['/usr/bin/flatpak', '/usr/local/bin/flatpak'].find((p) => fs.existsSync(p)) || '' }));
   /* Emulators published on GitHub (Xenia Canary): the newest build for this system is downloaded
      into ~/Games/Emulators/<name> and unpacked; the program is found and returned. */
-  const GH = { partydeck: { repo: 'partydeck/partydeck', name: 'PartyDeck', asset: { linux: /anylinux-x86_64\.AppImage$/i }, exe: { linux: /^partydeck.*\.AppImage$/i } },
+  const GH = {
+    shadps4: { repo: 'shadps4-emu/shadPS4', name: 'shadPS4', asset: { linux: /linux-sdl.*\.zip$/i, win32: /win64-sdl.*\.zip$/i }, exe: { linux: /^shadps4.*\.appimage$/i, win32: /^shadps4.*\.exe$/i } },
+    unleashed: { repo: 'hedge-dev/UnleashedRecomp', name: 'Unleashed Recompiled', asset: { linux: /Flatpak\.zip$/i, win32: /Windows\.zip$/i }, exe: { linux: /\.flatpak$/i, win32: /^UnleashedRecomp\.exe$/i }, bundle: true },
+    opengoal: { repo: 'open-goal/launcher', name: 'OpenGOAL', asset: { linux: /amd64\.AppImage$/i }, exe: { linux: /^OpenGOAL.*\.AppImage$/i } },
+    dusklight: { repo: 'TwilitRealm/dusklight', name: 'Dusklight', asset: { linux: /linux-x86_64\.AppImage$/i, win32: /win.*\.zip$/i }, exe: { linux: /^Dusklight.*\.AppImage$/i, win32: /^Dusklight.*\.exe$/i } },
+    soh: { repo: 'HarbourMasters/Shipwright', name: 'Ship of Harkinian', asset: { linux: /\.appimage$/i, win32: /win.*\.zip$/i }, exe: { linux: /^soh.*\.appimage$/i, win32: /^soh\.exe$/i } },
+    twoship: { repo: '2ship2harkinian/2ship2harkinian', name: '2 Ship 2 Harkinian', asset: { linux: /Linux\.zip$/i, win32: /Win64\.zip$/i }, exe: { linux: /^2ship\.appimage$/i, win32: /^2ship\.exe$/i } },
+    zelda64: { repo: 'Zelda64Recomp/Zelda64Recomp', name: 'Zelda 64 Recompiled', asset: { linux: /Linux-X64\.zip$/i, win32: /Windows.*\.zip$/i }, exe: { linux: /^Zelda64Recompiled$/, win32: /^Zelda64Recompiled\.exe$/i } },
+    partydeck: { repo: 'partydeck/partydeck', name: 'PartyDeck', asset: { linux: /anylinux-x86_64\.AppImage$/i }, exe: { linux: /^partydeck.*\.AppImage$/i } },
     xenia: { repo: 'xenia-canary/xenia-canary-releases', name: 'Xenia Canary', asset: { linux: /linux.*\.tar/i, win32: /windows.*\.zip/i }, exe: { linux: /^xenia_canary$/i, win32: /^xenia_canary\.exe$/i } } };
   const ghDir = (g) => path.join(os.homedir(), 'Games', 'Emulators', g.name);
   const ghFind = (g) => { const want = g.exe[process.platform]; if (!want) return null; const walk = (d, n) => { let it; try { it = fs.readdirSync(d, { withFileTypes: true }); } catch { return null; } for (const x of it) { if (x.isFile() && want.test(x.name)) return path.join(d, x.name); } for (const x of it) if (x.isDirectory() && n < 6) { const f = walk(path.join(d, x.name), n + 1); if (f) return f; } return null; }; return walk(ghDir(g), 0); };
-  ipcMain.handle('emu-gh-installed', (_e, id) => { const g = GH[id]; return g ? ghFind(g) : null; });
+  ipcMain.handle('emu-gh-installed', (_e, id) => { const g = GH[id]; if (!g) return null; const f = ghFind(g); if (f && g.bundle && /\.flatpak$/i.test(f)) return flatpakHas(path.basename(f, '.flatpak')) ? f : null; return f; });
   ipcMain.handle('emu-gh-install', wrap(async (_e, id) => {
     const g = GH[id]; if (!g) throw new Error('Bad request.');
-    const have = ghFind(g); if (have) return { exe: have, already: true };
+    const have = ghFind(g);
+    if (have && g.bundle && /\.flatpak$/i.test(have)) { if (flatpakHas(path.basename(have, '.flatpak'))) return { exe: onPathStore('flatpak') || '/usr/bin/flatpak', args: `run ${path.basename(have, '.flatpak')}`, already: true }; }
+    else if (have) return { exe: have, already: true };
     const rel = await getJson(`https://api.github.com/repos/${g.repo}/releases/latest`);
     const asset = (rel.assets || []).find((a) => g.asset[process.platform]?.test(a.name));
     if (!asset) throw new Error(`There is no ${g.name} build for this system.`);
@@ -328,8 +339,16 @@ function register({ getWin }) {
       if (/\.zip$/i.test(tmp)) await run('unzip', ['-o', '-q', tmp, '-d', dest], 300000).catch(() => run('tar', ['-xf', tmp, '-C', dest], 300000));
       else await run('tar', ['-xf', tmp, '-C', dest], 300000);
     } finally { fs.rmSync(tmp, { force: true }); }
+    // Some downloads hold another archive (a .tar.gz inside a .zip): open those too.
+    if (!ghFind(g)) for (const f of fs.readdirSync(dest)) if (/\.(tar\.gz|tgz|tar\.xz|zip)$/i.test(f)) await run('tar', ['-xf', path.join(dest, f), '-C', dest], 300000).catch(() => {});
     const exe = ghFind(g);
     if (!exe) throw new Error(`${g.name} was downloaded, but its program was not found inside.`);
+    // A Flatpak bundle installs for this user and runs through flatpak.
+    if (g.bundle && /\.flatpak$/i.test(exe)) {
+      const out = await run('flatpak', ['install', '--user', '-y', '--noninteractive', '--bundle', exe], 600000).catch((err) => { throw new Error(`It did not install: ${err.message.split('\n').pop()}`); });
+      const appId = (String(out).match(/app\/([\w.-]+)\//) || [])[1] || path.basename(exe, '.flatpak');
+      return { exe: onPathStore('flatpak') || '/usr/bin/flatpak', args: `run ${appId}`, already: false, version: rel.tag_name };
+    }
     if (process.platform !== 'win32') { try { fs.chmodSync(exe, 0o755); } catch { /* read-only */ } }
     return { exe, already: false, version: rel.tag_name };
   }));

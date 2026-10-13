@@ -839,12 +839,14 @@ async function scanRoms(em) {
   const exts = extList(em);
   if (!exts.length || !em.romDirs?.length) { toast(`Set game folders and file types for ${em.name} first.`, 'err'); return; }
   toast(`Scanning ${em.name} folders`);
-  const files = await api.scanRoms({ exts, dirs: em.romDirs });
+  let files = await api.scanRoms({ exts, dirs: em.romDirs });
+  // PS4 games are folders: only their eboot.bin counts.
+  if (em.onlyNames) files = files.filter((f) => em.onlyNames.includes(baseName(f).toLowerCase()));
   const have = new Set(S.lib.entries.filter((e) => e.type === 'rom').map((e) => e.rom));
   let added = 0;
   for (const f of files) {
     if (have.has(f)) continue;
-    S.lib.entries.push({ id: uid(), type: 'rom', title: cleanTitle(f), rom: f, emulatorId: em.id, system: em.system || em.name, added: Date.now(), playtime: 0 });
+    S.lib.entries.push({ id: uid(), type: 'rom', title: em.onlyNames ? cleanTitle(f.replace(/[\\/][^\\/]*$/, '')) : cleanTitle(f), rom: f, emulatorId: em.id, system: em.system || em.name, added: Date.now(), playtime: 0 });
     added++;
   }
   save(); refresh();

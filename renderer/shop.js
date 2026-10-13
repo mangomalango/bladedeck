@@ -20,6 +20,7 @@ const EMU_CATALOG = [
   { id: '', win: { id: 'Stenzek.DuckStation', hint: 'duckstation', exe: '^duckstation-qt-x64.*\\.exe$' }, name: 'DuckStation', system: 'PlayStation', args: '-batch -fullscreen -- "{rom}"', exts: 'cue,chd,pbp,m3u', site: 'https://www.duckstation.org', linuxNote: 'Not on Flathub. Get the AppImage from its website, then add it in Emulators.' },
   { id: 'org.ppsspp.PPSSPP', win: { id: 'PPSSPPTeam.PPSSPP', hint: 'ppsspp', exe: '^ppssppwindows64\\.exe$' }, name: 'PPSSPP', system: 'PSP', args: '"{rom}"', exts: 'iso,cso,pbp,chd', site: 'https://www.ppsspp.org' },
   { id: 'net.rpcs3.RPCS3', name: 'RPCS3', system: 'PlayStation 3', args: '--no-gui "{rom}"', exts: 'iso,bin', site: 'https://rpcs3.net' },
+  { id: '', gh: 'shadps4', name: 'shadPS4', system: 'PlayStation 4', args: '"{rom}"', exts: 'bin', onlyNames: ['eboot.bin'], site: 'https://shadps4.net', note: 'PS4 games are folders: point it at your own dumps. Bloodborne runs; online play is not available yet.' },
   { id: '', gh: 'xenia', name: 'Xenia Canary', system: 'Xbox 360', args: '--fullscreen=true "{rom}"', exts: 'iso,xex,zar', site: 'https://xenia.jp', note: 'Downloaded from its GitHub releases. The Linux build is newer and still experimental.' },
   { id: 'org.flycast.Flycast', name: 'Flycast', system: 'Dreamcast', args: '"{rom}"', exts: 'cdi,gdi,chd', site: 'https://github.com/flyinghead/flycast' },
   { id: 'app.xemu.xemu', win: { id: 'xemu-project.xemu', hint: 'xemu', exe: '^xemu\\.exe$' }, name: 'xemu', system: 'Xbox', args: '-full-screen -dvd_path "{rom}"', exts: 'iso,xiso', site: 'https://xemu.app' },
@@ -37,6 +38,33 @@ const CLASSICS = [
 ];
 const ITCH_FEEDS = [['popular', 'Popular', ''], ['top', 'Top rated', 'top-rated'], ['new', 'New', 'newest'], ['action', 'Action', 'genre-action'], ['platformer', 'Platformer', 'genre-platformer'],
   ['rpg', 'RPG', 'genre-rpg'], ['puzzle', 'Puzzle', 'genre-puzzle'], ['horror', 'Horror', 'tag-horror'], ['adventure', 'Adventure', 'genre-adventure'], ['shooter', 'Shooter', 'genre-shooter'], ['strategy', 'Strategy', 'genre-strategy']];
+/* PC ports made by taking console games apart (decompilation) or translating their code to run
+   natively (recompilation). They need your own copy of the original game; each asks for its files
+   the first time it starts. Ones with a download install with one press; the rest link to the
+   project. */
+const PORTS = [
+  ['Xbox 360 and PS3 era (7th generation)', [
+    { gh: 'unleashed', title: 'Sonic Unleashed', port: 'Unleashed Recompiled', console: 'Xbox 360', status: 'Playable', need: 'your own Xbox 360 copy of the game (and its update and DLC, if you have them)', site: 'https://github.com/hedge-dev/UnleashedRecomp' },
+    { title: 'Sonic the Hedgehog (2006)', port: 'Marathon Recompiled', console: 'Xbox 360', status: 'No download yet: build it yourself', site: 'https://github.com/sonicnext-dev/MarathonRecomp' },
+    { title: 'Grand Theft Auto IV', port: 'Liberty Recompiled', console: 'Xbox 360', status: 'Early development', site: 'https://github.com/UnknownLITE/LibertyRecomp' },
+    { title: 'Blue Dragon, Ninja Gaiden 2, Dragon Ball Z: Budokai HD and more', port: 'ReXGlue recompiler ports', console: 'Xbox 360', status: 'Alpha builds', site: 'https://github.com/rexglue/rexglue-sdk' }
+  ]],
+  ['PS2, GameCube and Wii era (6th generation)', [
+    { gh: 'opengoal', title: 'Jak and Daxter series', port: 'OpenGOAL', console: 'PlayStation 2', status: 'Playable (more games in progress)', need: 'your own PS2 disc image', site: 'https://opengoal.dev' },
+    { gh: 'dusklight', title: 'The Legend of Zelda: Twilight Princess', port: 'Dusklight', console: 'GameCube', status: 'Playable', need: 'your own GameCube disc image', site: 'https://github.com/TwilitRealm/dusklight' },
+    { title: 'Super Mario Galaxy', port: 'Petari decompilation (AstroCore port announced)', console: 'Wii', status: 'Decompiled; port announced', site: 'https://github.com/SMGCommunity/Petari' },
+    { title: 'Super Smash Bros. Melee', port: 'Melee decompilation', console: 'GameCube', status: 'Decompiled; no PC port yet', site: 'https://github.com/doldecomp/melee' },
+    { title: 'Sly Cooper and the Thievius Raccoonus', port: 'sly1 decompilation', console: 'PlayStation 2', status: 'In progress', site: 'https://github.com/theonlyzac/sly1' }
+  ]],
+  ['PS4 and Xbox One era (8th generation)', [
+    { emu: 'shadps4', title: 'PlayStation 4 games, including Bloodborne', port: 'shadPS4 (an emulator, no ports yet)', console: 'PlayStation 4', status: 'Many games playable; online play not yet', site: 'https://shadps4.net' }
+  ]],
+  ['Also great: Nintendo 64', [
+    { gh: 'soh', title: 'The Legend of Zelda: Ocarina of Time', port: 'Ship of Harkinian', console: 'Nintendo 64', status: 'Playable', need: 'your own N64 ROM', site: 'https://github.com/HarbourMasters/Shipwright' },
+    { gh: 'twoship', title: 'The Legend of Zelda: Majora\'s Mask', port: '2 Ship 2 Harkinian', console: 'Nintendo 64', status: 'Playable', need: 'your own N64 ROM', site: 'https://github.com/2ship2harkinian/2ship2harkinian' },
+    { gh: 'zelda64', title: 'The Legend of Zelda: Majora\'s Mask', port: 'Zelda 64 Recompiled', console: 'Nintendo 64', status: 'Playable', need: 'your own N64 ROM', site: 'https://github.com/Zelda64Recomp/Zelda64Recomp' }
+  ]]
+];
 const SCUMMVM = { id: 'org.scummvm.ScummVM', win: { id: 'ScummVM.ScummVM', hint: 'scummvm', exe: '^scummvm\\.exe$' }, name: 'ScummVM' };
 const HB_SYSTEM = { GB: 'Game Boy', GBC: 'Game Boy Color', GBA: 'Game Boy Advance' };
 
@@ -81,6 +109,7 @@ const Shop = (() => {
     if (tab === 'classics') loadClassics();
     if (tab === 'homebrew' && !hb.games.length) loadHb();
     if (tab === 'emus') loadEmus();
+    if (tab === 'ports') draw();
   }
   const root = () => document.querySelector('#modal .shop');
 
@@ -125,7 +154,7 @@ const Shop = (() => {
 
   function draw() {
     const el = root(); if (!el) return;
-    const tabs = [['free', 'Free now'], ['itch', 'itch.io'], ['classics', 'Free classics'], ['homebrew', 'Homebrew games'], ['emus', 'Emulators']];
+    const tabs = [['free', 'Free now'], ['itch', 'itch.io'], ['classics', 'Free classics'], ['ports', 'PC ports'], ['homebrew', 'Homebrew games'], ['emus', 'Emulators']];
     let body = '';
     if (tab === 'free') {
       if (!free) body = '<p class="note">Asking the stores what is free…</p>';
@@ -154,6 +183,14 @@ const Shop = (() => {
           const how = c.how === 'steam' ? 'Free on Steam' : c.how === 'flatpak' ? 'Open source' : 'Plays in ScummVM';
           return card(classicArt[c.id], c.title, `${c.year} · ${how}`, busy[c.id] ? 'Getting…' : owned ? 'In your library' : c.how === 'steam' ? 'Install' : 'Get', `data-cl="${i}" ${owned || busy[c.id] ? 'disabled' : ''} title="${esc(c.blurb)}"`);
         }).join('')}</div>`;
+    } else if (tab === 'ports') {
+      body = `<p class="note">Console games rebuilt to run natively on PC, by taking them apart (decompilation) or translating their code (recompilation). Smoother than emulation, often with widescreen, high frame rates and mods. Each needs your own copy of the original game and asks for its files the first time it starts.${paths.win ? '' : ''}</p>`
+        + PORTS.map(([g, list]) => `<h3 class="sh-h">${esc(g)}</h3><div class="sh-ports">${list.map((p, i) => {
+          const owned = p.gh && S.lib.entries.some((e) => e.port === p.gh);
+          const btn = p.emu ? 'Emulators' : p.gh ? (busy['gh:' + p.gh] != null ? 'Getting…' : owned ? 'Play' : 'Get') : 'Project page';
+          return `<div class="sh-port"><div><b>${esc(p.title)}</b><span>${esc(p.port)} · ${esc(p.console)}</span><em class="${/Playable/.test(p.status) ? 'ok' : ''}">${esc(p.status)}</em>${p.need ? `<small>Needs ${esc(p.need)}.</small>` : ''}</div>
+            <div class="sh-port-b"><button type="button" class="${p.gh && !owned ? 'primary' : ''}" data-port="${esc(g)}|${i}" ${busy['gh:' + p.gh] != null ? 'disabled' : ''}>${btn}</button>${p.gh ? `<button type="button" data-u="${esc(p.site)}">About</button>` : ''}</div></div>`;
+        }).join('')}</div>`).join('');
     } else if (tab === 'homebrew') {
       const plats = [['', 'All'], ['GB', 'Game Boy'], ['GBC', 'Game Boy Color'], ['GBA', 'Game Boy Advance']];
       body = `<p class="note">New games made by fans for real Game Boy hardware, free to download and share, from Homebrew Hub. They play in mGBA, which Bladedeck installs for you the first time.</p>
@@ -191,7 +228,7 @@ const Shop = (() => {
       if (!S.lib.entries.some((x) => x.installKey === k)) S.lib.entries.push({ id: uid(), type: 'app', title: e.name, exe: run.exe, args: run.pre.replace('--filesystem=home ', '').trim(), installKey: k, added: Date.now(), playtime: 0 });
       save(); refresh(); draw(); toast(`${e.name} is ready in Apps.`, 'fun'); return null;
     }
-    em = { id: uid(), name: e.name, exe: run.exe, args: `${run.pre}${e.args}`, system: e.system, exts: e.exts, romDirs: [dir], installKey: k, ...(paths.win ? {} : { flatpak: e.id }) };
+    em = { id: uid(), name: e.name, exe: run.exe, args: `${run.pre}${e.args}`, system: e.system, exts: e.exts, romDirs: [dir], installKey: k, ...(e.onlyNames ? { onlyNames: e.onlyNames } : {}), ...(paths.win || e.gh ? {} : { flatpak: e.id }) };
     S.lib.emulators.push(em); save(); ensureEmuApps(); refresh(); draw();
     toast(`${e.name} is ready on the Emulation blade. Put games in ${dir}; they join it by themselves.`, 'fun');
     return em;
@@ -237,6 +274,23 @@ const Shop = (() => {
     } finally { delete busy[c.id]; draw(); }
   }
 
+  /* -------------------------------------------------------------- PC ports */
+  async function getPort(p) {
+    if (p.emu) { tab = 'emus'; draw(); kick(); return; }
+    if (!p.gh) { web(p.site); return; }
+    const have = S.lib.entries.find((e) => e.port === p.gh);
+    if (have) { closeModal(); launch(have); return; }
+    if (paths.win === false && !paths.flatpak && p.gh === 'unleashed') { toast('Unleashed Recompiled needs Flatpak on Linux.', 'err'); return; }
+    busy['gh:' + p.gh] = 0; draw();
+    toast(`Downloading ${p.port}…`);
+    const r = await api.emuGhInstall(p.gh);
+    delete busy['gh:' + p.gh]; draw();
+    if (!r.ok) { toast(`${p.port} did not install: ${r.error}`, 'err'); return; }
+    const e = { id: uid(), type: 'recomp', title: p.title, exe: r.data.exe, args: r.data.args || '', cwd: r.data.args ? '' : r.data.exe.replace(/[\\/][^\\/]*$/, ''), port: p.gh, system: `${p.console} port`, added: Date.now(), playtime: 0 };
+    S.lib.entries.push(e); save(); refresh(e.id); Art.fillOne(e); draw();
+    toast(`${p.port} is in your library (PC blade). The first time it starts it asks for ${p.need || 'the original game\'s files'}.`, 'fun');
+  }
+
   /* -------------------------------------------------------------- input */
   // A cover that fails to load leaves the coloured tile with the game's initials.
   document.addEventListener('error', (ev) => {
@@ -256,6 +310,8 @@ const Shop = (() => {
       return;
     }
     if (b.dataset.cl) { getClassic(CLASSICS[+b.dataset.cl]); return; }
+    if (b.dataset.u) { web(b.dataset.u); return; }
+    if (b.dataset.port) { const [g, i] = b.dataset.port.split('|'); getPort(PORTS.find((x) => x[0] === g)[1][+i]); return; }
     if (b.dataset.free) {
       const [store, i] = b.dataset.free.split(':'); const g = free[store.toLowerCase()][+i];
       if (store === 'Steam') { api.openLink(g.url); toast(`Steam is opening the install box for ${g.title}.`); } else web(g.url);
@@ -313,7 +369,7 @@ const Watch = (() => {
 
   function emulatorFor(file) {
     const ext = (file.match(/\.([^./]+)$/) || [, ''])[1].toLowerCase();
-    const can = S.lib.emulators.filter((em) => extList(em).includes(ext));
+    const can = S.lib.emulators.filter((em) => extList(em).includes(ext) && (!em.onlyNames || em.onlyNames.includes(baseName(file).toLowerCase())));
     if (can.length < 2) return can[0];
     const low = file.toLowerCase();
     return can.find((em) => (em.system || '').split(/\s*\/\s*/).some((sys) => sys && low.includes(sys.toLowerCase()))) || can[0];
@@ -321,7 +377,7 @@ const Watch = (() => {
   function addRom(file, quiet) {
     if (S.lib.entries.some((e) => e.rom === file)) return null;
     const em = emulatorFor(file); if (!em) return null;
-    const e = { id: uid(), type: 'rom', title: cleanTitle(file), rom: file, emulatorId: em.id, system: em.system || em.name, added: Date.now(), playtime: 0 };
+    const e = { id: uid(), type: 'rom', title: em.onlyNames ? cleanTitle(file.replace(/[\\/][^\\/]*$/, '')) : cleanTitle(file), rom: file, emulatorId: em.id, system: em.system || em.name, added: Date.now(), playtime: 0 };
     S.lib.entries.push(e); save();
     if (!quiet) { refresh(e.id); toast(`Added ${e.title} for ${em.name}.`, 'fun'); }
     Art.fillOne(e);

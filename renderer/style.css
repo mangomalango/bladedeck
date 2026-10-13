@@ -1008,3 +1008,12 @@ body.np-on .poster, body.run-on .poster { width: clamp(150px, 12vw, 220px); flex
 .sp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
 .dlg .sp-g { display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: 12px; text-align: left; }
 .sp-g b { font-size: 12.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* PC ports */
+.sh-ports { display: flex; flex-direction: column; gap: 8px; }
+.sh-port { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 10px 14px; border-radius: 14px; background: color-mix(in srgb, var(--glass-hi) 35%, transparent); border: 1px solid var(--glass-edge); }
+.sh-port b { display: block; font-size: 14.5px; } .sh-port span { display: block; font-size: 12.5px; color: var(--ink-dim); }
+.sh-port em { display: inline-block; font-style: normal; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-top: 4px; background: color-mix(in srgb, var(--ink) 14%, transparent); }
+.sh-port em.ok { background: #2fbf71; color: #052; }
+.sh-port small { display: block; font-size: 11.5px; color: var(--ink-dim); margin-top: 3px; }
+.sh-port-b { display: flex; gap: 6px; } .dlg .sh-port-b button { border-radius: 999px; padding: 7px 14px; }
