@@ -23,6 +23,7 @@ const Panels = (() => {
   const geo = () => (S.lib.settings.panels = S.lib.settings.panels || {});
 
   // The space panels can use: below the top bar, above the hints.
+  const isOpen = (k) => { const p = open.get(k); return !!p && !p.min; };
   const area = () => ({ x: 14, y: 76, w: innerWidth - 28, h: innerHeight - 76 - 84 });
   const SNAPS = [
     ['Middle', (a) => ({ w: a.w * 0.64, h: a.h * 0.78, x: a.x + a.w * 0.18, y: a.y + a.h * 0.11 })],
@@ -45,10 +46,10 @@ const Panels = (() => {
   function show(spec) {
     const key = String(spec.key || spec.kind);
     let p = open.get(key);
-    if (p) { p.min = false; p.el.hidden = false; focus(p); tell(); return p; }
+    if (p) { p.min = false; p.el.hidden = false; if (spec.path && p.kind === 'files') Files.go(p, spec.path); focus(p); tell(); return p; }
     const g = geo()[key];
     const s0 = SNAPS[0][1](area());
-    p = { key, kind: spec.kind || 'web', title: spec.title || 'Panel', icon: spec.icon || '🌐', url: spec.url || PANEL_HOME, tv: !!spec.tv,
+    p = { key, startPath: spec.path || '', kind: spec.kind || 'web', title: spec.title || 'Panel', icon: spec.icon || '🌐', url: spec.url || PANEL_HOME, tv: !!spec.tv,
       x: g?.x ?? s0.x, y: g?.y ?? s0.y, w: g?.w ?? s0.w, h: g?.h ?? s0.h, pinned: !!g?.pinned, min: false, z: ++z, snap: 0 };
     p.el = document.createElement('section');
     p.el.className = `fw ${p.kind}`;
@@ -58,6 +59,7 @@ const Panels = (() => {
       <div class="fw-body"></div><i class="fw-grip"></i><div class="fw-hint"></div>`;
     p.body = p.el.querySelector('.fw-body');
     if (p.kind === 'files') Files.mount(p);
+    else if (p.kind === 'system') SysPanel.mount(p);
     else {
       const wv = document.createElement('webview');
       wv.setAttribute('partition', 'persist:webapps');
@@ -89,6 +91,7 @@ const Panels = (() => {
     document.body.classList.add('panel-on');
     if (p.wv) setTimeout(() => p.wv.focus(), 60);
     else if (p.kind === 'files') Files.focus(p);
+    else if (p.kind === 'system') SysPanel.focus(p);
     hint(); tell();
   }
   // Back to the menu: unpinned panels tuck away, pinned ones stay out.
@@ -175,6 +178,7 @@ const Panels = (() => {
     if (a === 'start') { arranging = true; p.el.classList.add('arrange'); hint(); Sound.play('tick'); return true; }
     if (a === 'back') { leave(); return true; }
     if (p.kind === 'files') return Files.handle(p, a);
+    if (p.kind === 'system') return SysPanel.handle(p, a);
     const map = { up: 'Up', down: 'Down', left: 'Left', right: 'Right', a: 'Enter', x: p.tv ? 'MediaPlayPause' : 'Space', lb: 'PageUp', rb: 'PageDown' };
     if (map[a]) { key(p, map[a]); return true; }
     if (a === 'b') { back(p); return true; }
@@ -211,7 +215,7 @@ const Panels = (() => {
   // Games start: unpinned panels tuck away.
   document.addEventListener('deck-away', (ev) => { if (!ev.detail) return; for (const p of open.values()) if (!p.pinned && !p.min) minimize(p, true); });
 
-  return { show, act, list, handle, leave, active: () => !!focused, has: (k) => open.has(k), focus: (k) => { const p = open.get(k); if (p) act(k, 'show'); } };
+  return { show, act, list, handle, leave, isOpen, active: () => !!focused, has: (k) => open.has(k), focus: (k) => { const p = open.get(k); if (p) act(k, 'show'); } };
 })();
 
 /* Files: Bladedeck's own file browser for the Files panel. Places on the left (Home, Downloads,
@@ -232,7 +236,7 @@ const Files = (() => {
       const f = ev.target.closest('[data-file]'); if (f) openItem(p, p.items[+f.dataset.file]);
     });
     p.body.addEventListener('dblclick', (ev) => ev.preventDefault());
-    load(p, p.places[0]?.path);
+    load(p, p.startPath || p.places[0]?.path);
   }
   async function load(p, dir) {
     const r = await api.fsList(dir);
@@ -259,7 +263,82 @@ const Files = (() => {
     if (a === 'lt' || a === 'rt' || a === 'music' || a === 'vol' || a === 'guide') return false;
     return PadNav.input(p.body, a) || true;
   }
-  return { mount, focus, up, handle };
+  return { mount, focus, up, handle, go: (p, d) => load(p, d) };
+})();
+
+/* The System panel: how the computer is doing, and its everyday controls. Processor, graphics,
+   memory, temperatures, storage, battery and network refresh every two seconds while it is out;
+   brightness, Wi-Fi and power are below. Power buttons need a second press. */
+const SysPanel = (() => {
+  const gb = (n) => `${(n / 1073741824).toFixed(n > 1e11 ? 0 : 1)} GB`;
+  const bar = (pct, hot) => `<i class="sy-bar ${hot ? 'hot' : ''}"><b style="width:${Math.max(0, Math.min(100, pct || 0))}%"></b></i>`;
+  const up = (s) => { const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h >= 24 ? `${Math.floor(h / 24)} d ${h % 24} h` : `${h} h ${m} min`; };
+  let armed = null;
+
+  function mount(p) {
+    p.body.innerHTML = `<div class="sy"><div class="sy-cards"></div>
+      <div class="sy-ctl">
+        <label class="sy-row sy-bright" hidden><span>☀️ Brightness</span><input type="range" min="5" max="100" step="5" name="syBright"></label>
+        <div class="sy-row"><span>📶 Wi-Fi</span><button type="button" data-sy="wifi">Networks</button><button type="button" data-sy="wifioff">Disconnect</button></div>
+        <div class="sy-wifi"></div>
+        <div class="sy-row sy-power"><span>⏻ Power</span><button type="button" data-sy="lock">Lock</button><button type="button" data-sy="sleep">Sleep</button><button type="button" data-sy="restart">Restart</button><button type="button" data-sy="off">Shut down</button></div>
+      </div></div>`;
+    p.body.addEventListener('click', (ev) => { const b = ev.target.closest('[data-sy]'); if (b) act(p, b); });
+    p.body.addEventListener('change', async (ev) => { if (ev.target.name === 'syBright') { const r = await api.sysBrightness(+ev.target.value); if (!r.ok) toast(r.error || 'Brightness could not be changed here.', 'err'); } });
+    p.timer = setInterval(() => { if (!p.min && p.el.isConnected && deckFocused()) refresh(p); }, 2000);
+    refresh(p);
+  }
+
+  async function refresh(p) {
+    const s = await api.sysStats(); if (!p.el.isConnected) { clearInterval(p.timer); return; }
+    const t = s.temps || {}, card = (ic, title, big, sub, pct, hot) => `<div class="sy-card"><span>${ic} ${esc(title)}</span><b>${big}</b>${pct != null ? bar(pct, hot) : ''}<small>${sub}</small></div>`;
+    const g = s.gpu, b = s.battery, n = s.net;
+    p.body.querySelector('.sy-cards').innerHTML = [
+      card('🧠', 'Processor', s.cpu.load != null ? `${s.cpu.load}%` : '…', `${esc(s.cpu.model)} · ${s.cpu.cores} threads${t.Processor ? ` · ${t.Processor}°C` : ''}`, s.cpu.load, t.Processor > 85),
+      g ? card('🎮', 'Graphics', g.busy != null ? `${g.busy}%` : g.mhz ? `${g.mhz} MHz` : esc(g.name), `${esc(g.name)}${g.maxMhz ? ` · up to ${g.maxMhz} MHz` : ''}${t.Graphics ? ` · ${t.Graphics}°C` : ''}`, g.busy ?? (g.mhz && g.maxMhz ? 100 * g.mhz / g.maxMhz : null), t.Graphics > 85) : '',
+      card('💾', 'Memory', gb(s.mem.used), `of ${gb(s.mem.total)}`, 100 * s.mem.used / s.mem.total, s.mem.used / s.mem.total > 0.9),
+      b ? card(b.status === 'Charging' ? '⚡' : '🔋', 'Battery', `${b.pct}%`, `${esc(b.status || '')}${b.watts ? ` · ${b.watts} W` : ''}`, b.pct, b.pct < 15) : '',
+      ...(s.disks || []).map((d) => card('🗄️', d.label, `${gb(d.free)} free`, `of ${gb(d.total)}`, 100 * (1 - d.free / d.total), d.free / d.total < 0.08)),
+      n ? card(n.kind === 'Ethernet' ? '🔌' : '📶', 'Network', n.connected ? esc(n.name) : 'Offline', n.connected ? `${n.kind}${n.signal != null ? ` · ${n.signal}% signal` : ''}` : 'Not connected', n.signal, false) : '',
+      card('🌡️', 'Temperatures', Object.keys(t).length ? `${Math.max(...Object.values(t))}°C` : '—', Object.entries(t).map(([k, v]) => `${esc(k)} ${v}°`).join(' · ') || 'No sensors', null),
+      card('⏱️', 'Up for', up(s.uptime), esc(s.host), null)
+    ].join('');
+    const br = p.body.querySelector('.sy-bright');
+    if (s.brightness) { br.hidden = false; const r = br.querySelector('input'); if (document.activeElement !== r && !r.classList.contains('pad-hl')) r.value = s.brightness.pct; }
+  }
+
+  async function act(p, b) {
+    const a = b.dataset.sy;
+    if (a === 'wifi') {
+      const box = p.body.querySelector('.sy-wifi'); box.innerHTML = '<p class="note">Looking for networks…</p>';
+      const r = await api.sysWifi();
+      box.innerHTML = r.error ? `<p class="note">${esc(r.error)}</p>` : r.networks.map((w) => `<button type="button" class="sy-net ${w.on ? 'on' : ''}" data-sy="join" data-ssid="${esc(w.ssid)}" data-secure="${w.secure ? 1 : ''}"><b>${esc(w.ssid)}</b><small>${w.on ? 'Connected · ' : ''}${w.signal}%${w.secure ? ' · 🔒' : ''}</small></button>`).join('');
+      return;
+    }
+    if (a === 'join') {
+      const ssid = b.dataset.ssid;
+      const go = async (password) => { toast(`Connecting to ${ssid}…`); const r = await api.sysWifiConnect({ ssid, password }); toast(r.ok ? `Connected to ${ssid}.` : r.error, r.ok ? 'fun' : 'err'); refresh(p); };
+      if (!b.dataset.secure) { go(''); return; }
+      openModal({ title: `Wi-Fi: ${ssid}`, html: '<label>Password<input type="password" name="wpw" autocomplete="off"></label><p class="note">Saved networks connect without it: leave it empty to try.</p>',
+        buttons: [{ label: 'Cancel' }, { label: 'Connect', primary: true, onClick: (root) => { go($('[name=wpw]', root).value); } }] });
+      return;
+    }
+    if (a === 'wifioff') { const r = await api.sysWifiOff(); toast(r.ok ? 'Wi-Fi disconnected.' : 'Could not disconnect.'); refresh(p); return; }
+    // Power: a second press within four seconds does it.
+    const name = { lock: 'lock the screen', sleep: 'sleep', restart: 'restart', off: 'shut down' }[a];
+    if (!name) return;
+    if (armed !== a) { armed = a; b.classList.add('armed'); const t = b.textContent; b.textContent = 'Press again'; setTimeout(() => { if (armed === a) armed = null; b.classList.remove('armed'); b.textContent = t; }, 4000); return; }
+    armed = null;
+    const r = await api.sysPower(a);
+    if (!r.ok) toast(`Could not ${name}: ${r.error || 'not allowed'}`, 'err');
+  }
+  function focus(p) { const f = p.body.querySelector('button, input'); if (f && !p.body.querySelector('.pad-hl')) PadNav.mark(f); }
+  function handle(p, a) {
+    if (a === 'b') { Panels.leave(); return true; }
+    if (a === 'lt' || a === 'rt' || a === 'music' || a === 'vol' || a === 'guide') return false;
+    return PadNav.input(p.body, a) || true;
+  }
+  return { mount, focus, handle };
 })();
 
 // One way to act on any window: panels here, everything else through the main process.

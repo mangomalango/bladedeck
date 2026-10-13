@@ -68,7 +68,8 @@ const Companion = (() => {
   // Send the moment to phones that are listening, whenever it changes.
   let busy = false;
   async function push() { if (busy) return; busy = true; try { api.companionState(await state()); } catch { /* not ready */ } finally { busy = false; } }
-  setInterval(() => { if (!document.hidden || S.playing) push(); }, 2000);
+  // Only while a phone is connected: no phone, no work.
+  setInterval(async () => { if (await api.companionListening()) push(); }, 2000);
 
   /* -------------------------------------------------------------- the Phone app screen */
   async function open() {

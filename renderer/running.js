@@ -110,7 +110,7 @@ const Running = (() => {
   window.bladedeck.onWebapps(() => setTimeout(refresh, 150));
   document.addEventListener('running-changed', refresh);
   addEventListener('focus', () => setTimeout(refresh, 300));
-  timer = setInterval(() => { if (!document.hidden) refresh(); }, 4000);
+  timer = setInterval(() => { if (deckFocused()) refresh(); }, 4000);
 
   return { refresh, edge, handle, active: () => focus >= 0, visible: () => !el.hidden };
 })();

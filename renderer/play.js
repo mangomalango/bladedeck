@@ -92,7 +92,8 @@ const Tasks = (() => {
     };
     openModal({
       title: `Tasks: ${e.title}`, wide: true, html: '',
-      buttons: [...(['steam', 'exe', 'gog', 'recomp'].includes(e.type) ? [{ label: '👥 Split screen', left: true, onClick: () => { setTimeout(() => SplitScreen.open(e), 0); } }] : []), { label: 'Done', primary: true }],
+      buttons: [...(['steam', 'exe', 'gog', 'recomp'].includes(e.type) ? [{ label: '👥 Split screen', left: true, onClick: () => { setTimeout(() => SplitScreen.open(e), 0); } }] : []),
+        ...(e.type === 'rom' ? [{ label: '🧩 Cheats & mods', left: true, onClick: () => { setTimeout(() => Mods.open(e), 0); } }] : []), { label: 'Done', primary: true }],
       onOpen: (root) => {
         draw(root);
         root.addEventListener('click', async (ev) => {
@@ -432,5 +433,5 @@ const Downloads = (() => {
   btn.addEventListener('click', () => { pop.hidden = !pop.hidden; });
   document.addEventListener('click', (ev) => { if (!ev.target.closest('#dl, #dl-pop')) pop.hidden = true; });
 
-  return { update };
+  return { update, list: () => list.slice() };
 })();

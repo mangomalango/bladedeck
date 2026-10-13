@@ -685,6 +685,46 @@ ipcMain.handle('split-launch', (_e, { entry, steamPath }) => {
   return { ok: true, pid: child.pid, exe };
 });
 
+// ---------------------------------------------------------------- cheats and mods
+/* Where each emulator looks for cheats, patches and mods: its Flatpak folders and its usual
+   folders when installed another way. Only the ones that exist are offered to open; a Flatpak
+   one that does not exist yet can be created. Some emulators read cheats next to the game. */
+function modDirs({ name = '', exe = '', rom = '' } = {}) {
+  const h = os.homedir(), v = (id, ...p) => path.join(h, '.var/app', id, ...p), c = (...p) => path.join(h, '.config', ...p), d = (...p) => path.join(h, '.local/share', ...p);
+  const romDir = rom ? path.dirname(rom) : '';
+  const MAP = [
+    [/pcsx2/i, [['Cheats (.pnach)', v('net.pcsx2.PCSX2', 'config/PCSX2/cheats'), c('PCSX2/cheats')], ['Patches (.pnach)', v('net.pcsx2.PCSX2', 'config/PCSX2/patches'), c('PCSX2/patches')], ['Texture packs', v('net.pcsx2.PCSX2', 'config/PCSX2/textures'), c('PCSX2/textures')]]],
+    [/rpcs3/i, [['Patches (patch.yml)', v('net.rpcs3.RPCS3', 'config/rpcs3/patches'), c('rpcs3/patches')]]],
+    [/dolphin/i, [['Game settings and cheats (.ini)', v('org.DolphinEmu.dolphin-emu', 'data/dolphin-emu/GameSettings'), d('dolphin-emu/GameSettings')], ['Texture packs', v('org.DolphinEmu.dolphin-emu', 'data/dolphin-emu/Load/Textures'), d('dolphin-emu/Load/Textures')]]],
+    [/ryujinx/i, [['Mods and cheats', v('io.github.ryubing.Ryujinx', 'config/Ryujinx/mods/contents'), c('Ryujinx/mods/contents')]]],
+    [/cemu/i, [['Graphic packs and mods', v('info.cemu.Cemu', 'data/Cemu/graphicPacks'), d('Cemu/graphicPacks')]]],
+    [/ppsspp/i, [['Cheats', v('org.ppsspp.PPSSPP', 'config/ppsspp/PSP/Cheats'), c('ppsspp/PSP/Cheats')], ['Texture packs', v('org.ppsspp.PPSSPP', 'config/ppsspp/PSP/TEXTURES'), c('ppsspp/PSP/TEXTURES')]]],
+    [/retroarch/i, [['Cheats (.cht)', v('org.libretro.RetroArch', 'config/retroarch/cheats'), c('retroarch/cheats')]]],
+    [/azahar|citra/i, [['Mods (load/mods)', v('org.azahar_emu.Azahar', 'data/azahar-emu/load/mods'), d('azahar-emu/load/mods')]]],
+    [/shadps4/i, [['Patches', d('shadPS4/patches'), path.join(path.dirname(exe), 'user/patches')]]],
+    [/xenia/i, [['Patches (.patch.toml)', path.join(path.dirname(exe), 'patches')]]],
+    [/mgba/i, [['Cheats: a .cheats file next to the game, named like it', romDir]]],
+    [/melonds/i, [['Cheats: a .mch file next to the game, named like it', romDir]]],
+    [/xemu|flycast|mupen|rmg|snes9x|duckstation/i, [['Cheats are set inside the emulator', '']]]
+  ];
+  const row = MAP.find(([re]) => re.test(`${name} ${exe}`));
+  if (!row) return [];
+  return row[1].map(([label, ...ps]) => {
+    const paths = ps.filter(Boolean);
+    const found = paths.find((p) => fs.existsSync(p));
+    return { label, path: found || paths[0] || '', exists: !!found, creatable: !found && !!paths[0] && paths[0].includes('/.var/app/') && fs.existsSync(paths[0].split('/').slice(0, paths[0].split('/').indexOf('app') + 2).join('/')) };
+  });
+}
+ipcMain.handle('mod-dirs', (_e, em) => modDirs(em || {}));
+ipcMain.handle('mod-mkdir', (_e, dir) => { const d = path.resolve(String(dir)); if (!d.startsWith(os.homedir() + path.sep)) return false; fs.mkdirSync(d, { recursive: true }); return true; });
+ipcMain.handle('mod-add', (_e, dir, file) => {
+  const d = path.resolve(String(dir)), f = path.resolve(String(file));
+  if (!d.startsWith(os.homedir() + path.sep) || !fs.existsSync(f)) return { ok: false, error: 'That file or folder is not available.' };
+  fs.mkdirSync(d, { recursive: true });
+  const to = path.join(d, path.basename(f));
+  try { fs.cpSync(f, to, { recursive: true }); return { ok: true, to }; } catch (err) { return { ok: false, error: String(err.message || err) }; }
+});
+
 // ---------------------------------------------------------------- the Files panel
 // Folders and files for the built-in file browser; opening a file uses the system's app for it.
 ipcMain.handle('fs-list', (_e, dir) => {
@@ -831,6 +871,12 @@ ipcMain.handle('net-poke', (_e, host, body) => Net.poke(String(host), body));
 require('./online').register({ settings: () => loadLib().settings, mediaDir });
 require('./store').register({ getWin: () => win });
 require('./capture').register({ getWin: () => win });
+require('./system').register();
+// Nearby Bladedecks: a stable id for this install, so others do not see it twice.
+{ const idFile = path.join(app.getPath('userData'), 'lan-id');
+  const lanId = () => { try { return fs.readFileSync(idFile, 'utf8').trim(); } catch { const id = require('./lan').newId(); try { fs.writeFileSync(idFile, id); } catch { /* optional */ } return id; } };
+  require('./lan').register({ getWin: () => win, dataId: lanId });
+  app.on('will-quit', () => require('./lan').stop()); }
 require('./companion').register({ getWin: () => win, loadLib: () => loadLib() });
 
 // ---------------------------------------------------------------- running apps: freeze, web apps, focus

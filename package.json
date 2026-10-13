@@ -18,6 +18,8 @@
       "main.js",
       "online.js",
       "store.js",
+      "lan.js",
+      "system.js",
       "companion/**",
       "companion.js",
       "capture.js",

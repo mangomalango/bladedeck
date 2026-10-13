@@ -206,7 +206,8 @@ const SECRETS = [
   { id: 'coral',   name: 'Coral Reef theme', hint: 'A very old code. Up, up...' },
   { id: 'whale',   name: 'The whale',        hint: 'Knock on the orb. Keep knocking.' },
   { id: 'snow',    name: 'Marine snow',      hint: 'Put the controller down and listen to the sea for a while.' },
-  { id: 'rainbow', name: 'Rainbow splash',   hint: 'Touch the water while it is still moving.' }
+  { id: 'rainbow', name: 'Rainbow splash',   hint: 'Touch the water while it is still moving.' },
+  { id: 'drive',   name: 'The wheel',        hint: 'On a rainy night, go down twice, up twice, then wiggle like a racer: right, left, right, left, and go.' }
 ];
 
 const RIPPLES = [
@@ -217,6 +218,7 @@ const RIPPLES = [
 
 const Secrets = (() => {
   const KONAMI = ['up', 'up', 'down', 'down', 'left', 'right', 'left', 'right', 'b', 'a'];
+  const WHEEL = ['down', 'down', 'up', 'up', 'right', 'left', 'right', 'left', 'a'];
   let seq = [], orbHits = [], idleTimer = 0, idle = false;
   const has = (id) => !!S.lib.settings.secrets?.[id];
 
@@ -238,6 +240,12 @@ const Secrets = (() => {
   function feed(a) {
     bump();
     seq.push(a); if (seq.length > KONAMI.length) seq.shift();
+    if (seq.slice(-WHEEL.length).join() === WHEEL.join() && Drive.on()) {
+      seq = [];
+      unlock('drive', 'Secret found: the wheel. It is yours. (System, Take the wheel, any time.)');
+      Drive.start();
+      return true;
+    }
     if (seq.join() === KONAMI.join()) {
       seq = [];
       if (unlock('coral', 'Secret found: the Coral Reef theme. It is in Next theme now.')) { applyTheme('coral'); save(); refresh(); FX.ripple(null); Sound.play('ripple'); }

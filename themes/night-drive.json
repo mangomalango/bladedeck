@@ -1,0 +1,36 @@
+{
+  "id": "night-drive",
+  "name": "Night Drive",
+  "scene": "drive",
+  "vars": {
+    "--bg": "#06090f",
+    "--ink": "#e8eef8",
+    "--ink-dim": "#93a3ba",
+    "--accent": "#ff3b4a",
+    "--accent-hi": "#ff7d87",
+    "--accent-ink": "#ffffff",
+    "--glass-hi": "rgba(190,210,240,0.14)",
+    "--glass": "rgba(150,175,215,0.08)",
+    "--glass-lo": "rgba(150,175,215,0.04)",
+    "--glass-edge": "rgba(200,220,255,0.28)",
+    "--shadow": "rgba(0,0,0,0.6)",
+    "--panel": "rgba(10,14,22,0.78)",
+    "--panel-solid": "#0d121b",
+    "--field": "#0a0e15",
+    "--line": "rgba(170,190,225,0.2)",
+    "--btn-hi": "#1c2433",
+    "--btn-lo": "#121824",
+    "--radius": "14px",
+    "--font": "\"Inter\", \"Segoe UI\", system-ui, sans-serif"
+  },
+  "ribbon": {
+    "colors": [
+      "#ffffff"
+    ],
+    "alpha": 0,
+    "blend": "source-over",
+    "width": 1,
+    "count": 0,
+    "speed": 0
+  }
+}

@@ -62,6 +62,8 @@ function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => api.save
 // Little blob-faced notifications. While a game has the screen they wait, so nothing pops over it.
 const toastQueue = [];
 function toast(msg, kind = 'ok') {
+  // Every message is kept in the notification center too.
+  if (typeof Notify !== 'undefined') Notify.add(msg, kind);
   if (document.hidden) { toastQueue.push([msg, kind]); return; }
   const t = document.createElement('div');
   t.className = 'toast ' + kind;
@@ -89,7 +91,8 @@ function applyTheme(id) {
   for (const [k, v] of Object.entries(t.vars || {})) root.style.setProperty(k, v);
   $('#theme-css').textContent = t.css || '';
   document.body.dataset.theme = t.id;
-  Scenes.set(t.scene);
+  Scenes.set(t.scene === 'drive' ? null : t.scene);
+  Drive.set(t.scene === 'drive');
   S.theme = t; S.lib.settings.theme = t.id;
 }
 function cycleTheme() {
@@ -137,7 +140,7 @@ function startBg() {
   }
   (function frame(ts) {
     requestAnimationFrame(frame);
-    if (document.hidden || ts - last < 33) return;
+    if (document.hidden || away || ts - last < 33) return; // a game has the screen: no drawing
     if (still && drawn === S.theme?.id) return;
     drawn = S.theme?.id; last = ts; draw(ts / 1000);
   })(0);
@@ -169,6 +172,33 @@ document.addEventListener('error', (ev) => {
 /* ---------------------------------------------------------------- library queries */
 const byTitle = (a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' });
 
+/* Home, Switch-style: not everything you own, just what you are likely to want now.
+   Continue (the last few), then a few picks with a reason each: your big game lately, something
+   short for tonight, a goal you set, something not played yet, a favorite or two. The picks
+   change once a day, not every time you move. "All your games" is the way to the whole library. */
+function homePicks(list) {
+  const games = list.filter((e) => e.type !== 'app' && !e.emuApp);
+  const out = [], tags = new Map(), used = new Set();
+  const add = (e, tag) => { if (!e || used.has(e.id)) return false; used.add(e.id); out.push(e); tags.set(e.id, tag); return true; };
+  // Today's pick among several: steady through the day, different tomorrow.
+  const day = hash(new Date().toDateString());
+  const pickOf = (arr) => (arr.length ? arr[(day + arr.length) % arr.length] : null);
+  const played = games.filter((e) => e.lastPlayed).sort((a, c) => c.lastPlayed - a.lastPlayed);
+  if (S.playing) add(games.find((e) => e.id === S.playing.id), 'Playing now');
+  for (const e of played.slice(0, 4)) add(e, out.length ? 'Continue' : 'Last played');
+  const recentDays = (e) => (e.days || []).filter((d) => Date.now() - new Date(d) < 14 * 86400000).length;
+  const big = played.filter((e) => !used.has(e.id)).sort((a, c) => recentDays(c) * 3600 + (c.playtime || 0) / 10 - (recentDays(a) * 3600 + (a.playtime || 0) / 10))[0];
+  if (!add(big, 'Your big game')) { const top = played.slice().sort((a, c) => recentDays(c) - recentDays(a) || (c.playtime || 0) - (a.playtime || 0))[0]; if (top && tags.has(top.id) && !/Playing/.test(tags.get(top.id))) tags.set(top.id, 'Your big game'); }
+  add(pickOf(games.filter((e) => !used.has(e.id) && e.goal)), null) && (() => { const e = out[out.length - 1]; tags.set(e.id, `🎯 ${e.goal}`); })();
+  add(pickOf(games.filter((e) => !used.has(e.id) && ((e.bestSession && e.bestSession <= 1800) || e.type === 'rom'))), 'Something short tonight');
+  add(pickOf(games.filter((e) => !used.has(e.id) && !e.lastPlayed && e.favorite)) || pickOf(games.filter((e) => !used.has(e.id) && !e.lastPlayed)), 'Not played yet');
+  for (const e of games.filter((x) => x.favorite && !used.has(x.id)).slice(0, 2)) add(e, '★ Favorite');
+  S.homeTags = tags;
+  const gi = S.blades.findIndex((b) => b.id === 'games' || (b.filter && !Object.keys(b.filter).length));
+  out.push({ id: 'home-all', title: 'All your games', sub: `${games.length} games, on the Games blade`, glyph: '▦', run: () => { if (gi < 0) return; if (S.mode === 'pc') { S.pcNav = 'blade:' + gi; S.sel = null; renderPc(); } else setBlade(gi); } });
+  return out;
+}
+
 function bladeItems(b) {
   if (b.special === 'system') return systemActions();
   let list = S.lib.entries.filter((e) => !e.hidden);
@@ -179,9 +209,13 @@ function bladeItems(b) {
   if (f.emulator) list = list.filter((e) => e.emulatorId === f.emulator);
   if (f.favorite) list = list.filter((e) => e.favorite);
   if (f.home) {
-    const fav = list.filter((e) => e.favorite).sort(byTitle);
-    const rec = list.filter((e) => e.lastPlayed && !e.favorite).sort((a, c) => c.lastPlayed - a.lastPlayed).slice(0, 12);
-    return [...fav, ...rec];
+    if (S.lib.settings.curatedHome === false) {
+      S.homeTags = new Map();
+      const fav = list.filter((e) => e.favorite).sort(byTitle);
+      const rec = list.filter((e) => e.lastPlayed && !e.favorite).sort((a, c) => c.lastPlayed - a.lastPlayed).slice(0, 12);
+      return [...fav, ...rec];
+    }
+    return homePicks(list);
   }
   if (f.recent) return list.filter((e) => e.lastPlayed).sort((a, c) => c.lastPlayed - a.lastPlayed).slice(0, +f.recent || 12);
   return list.sort((a, c) => (c.favorite ? 1 : 0) - (a.favorite ? 1 : 0) || (a.system || '').localeCompare(c.system || '') || byTitle(a, c));
@@ -197,6 +231,9 @@ function systemActions() {
     { id: 'sys-store', title: 'Add store launchers', sub: 'Steam, Heroic and Lutris as apps',     glyph: '⇪', run: addLaunchers },
     { id: 'sys-get',   title: 'Get games',          sub: 'Free games, homebrew and emulators',    glyph: '⬇', run: () => Shop.open() },
     { id: 'sys-qr',    title: 'Quick Resume',       sub: 'Switch between running games and apps, or freeze them', glyph: '▣', run: () => Resume.open() },
+    { id: 'sys-nc',    title: 'Notifications',      sub: 'Everything Bladedeck told you, and downloads', glyph: '🔔', run: () => Notify.open() },
+    { id: 'sys-pc2',   title: 'This PC',            sub: 'Processor, graphics, memory, battery, Wi-Fi, brightness, power', glyph: '🖥', run: () => Panels.show({ kind: 'system', key: 'system', title: 'This PC', icon: '🖥' }) },
+    { id: 'sys-near',  title: 'Nearby',             sub: `${Nearby.peers().length || 'No'} Bladedecks on your network · invite to play`, glyph: '📡', run: () => Nearby.open() },
     { id: 'sys-split', title: 'Split screen',       sub: 'Up to 4 players on this screen (PartyDeck)', glyph: '👥', run: () => SplitScreen.open() },
     { id: 'sys-phone', title: 'Phone app',          sub: 'Control Bladedeck from your phone',     glyph: '📱', run: () => Companion.open() },
     { id: 'sys-cap',   title: 'Captures',           sub: 'Your recordings and saved clips',       glyph: '🎬', run: () => Capture.gallery() },
@@ -215,6 +252,7 @@ function systemActions() {
     { id: 'sys-theme', title: 'Next theme',         sub: S.theme.name,                            glyph: '◐', run: cycleTheme },
     { id: 'sys-set',   title: 'Settings',           sub: 'Name, blades, sounds, effects',         glyph: '⚙', run: openSettings },
     ...(Secrets.any() ? [{ id: 'sys-sec', title: 'Secret options', sub: 'Hidden settings you have unlocked', glyph: '✧', run: () => Secrets.openOptions() }] : []),
+    ...(Secrets.has('drive') ? [{ id: 'sys-drive', title: 'Take the wheel', sub: 'Drive the Night Drive car', glyph: '🏎', run: () => Drive.start() }] : []),
     ...(Secrets.has('toolbox') ? [{ id: 'sys-tool', title: "Rivet's Toolbox", sub: 'Secrets you have found', glyph: '⚒', run: () => Secrets.openToolbox() }] : []),
     { id: 'sys-exit',  title: 'Exit Bladedeck',     sub: 'Close the launcher',                    glyph: '⏻', run: () => api.quit() }
   ];
@@ -461,6 +499,7 @@ function setBlade(i, force) {
 function fillBlade(i, keepId) {
   const b = S.blades[i]; const items = bladeItems(b);
   S.items = items;
+  S.renderHome = !!b.filter?.home;
   const body = $('.body', $$('.blade')[i]);
   body.innerHTML = `<div class="list">${items.length ? items.map(itemHtml).join('') : `<p class="empty">${emptyText(b)}</p>`}</div><div class="detail"></div>`;
   let idx = keepId ? items.findIndex((x) => x.id === keepId) : -1;
@@ -472,7 +511,8 @@ function emptyText(b) {
   return 'Nothing here yet. Open the System blade to add a game or scan Steam, or drop a program or game file onto this window.';
 }
 function itemHtml(e, i) {
-  return `<div class="item" data-i="${i}"><div class="thumb">${cover(e)}</div><div class="meta"><b>${esc(e.title)}</b><span>${esc(subline(e))}</span></div>${e.favorite ? '<i class="star">★</i>' : ''}</div>`;
+  const tag = S.renderHome && S.homeTags?.get(e.id);
+  return `<div class="item" data-i="${i}"><div class="thumb">${cover(e)}</div><div class="meta"><b>${esc(e.title)}</b><span>${tag ? `<em class="htag">${esc(tag)}</em> ` : ''}${esc(subline(e))}</span></div>${e.favorite ? '<i class="star">★</i>' : ''}</div>`;
 }
 
 function setItem(j, quiet) {
@@ -582,7 +622,7 @@ function renderDrawer() {
     <div class="dim">${esc(fmtPlay(e.playtime))}${e.lastPlayed ? `, last played ${esc(new Date(e.lastPlayed).toLocaleDateString())}` : ''}</div>
     <div class="dim">${esc(where || '')}</div>
     <div class="dim" style="color:var(--accent);font-size:16px">${Tasks.stars(e)}</div>
-    <div class="btns"><button class="primary" data-act="launch">Launch</button><button data-act="tasks">Tasks</button><button data-act="poke">Poke a friend</button><button data-act="fav">${e.favorite ? 'Unfavorite' : 'Favorite'}</button><button data-act="edit">Edit</button><button data-act="art">Artwork</button>${['steam', 'exe', 'gog', 'recomp'].includes(e.type) ? '<button data-act="split">👥 Split screen</button>' : ''}${Ach.fits(e) ? '<button data-act="ach">Achievements</button>' : ''}<button data-act="hide">${e.hidden ? 'Unhide' : 'Hide'}</button></div>`;
+    <div class="btns"><button class="primary" data-act="launch">Launch</button><button data-act="tasks">Tasks</button><button data-act="poke">Poke a friend</button><button data-act="fav">${e.favorite ? 'Unfavorite' : 'Favorite'}</button><button data-act="edit">Edit</button><button data-act="art">Artwork</button>${['steam', 'exe', 'gog', 'recomp'].includes(e.type) ? '<button data-act="split">👥 Split screen</button>' : ''}${e.type === 'rom' ? '<button data-act="mods">🧩 Cheats & mods</button>' : ''}${Ach.fits(e) ? '<button data-act="ach">Achievements</button>' : ''}<button data-act="hide">${e.hidden ? 'Unhide' : 'Hide'}</button></div>`;
 }
 
 function pcSelect(e) {
@@ -910,6 +950,12 @@ const CONTROLS = [
     ['Close it', 'Y', ''],
     ['Show Steam while a game is starting', 'X', 'X']
   ]],
+  ['Nearby and Night Drive', [
+    ['Other Bladedecks on your network, invites', 'System, Nearby', 'System, Nearby'],
+    ['Drive the car (once found)', 'System, Take the wheel', 'System, Take the wheel'],
+    ['While driving: steer, go, brake', 'left stick, RT or A, LT', 'arrows or WASD'],
+    ['While driving: camera, leave', 'Y, B', 'C, Esc']
+  ]],
   ['Split screen (PartyDeck)', [
     ['Play a game split screen, up to 4 players', 'Start on the game, then Split screen', 'Split screen in PC mode'],
     ['Pick a game for it', 'System, Split screen', 'System, Split screen']
@@ -969,6 +1015,8 @@ function openSettings() {
       <label>Theme<select name="theme">${S.themes.map((t) => `<option value="${t.id}" ${t.id === st.theme ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
       <label>Steam folder (leave empty to detect)${row('steamPath', 'dir', st.steamPath)}</label>
       <div class="checks"><label><input type="checkbox" name="sounds" ${st.sounds ? 'checked' : ''}> Menu sounds</label><label><input type="checkbox" name="ambient" ${st.ambient ? 'checked' : ''}> Deep-sea ambience</label><label><input type="checkbox" name="fx" ${st.fx !== false ? 'checked' : ''}> Animations</label><label><input type="checkbox" name="intro" ${st.intro !== false ? 'checked' : ''}> Launch intro</label><label><input type="checkbox" name="bootAnim" ${st.bootAnim !== false ? 'checked' : ''}> Boot animation</label></div>
+      <div class="checks"><label><input type="checkbox" name="curatedHome" ${st.curatedHome !== false ? 'checked' : ''}> Home shows a few picks (Switch-style)</label></div>
+      <div class="checks"><label><input type="checkbox" name="lanOn" ${st.lanOn !== false ? 'checked' : ''}> Show me to other Bladedecks nearby</label><label><input type="checkbox" name="lanShare" ${st.lanShare !== false ? 'checked' : ''}> Share my game list with them</label></div>
       <div class="checks"><label><input type="checkbox" name="runningList" ${st.runningList !== false ? 'checked' : ''}> Show what's running on the left</label><label><input type="checkbox" name="autoFreeze" ${st.autoFreeze ? 'checked' : ''}> Pause games when I switch away</label></div>
       <div class="checks"><label><input type="checkbox" name="hideOnLaunch" ${st.hideOnLaunch ? 'checked' : ''}> Minimize while a game runs</label><label><input type="checkbox" name="quietWhilePlaying" ${st.quietWhilePlaying ? 'checked' : ''}> Silence desktop pop-ups while playing</label></div>
       <div class="checks"><label><input type="checkbox" name="showcase" ${st.showcase !== false ? 'checked' : ''}> Play clips and pictures behind games</label></div>
@@ -1004,7 +1052,7 @@ function openSettings() {
       try { blades = JSON.parse($('[name=blades]', root).value); if (!Array.isArray(blades) || !blades.length || blades.some((b) => !b.name)) throw new Error('shape'); }
       catch { toast('Blades must be a JSON list where every blade has a name.', 'err'); return false; }
       Object.assign(st, { playerName: val(root, 'playerName') || 'Player 1', steamPath: val(root, 'steamPath'), sounds: chk(root, 'sounds'), hideOnLaunch: chk(root, 'hideOnLaunch'), blades,
-        ambient: chk(root, 'ambient'), fx: chk(root, 'fx'), intro: chk(root, 'intro'), bootAnim: chk(root, 'bootAnim'), runningList: chk(root, 'runningList'), autoFreeze: chk(root, 'autoFreeze'), quietWhilePlaying: chk(root, 'quietWhilePlaying'), showcase: chk(root, 'showcase'),
+        ambient: chk(root, 'ambient'), fx: chk(root, 'fx'), intro: chk(root, 'intro'), bootAnim: chk(root, 'bootAnim'), runningList: chk(root, 'runningList'), curatedHome: chk(root, 'curatedHome'), lanOn: chk(root, 'lanOn'), lanShare: chk(root, 'lanShare'), autoFreeze: chk(root, 'autoFreeze'), quietWhilePlaying: chk(root, 'quietWhilePlaying'), showcase: chk(root, 'showcase'),
         ambientVolume: +val(root, 'ambientVolume'), showcaseAlpha: +val(root, 'showcaseAlpha'), wineCommand: val(root, 'wineCommand'),
         gogDirs: val(root, 'gogDirs').split('\n').map((x) => x.trim()).filter(Boolean) });
       const peekWas = st.peekMinimize, dirWas = st.musicDir;
@@ -1040,6 +1088,7 @@ function activate() { if (S.sel) launch(S.sel); }
 function handle(a) {
   // A press during the boot animation only skips it.
   if (Boot.playing?.()) { Boot.done(); return; }
+  if (Drive.handle(a)) return;
   // The water is a picture of the menu; the moment you do anything, let the real menu back.
   Water.cancel();
   if (Intro.handle(a)) return;
@@ -1047,6 +1096,7 @@ function handle(a) {
   if (Tour.handle(a)) return;
   if (Crash.handle(a)) return;
   if (S.modal) { modalInput(a); return; }
+  if (Notify.handle(a)) return;
   if (Resume.handle(a)) return;
   if (Volume.handle(a)) return;
   if (Panels.handle(a)) return;
@@ -1114,7 +1164,7 @@ function pcInput(a) {
   }
 }
 
-const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b', f: 'x', e: 'y', s: 'start', t: 'tasks', p: 'poke', r: 'ach', m: 'music', g: 'guide', v: 'vol', q: 'resume', F1: 'help', '?': 'help', '[': 'lt', ']': 'rt', F10: 'back', PageUp: 'lb', PageDown: 'rb' };
+const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b', f: 'x', e: 'y', s: 'start', t: 'tasks', p: 'poke', r: 'ach', m: 'music', g: 'guide', v: 'vol', q: 'resume', n: 'notify', F1: 'help', '?': 'help', '[': 'lt', ']': 'rt', F10: 'back', PageUp: 'lb', PageDown: 'rb' };
 
 function bindInput() {
   addEventListener('keydown', (ev) => { if (ev.isTrusted) S.pad = false; }, true);
@@ -1195,7 +1245,7 @@ function bindInput() {
     const act = ev.target.closest('[data-act]')?.dataset.act;
     if (act) {
       ({ add: () => editEntry(), steam: scanSteam, settings: openSettings, console: () => setMode('console'), emulators: manageEmulators,
-        launch: () => S.sel && launch(S.sel), tasks: () => Tasks.open(S.sel), poke: () => Friends.poke(S.sel), gog: scanGog, getgames: () => Shop.open(), split: () => SplitScreen.open(S.sel), art: () => Art.open(S.sel), ach: () => Ach.open(S.sel), fav: () => S.sel && toggleFav(S.sel), edit: () => S.sel && editEntry(S.sel),
+        launch: () => S.sel && launch(S.sel), tasks: () => Tasks.open(S.sel), poke: () => Friends.poke(S.sel), gog: scanGog, getgames: () => Shop.open(), split: () => SplitScreen.open(S.sel), mods: () => Mods.open(S.sel), art: () => Art.open(S.sel), ach: () => Ach.open(S.sel), fav: () => S.sel && toggleFav(S.sel), edit: () => S.sel && editEntry(S.sel),
         hide: () => { if (S.sel) { S.sel.hidden = !S.sel.hidden; S.sel = null; save(); renderPc(); } } })[act]?.();
       return;
     }

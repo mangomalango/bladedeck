@@ -149,6 +149,8 @@ function register({ getWin: gw, loadLib: ll }) {
     lastState = str;
     for (const r of streams) { try { r.write(`data: ${str}\n\n`); } catch { streams.delete(r); } }
   });
+  // The page only builds its status when a phone is listening.
+  ipcMain.handle('companion-listening', () => streams.size > 0);
   ipcMain.handle('companion-info', () => ({ enabled: !!data.enabled, port: PORT, addresses: addresses(), devices: data.devices.map((d) => ({ name: d.name, added: d.added, seen: d.seen, id: d.key.slice(0, 6) })), listeners: streams.size }));
   ipcMain.handle('companion-enable', (_e, on) => { data.enabled = !!on; persist(); if (on) start(); else stop(); return !!server; });
   ipcMain.handle('companion-code', () => {
