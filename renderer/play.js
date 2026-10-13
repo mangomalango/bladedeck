@@ -44,6 +44,7 @@ const Tasks = (() => {
   function celebrate(e, done) {
     const n = count(e);
     for (const t of done) toast(`Task done in ${e.title}: ${t.name}`, 'fun');
+    if (typeof Player !== 'undefined') Player.xp(25 * done.length);
     const unlocked = LOOKS.filter((l) => l.need > n - done.length && l.need <= n && l.need > 0);
     for (const l of unlocked) toast(`New look for ${e.title}: ${l.name}. Pick it in Tasks.`, 'fun');
     if (n === TASKS.length) toast(`Every task in ${e.title} done. Mastered!`, 'fun');

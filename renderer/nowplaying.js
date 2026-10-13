@@ -26,11 +26,23 @@ const NowPlaying = (() => {
   });
   window.bladedeck.peekMode().then((m) => { if (m) mode = m; });
 
-  function show(ev, animate) {
+  // The game's own window, if it is open: by the pid we verified, or Steam's class for it.
+  function gameWindow() {
+    const p = S.playing; if (!p) return null;
     const e = entryNow();
-    // The first real window seen during a Steam session is the game; it closing ends the session.
-    if (S.playing && !S.playing.winPid && ev.pid && !steamWin(ev.cls)) S.playing.winPid = ev.pid;
-    cur = { ...ev, entry: e, key: keyOf(ev) };
+    return Dock.windows().find((w) => !w.web && ((p.winPid && w.pid === p.winPid) || (e?.type === 'steam' && String(w.cls).toLowerCase() === `steam_app_${e.appid}`))) || null;
+  }
+
+  /* What the panel shows must be where "back" goes. If you came from the game, it shows the game.
+     If you came from something else (a browser, Discord) while a game runs, it still shows the
+     game, and "back" goes to the game's own window, not to wherever you were. With no game
+     window to go to, it shows the window you came from, by its own name. */
+  function show(ev, animate) {
+    const p = S.playing;
+    const fromGame = !!(p && ev.pid && (ev.pid === p.winPid || (entryNow()?.type === 'steam' && String(ev.cls).toLowerCase() === `steam_app_${entryNow().appid}`)));
+    const gw = !fromGame ? gameWindow() : null;
+    const e = fromGame || gw ? entryNow() : null;
+    cur = { ...ev, entry: e, key: keyOf(gw ? { pid: gw.pid } : ev), winId: gw ? gw.id : null, pid: gw ? gw.pid : ev.pid, caption: gw ? gw.caption : ev.caption };
     tEl.textContent = e?.title || ev.caption || 'Your game';
     art.innerHTML = e ? cover(e) : `<div class="art sys"><span>▶</span></div>`;
     updateSub();
@@ -40,6 +52,14 @@ const NowPlaying = (() => {
     else { stopLive(); if (!asked[cur.key]) startLive(); }
     if (animate) shrink();
     else requestAnimationFrame(() => document.body.classList.add('np-on'));
+    // Not sure yet which window is the game: check this one, and show the game if it is.
+    if (p && !p.winPid && ev.pid && !gw) {
+      isGameWindow(p, ev).then((ok) => {
+        if (!ok || p !== S.playing) return;
+        p.winPid = ev.pid;
+        if (cur && cur.pid === ev.pid) { cur.entry = entryNow(); tEl.textContent = cur.entry?.title || tEl.textContent; art.innerHTML = cover(cur.entry); updateSub(); }
+      });
+    }
   }
 
   /* -------------------------------------------------------------- shrink and pop
@@ -121,7 +141,10 @@ const NowPlaying = (() => {
     const mins = S.playing ? Math.round((Date.now() - S.playing.t) / 60000) : null;
     const bits = [];
     if (cur.entry && cur.caption && cur.caption !== cur.entry.title) bits.push(cur.caption);
+    if (!cur.entry && S.playing) { const g = entryNow(); if (g) bits.push(`${g.title} is running too`); }
     if (mins !== null) bits.push(mins < 1 ? 'Just started' : `Playing for ${mins} min`);
+    if (mins !== null && cur.entry) bits.push(Player.nextReward(mins));
+    if (cur.entry?.goal) bits.push(`🎯 ${cur.entry.goal}`);
     sEl.textContent = bits.join(' · ') || (mode === 'kwin' ? 'Running in the background' : '');
   }
 
@@ -161,7 +184,10 @@ const NowPlaying = (() => {
     going = true;
     highlight(false);
     await popIn();
-    const ok = await api.peekBack();
+    // Straight to the game's window when that is what the panel shows; otherwise wherever you were.
+    // A paused game is thawed first, so you never land in a frozen window.
+    if (cur.pid && ((await api.procFrozen()) || []).includes(cur.pid)) { await api.procFreeze(cur.pid, false); document.dispatchEvent(new CustomEvent('running-changed')); }
+    const ok = (cur.winId && await api.winAct(cur.winId, 'show')) || await api.peekBack();
     going = false;
     if (!ok) { toast('Could not switch back to the game.', 'err'); shrink(); return; }
     // The game has the screen now; the menu underneath goes back to normal, hidden by the cover.

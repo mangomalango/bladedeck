@@ -124,4 +124,20 @@ function init(dir) {
   if (frozen.size) thawAll();
 }
 
-module.exports = { init, freeze, isFrozen, list, thawAll };
+// Who a window's process belongs to: the Steam app it was started for (Steam's launcher passes
+// "AppId=N" down the chain), and its parent processes. Used to check a window is really the game.
+function info(pid) {
+  pid = +pid; if (!pid || process.platform !== 'linux') return { ancestors: [], appId: '' };
+  const { parent } = procTable();
+  const ancestors = []; let p = pid, appId = '';
+  for (let i = 0; i < 40 && p > 1; i++) {
+    const m = cmdline(p).match(/AppId=(\d+)/);
+    if (m && !appId) appId = m[1];
+    p = parent.get(p) || 0;
+    if (p > 1) ancestors.push(p);
+  }
+  if (!appId) { try { const env = fs.readFileSync(`/proc/${pid}/environ`, 'utf8'); const m = env.match(/(?:^|\0)SteamAppId=(\d+)/); if (m) appId = m[1]; } catch { /* not ours to read */ } }
+  return { ancestors, appId };
+}
+
+module.exports = { init, freeze, isFrozen, list, thawAll, info };

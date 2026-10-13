@@ -45,6 +45,7 @@ contextBridge.exposeInMainWorld('bladedeck', {
   onWatchFound: (fn) => ipcRenderer.on('watch-found', (_e, d) => fn(d)),
   procFreeze: (pid, on) => ipcRenderer.invoke('proc-freeze', pid, on),
   procFrozen: () => ipcRenderer.invoke('proc-frozen'),
+  pidInfo: (pid) => ipcRenderer.invoke('pid-info', pid),
   webappOpen: (spec) => ipcRenderer.invoke('webapp-open', spec),
   webappList: () => ipcRenderer.invoke('webapp-list'),
   onWebapps: (fn) => ipcRenderer.on('webapps', (_e, d) => fn(d)),

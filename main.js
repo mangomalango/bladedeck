@@ -760,6 +760,7 @@ const Procs = require('./procs');
 app.whenReady().then(() => Procs.init(dataDir()));
 ipcMain.handle('proc-freeze', (_e, pid, on) => Procs.freeze(pid, !!on));
 ipcMain.handle('proc-frozen', () => Procs.list());
+ipcMain.handle('pid-info', (_e, pid) => Procs.info(pid));
 const WebApps = require('./webapps').register({ getDeck: () => win });
 WebApps.setSend((ch, d) => { if (win && !win.isDestroyed()) win.webContents.send(ch, d); });
 // Keep Bladedeck over Steam's "launching" pop-ups until the game's own window arrives.

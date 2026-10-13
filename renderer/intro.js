@@ -92,6 +92,7 @@ const Intro = (() => {
       <div class="in-txt">
         <span class="in-pre">Now starting</span>
         <b class="in-title">${esc(e.title)}</b>
+        ${e.goal ? `<span class="in-goal">🎯 ${esc(e.goal)}</span>` : ''}
         <span class="in-by">This game was brought to you by</span>
         <div class="in-sponsor"><i class="in-emoji">${emoji}</i><div><b>${esc(who)}</b><small>${esc(line)}</small></div></div>
       </div>`;

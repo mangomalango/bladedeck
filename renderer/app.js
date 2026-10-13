@@ -200,6 +200,7 @@ function systemActions() {
     { id: 'sys-pip',   title: 'Walkthrough window', sub: 'A small YouTube that floats over your game', glyph: '📺', run: () => walkthrough() },
     { id: 'sys-vol',   title: 'Sound',              sub: 'Volume, outputs, mic and every app',    glyph: '🔊', run: () => Volume.open() },
     { id: 'sys-emu',   title: 'Emulators',          sub: 'Add, edit and scan game folders',       glyph: '◉', run: manageEmulators },
+    { id: 'sys-me',    title: 'Your profile',       sub: `Level ${Player.levelOf(S.lib.settings.player?.xp || 0)}${Player.streak() > 1 ? ` · ${Player.streak()}-day streak` : ''} · goals and journal`, glyph: '⭐', run: () => Player.profile() },
     { id: 'sys-tour',  title: 'Tour',               sub: 'Every feature, one card at a time',     glyph: '🧭', run: () => Tour.open() },
     { id: 'sys-ctl',   title: 'Controls',           sub: 'Every button and key',                  glyph: '⌨', run: openControls },
     { id: 'sys-mu',    title: 'Music',              sub: 'Play songs from your music folder',     glyph: '♪', run: () => Music.open() },
@@ -251,7 +252,7 @@ async function launch(e) {
   Intro.play(e);
   e.lastPlayed = Date.now(); markDay(e); save();
   S.playing = { id: e.id, t: Date.now(), pid: r.pid, tracked: !(e.type === 'steam' || (e.type === 'gog' && !e.exe)), covered: cover };
-  if (opened) { S.playing.winPid = opened.pid; S.playing.covered = false; api.keepOnTop(false); }
+  if (opened) { const p0 = S.playing, o = opened; isGameWindow(p0, o).then((ok) => { if (ok && !p0.winPid) { p0.winPid = o.pid; uncoverSteam(p0); } }); }
   // Every game started this run, so several can run at once (see Quick Resume).
   S.sessions = [...S.sessions.filter((x) => x.id !== e.id), S.playing];
   if (S.playing.covered) { const p0 = S.playing; setTimeout(() => uncoverSteam(p0), 25000); }
@@ -275,6 +276,23 @@ async function launch(e) {
   }, fxOn() ? 1500 : 0);
 }
 
+/* Is this window really the game a session is for? Steam games: the window's class names the
+   Steam app (steam_app_N), or its process was started by Steam for that app id. Other games:
+   the window's process came from the program Bladedeck started. Last of all, its title. A
+   Discord pop-up or a browser opening during a launch is never taken for the game. */
+const normTitle = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+async function isGameWindow(p, ev) {
+  const e = p && S.lib.entries.find((x) => x.id === p.id);
+  if (!e || !ev || !ev.pid || steamWin(ev.cls)) return false;
+  if (p.winPid && ev.pid === p.winPid) return true;
+  const app = String(ev.cls || '').match(/^steam_app_(\d+)$/i);
+  if (app) return e.type === 'steam' && String(e.appid) === app[1];
+  const info = await api.pidInfo(ev.pid).catch(() => null);
+  if (info?.appId) return e.type === 'steam' && String(e.appid) === String(info.appId);
+  if (p.pid && (ev.pid === p.pid || info?.ancestors?.includes(p.pid))) return true;
+  const c = normTitle(ev.caption), t = normTitle(e.title);
+  return t.length > 3 && c.length > 3 && (c.includes(t) || t.includes(c));
+}
 // Stop covering Steam's windows: the game is here, the player went somewhere else, or they want to
 // see what Steam is asking. Staying on top never lasts long, so it can never trap focus.
 function uncoverSteam(p) { if (p && p.covered) { p.covered = false; api.keepOnTop(false); } }
@@ -282,11 +300,14 @@ addEventListener('blur', () => setTimeout(() => { if (S.playing?.covered && !doc
 // The first real window to open after a launch is the game (Steam's own windows don't count).
 let launchedAt = 0, opened = null;
 const steamWin = (cls) => /^steam(webhelper)?$/i.test(cls || '');
-api.onPeek((ev) => {
+api.onPeek(async (ev) => {
   if (ev.kind !== 'opened' || steamWin(ev.cls) || !launchedAt) return;
   const p = S.playing;
   if (!p) { if (launching) opened = ev; return; }
-  if (!p.winPid) p.winPid = ev.pid;
+  if (p.winPid) return;
+  // Only the game's own window ends the wait; anything else opening meanwhile is ignored.
+  if (!(await isGameWindow(p, ev))) return;
+  p.winPid = ev.pid;
   uncoverSteam(p);
   if (p.waiting) {
     p.waiting = false;
@@ -334,6 +355,7 @@ function sessionOver(e, seconds) {
   save();
   if (seconds >= 60) toast(`Welcome back! ${Math.round(seconds / 60)} more minutes in ${e.title}.`, 'fun');
   Tasks.sync(e); refreshQuiet();
+  Player.sessionOver(e, seconds);
 }
 api.onEnded(({ id, seconds }) => {
   const e = S.lib.entries.find((x) => x.id === id);
@@ -420,7 +442,7 @@ function updateDetail() {
   if (!e) { d.innerHTML = ''; return; }
   const stats = e.run ? '' : `<p class="stat">${esc(fmtPlay(e.playtime))}</p>${e.lastPlayed ? `<p class="stat">Last played ${esc(new Date(e.lastPlayed).toLocaleDateString())}</p>` : ''}`;
   d.innerHTML = `<div class="poster">${cover(e)}</div><div class="info">${GameTheme.on() && e.logo ? `<img class="logo" src="${fileUrl(e.logo)}" alt="${esc(e.title)}">` : `<h3>${esc(e.title)}</h3>`}
-    <p class="sub">${esc(e.run ? e.sub : TYPES[e.type].label + (e.system ? ' on ' + e.system : ''))}</p>${stats}
+    <p class="sub">${esc(e.run ? e.sub : TYPES[e.type].label + (e.system ? ' on ' + e.system : ''))}</p>${stats}${e.run ? '' : Player.detailHtml(e)}
     ${e.run ? '' : `<span class="task-pill">${Tasks.count(e)} of ${TASKS.length} tasks. Start for more</span>`}
     ${Ach.fits(e) && Ach.on() ? '<p class="stat ach"></p>' : ''}
     <p class="cta">${e.run ? 'Press A to open' : 'Press A to launch'}</p></div>`;
@@ -925,7 +947,7 @@ function openSettings() {
       if (peekWas !== st.peekMinimize) api.peekConfig({ minimize: st.peekMinimize });
       if (dirWas !== st.musicDir) Music.load(true).then(Music.draw);
       Sound.sync(); Showcase.reset();
-      applyTheme(val(root, 'theme')); $('#who').textContent = st.playerName; S.bi = 0; S.pcNav = 'blade:0'; save();
+      applyTheme(val(root, 'theme')); $('#who').textContent = st.playerName; Player.header(); S.bi = 0; S.pcNav = 'blade:0'; save();
       if (S.mode === 'console') renderConsole(); else renderPc();
     } }],
     onOpen: (root) => root.addEventListener('click', (ev) => {
@@ -1132,6 +1154,8 @@ function bindInput() {
   applyTheme(S.lib.settings.theme);
   Look.apply();
   $('#who').textContent = S.lib.settings.playerName;
+  Player.header();
+  $('.who').addEventListener('click', () => Player.profile());
   startBg(); startClock(); bindInput();
   setMode(S.lib.settings.mode || 'console', true);
   Sound.startAmbient(); Secrets.bump();

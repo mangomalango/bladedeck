@@ -866,3 +866,35 @@ input.pad-hl[type=checkbox] { outline: none !important; box-shadow: none !import
 .rn:hover .rn-acts, .rn.hl .rn-acts { opacity: 1; }
 #run .rn-acts button { width: 28px; height: 28px; padding: 0; border-radius: 8px; font-size: 13px; }
 #run .rn-more { border-radius: 10px; padding: 7px 10px; font-size: 12px; text-align: left; }
+
+/* ---------------------------------------------------------------- player: level bar, check-in, profile */
+.who { cursor: pointer; }
+.who span .xp { display: block; width: 110px; height: 4px; border-radius: 3px; margin-top: 3px; background: color-mix(in srgb, var(--ink) 18%, transparent); overflow: hidden; }
+.who span .xp b { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.info .stat.goal { color: var(--accent); font-weight: 600; }
+.info .stat.last { font-style: italic; }
+.in-goal { font-size: 17px; font-weight: 600; opacity: 0; }
+#intro.go .in-goal { animation: in-up .45s .6s ease-out both; }
+.ck { display: flex; flex-direction: column; gap: 14px; }
+.ck-lead { margin: 0; color: var(--ink-dim); }
+.ck-q { display: flex; flex-direction: column; gap: 8px; }
+.ck-q > b { font-size: 14.5px; color: var(--ink); }
+.ck-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.dlg .ck-chip { border-radius: 999px; padding: 8px 14px; font-size: 13.5px; }
+.pf { display: flex; flex-direction: column; gap: 10px; }
+.pf-top { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 16px; align-items: center; }
+.pf-lvl { grid-row: 1 / 3; width: 78px; height: 78px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 35% 30%, var(--accent-hi), var(--accent)); color: var(--accent-ink); box-shadow: 0 8px 24px var(--shadow); }
+.pf-lvl b { font-size: 30px; line-height: 1; } .pf-lvl span { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.pf-bar { height: 10px; border-radius: 6px; background: color-mix(in srgb, var(--ink) 15%, transparent); overflow: hidden; }
+.pf-bar i { display: block; height: 100%; background: var(--accent); border-radius: 6px; }
+.pf-top small { color: var(--ink-dim); }
+.pf-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pf-stats div { display: flex; flex-direction: column; align-items: center; padding: 10px; border-radius: 14px; background: color-mix(in srgb, var(--glass-hi) 35%, transparent); border: 1px solid var(--glass-edge); }
+.pf-stats b { font-size: 18px; } .pf-stats span { font-size: 12px; color: var(--ink-dim); }
+.pf-line { margin: 0; font-size: 13.5px; }
+/* With the live panel or Running list out, the blade is narrower: a smaller cover keeps titles whole. */
+body.np-on .detail, body.run-on .detail { gap: 24px; }
+body.np-on .poster, body.run-on .poster { width: clamp(150px, 12vw, 220px); flex: none; }
+.info { min-width: 0; flex: 1; }
+.info h3 { overflow-wrap: normal; word-break: normal; }
