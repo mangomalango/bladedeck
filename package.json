@@ -1,0 +1,38 @@
+{
+  "name": "bladedeck",
+  "version": "0.1.0",
+  "description": "One launcher for Steam, emulators, recompiled ports and any program. Console mode and PC mode.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "dev.bladedeck.app",
+    "productName": "Bladedeck",
+    "files": [
+      "main.js",
+      "peek.js",
+      "net.js",
+      "preload.js",
+      "renderer/**",
+      "themes/**"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "mac": {
+      "target": "dmg"
+    }
+  },
+  "allowScripts": {
+    "electron@33.4.11": true
+  }
+}

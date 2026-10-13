@@ -1,0 +1,26 @@
+{
+  "id": "xbox-original",
+  "name": "Toxic Green",
+  "vars": {
+    "--bg": "radial-gradient(90% 70% at 50% 115%, #14400d 0%, #071207 55%, #020402 100%)",
+    "--ink": "#e6f6de",
+    "--ink-dim": "#84a679",
+    "--accent": "#4fb318",
+    "--accent-hi": "#a2ff42",
+    "--accent-ink": "#031003",
+    "--glass-hi": "rgba(150,255,90,0.24)",
+    "--glass": "rgba(28,70,18,0.46)",
+    "--glass-lo": "rgba(4,16,4,0.70)",
+    "--glass-edge": "rgba(150,255,90,0.38)",
+    "--shadow": "rgba(0,0,0,0.65)",
+    "--panel": "rgba(8,22,8,0.78)",
+    "--panel-solid": "#0b190b",
+    "--field": "#061006",
+    "--line": "rgba(150,255,90,0.22)",
+    "--btn-hi": "#2f5d1d",
+    "--btn-lo": "#112e08",
+    "--radius": "12px",
+    "--font": "\"Segoe UI\", \"Myriad Pro\", \"Helvetica Neue\", system-ui, sans-serif"
+  },
+  "ribbon": { "colors": ["#58c21c", "#a2ff42", "#2e7d12"], "alpha": 0.22, "blend": "lighter", "width": 110, "count": 5, "speed": 0.3 }
+}

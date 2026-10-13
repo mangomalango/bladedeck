@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' file: data:; media-src 'self' file: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<title>Bladedeck</title>
+<link rel="stylesheet" href="style.css">
+<style id="theme-css"></style>
+<style id="custom-css"></style>
+</head>
+<body data-mode="console">
+  <div id="showcase" aria-hidden="true"><div class="layer"></div><div class="layer"></div><div class="grime"></div></div>
+  <canvas id="bg"></canvas>
+
+  <header id="top">
+    <div class="orb" title=""></div>
+    <div class="who"><b id="who">Player 1</b><span>Bladedeck</span></div>
+    <div class="grow"></div>
+    <div class="seg" role="group" aria-label="Mode">
+      <button data-mode="console">Console</button>
+      <button data-mode="pc">PC</button>
+    </div>
+    <div id="mu-bar" hidden role="group" aria-label="Music">
+      <button data-mu="prev" aria-label="Previous song">⏮︎</button>
+      <button id="mu" data-mu="toggle" aria-label="Play or pause music"><i>♪</i></button>
+      <button data-mu="next" aria-label="Next song">⏭︎</button>
+      <button data-mu="list" aria-label="Songs">☰</button>
+    </div>
+    <button id="dl" hidden aria-label="Steam downloads"><i class="dl-ring"></i><span></span></button>
+    <div id="dl-pop" hidden></div>
+    <span id="rec" hidden>REC</span>
+    <time id="clock"></time>
+  </header>
+
+  <aside id="np" hidden>
+    <div class="np-label"><i class="np-dot"></i>Now playing</div>
+    <div class="np-view"><div class="np-art"></div><video muted playsinline></video><span class="np-live">LIVE</span></div>
+    <b class="np-title"></b>
+    <span class="np-sub"></span>
+    <p class="np-hint"><i class="pad k">Ctrl+M</i> or click to jump back in</p>
+    <button type="button" class="np-live-btn">Show live view (X)</button>
+  </aside>
+
+  <main id="console"><div id="blades"></div></main>
+  <main id="pc"></main>
+
+  <footer id="hints">
+    <span class="h"><i class="pad a">A</i>Launch</span>
+    <span class="h"><i class="pad b">B</i>Home</span>
+    <span class="h"><i class="pad x">X</i>Favorite</span>
+    <span class="h"><i class="pad y">Y</i>Edit</span>
+    <span class="h"><i class="pad k">Start</i>Tasks</span>
+    <span class="h"><i class="pad k">Back</i>PC mode</span>
+  </footer>
+
+  <div id="modal"></div>
+  <div id="toasts" aria-live="polite"></div>
+
+  <div id="np-fly" hidden><div class="np-fly-art"></div><video muted playsinline></video></div>
+  <div id="marquee" hidden><span></span></div>
+  <canvas id="water" hidden></canvas>
+  <canvas id="fx"></canvas>
+  <script src="sound.js"></script>
+  <script src="water.js"></script>
+  <script src="fx.js"></script>
+  <script src="play.js"></script>
+  <script src="music.js"></script>
+  <script src="nowplaying.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

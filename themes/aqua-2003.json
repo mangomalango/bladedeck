@@ -1,0 +1,26 @@
+{
+  "id": "aqua-2003",
+  "name": "Aqua Glass",
+  "vars": {
+    "--bg": "linear-gradient(160deg, #dff3ff 0%, #78bff2 52%, #2f7fd0 100%)",
+    "--ink": "#062742",
+    "--ink-dim": "#3d6285",
+    "--accent": "#1c72d6",
+    "--accent-hi": "#5fb8ff",
+    "--accent-ink": "#ffffff",
+    "--glass-hi": "rgba(255,255,255,0.85)",
+    "--glass": "rgba(255,255,255,0.36)",
+    "--glass-lo": "rgba(170,215,255,0.34)",
+    "--glass-edge": "rgba(255,255,255,0.85)",
+    "--shadow": "rgba(8,50,100,0.35)",
+    "--panel": "rgba(255,255,255,0.55)",
+    "--panel-solid": "#eaf6ff",
+    "--field": "#ffffff",
+    "--line": "rgba(10,60,110,0.22)",
+    "--btn-hi": "#ffffff",
+    "--btn-lo": "#bcdcf7",
+    "--radius": "18px",
+    "--font": "\"Lucida Grande\", \"Segoe UI\", \"Frutiger\", system-ui, sans-serif"
+  },
+  "ribbon": { "colors": ["#ffffff", "#a7dcff", "#4aa3ec"], "alpha": 0.38, "blend": "source-over", "width": 140, "count": 5, "speed": 0.28 }
+}

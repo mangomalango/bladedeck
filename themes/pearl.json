@@ -1,0 +1,26 @@
+{
+  "id": "pearl",
+  "name": "Pearl Blades",
+  "vars": {
+    "--bg": "radial-gradient(120% 90% at 18% 0%, #ffffff 0%, #e7ebe7 42%, #b7c1b9 100%)",
+    "--ink": "#1b2620",
+    "--ink-dim": "#5b6a60",
+    "--accent": "#5aa516",
+    "--accent-hi": "#9fe23c",
+    "--accent-ink": "#ffffff",
+    "--glass-hi": "rgba(255,255,255,0.88)",
+    "--glass": "rgba(255,255,255,0.52)",
+    "--glass-lo": "rgba(214,224,216,0.55)",
+    "--glass-edge": "rgba(255,255,255,0.95)",
+    "--shadow": "rgba(28,48,34,0.30)",
+    "--panel": "rgba(255,255,255,0.66)",
+    "--panel-solid": "#f3f6f3",
+    "--field": "#ffffff",
+    "--line": "rgba(40,60,45,0.20)",
+    "--btn-hi": "#ffffff",
+    "--btn-lo": "#d3dbd5",
+    "--radius": "14px",
+    "--font": "\"Segoe UI\", \"Frutiger\", \"Myriad Pro\", \"Helvetica Neue\", system-ui, sans-serif"
+  },
+  "ribbon": { "colors": ["#a8e63f", "#ffffff", "#7fc226", "#d6efae"], "alpha": 0.42, "blend": "source-over", "width": 120, "count": 5, "speed": 0.35 }
+}

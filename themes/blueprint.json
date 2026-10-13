@@ -1,0 +1,26 @@
+{
+  "id": "blueprint",
+  "name": "Blueprint",
+  "vars": {
+    "--bg": "linear-gradient(rgba(140,190,255,0.09) 1px, transparent 1px) 0 0 / 32px 32px, linear-gradient(90deg, rgba(140,190,255,0.09) 1px, transparent 1px) 0 0 / 32px 32px, radial-gradient(100% 80% at 50% 0%, #123a69 0%, #0a2342 100%)",
+    "--ink": "#dcebff",
+    "--ink-dim": "#8fb0d8",
+    "--accent": "#ffc61a",
+    "--accent-hi": "#ffe27a",
+    "--accent-ink": "#1b1400",
+    "--glass-hi": "rgba(160,205,255,0.16)",
+    "--glass": "rgba(160,205,255,0.07)",
+    "--glass-lo": "rgba(160,205,255,0.04)",
+    "--glass-edge": "rgba(140,190,255,0.55)",
+    "--shadow": "rgba(0,8,24,0.55)",
+    "--panel": "rgba(10,35,66,0.82)",
+    "--panel-solid": "#0d2c52",
+    "--field": "#081d38",
+    "--line": "rgba(140,190,255,0.35)",
+    "--btn-hi": "#1d4a80",
+    "--btn-lo": "#12345d",
+    "--radius": "3px",
+    "--font": "\"Cascadia Mono\", \"Consolas\", \"SF Mono\", \"DejaVu Sans Mono\", monospace"
+  },
+  "ribbon": { "colors": ["#8cbeff", "#ffc61a"], "alpha": 0.30, "blend": "lighter", "width": 3, "count": 9, "speed": 0.22 }
+}
