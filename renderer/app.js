@@ -197,6 +197,7 @@ function systemActions() {
     { id: 'sys-store', title: 'Add store launchers', sub: 'Steam, Heroic and Lutris as apps',     glyph: '⇪', run: addLaunchers },
     { id: 'sys-get',   title: 'Get games',          sub: 'Free games, homebrew and emulators',    glyph: '⬇', run: () => Shop.open() },
     { id: 'sys-qr',    title: 'Quick Resume',       sub: 'Switch between running games and apps, or freeze them', glyph: '▣', run: () => Resume.open() },
+    { id: 'sys-phone', title: 'Phone app',          sub: 'Control Bladedeck from your phone',     glyph: '📱', run: () => Companion.open() },
     { id: 'sys-cap',   title: 'Captures',           sub: 'Your recordings and saved clips',       glyph: '🎬', run: () => Capture.gallery() },
     { id: 'sys-rec',   title: 'Record',             sub: 'Start or stop recording (View + X)',    glyph: '⏺', run: () => Capture.toggleRecord() },
     { id: 'sys-pip',   title: 'Walkthrough window', sub: 'A small YouTube that floats over your game', glyph: '📺', run: () => walkthrough() },

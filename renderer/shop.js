@@ -20,6 +20,7 @@ const EMU_CATALOG = [
   { id: '', win: { id: 'Stenzek.DuckStation', hint: 'duckstation', exe: '^duckstation-qt-x64.*\\.exe$' }, name: 'DuckStation', system: 'PlayStation', args: '-batch -fullscreen -- "{rom}"', exts: 'cue,chd,pbp,m3u', site: 'https://www.duckstation.org', linuxNote: 'Not on Flathub. Get the AppImage from its website, then add it in Emulators.' },
   { id: 'org.ppsspp.PPSSPP', win: { id: 'PPSSPPTeam.PPSSPP', hint: 'ppsspp', exe: '^ppssppwindows64\\.exe$' }, name: 'PPSSPP', system: 'PSP', args: '"{rom}"', exts: 'iso,cso,pbp,chd', site: 'https://www.ppsspp.org' },
   { id: 'net.rpcs3.RPCS3', name: 'RPCS3', system: 'PlayStation 3', args: '--no-gui "{rom}"', exts: 'iso,bin', site: 'https://rpcs3.net' },
+  { id: '', gh: 'xenia', name: 'Xenia Canary', system: 'Xbox 360', args: '--fullscreen=true "{rom}"', exts: 'iso,xex,zar', site: 'https://xenia.jp', note: 'Downloaded from its GitHub releases. The Linux build is newer and still experimental.' },
   { id: 'org.flycast.Flycast', name: 'Flycast', system: 'Dreamcast', args: '"{rom}"', exts: 'cdi,gdi,chd', site: 'https://github.com/flyinghead/flycast' },
   { id: 'app.xemu.xemu', win: { id: 'xemu-project.xemu', hint: 'xemu', exe: '^xemu\\.exe$' }, name: 'xemu', system: 'Xbox', args: '-full-screen -dvd_path "{rom}"', exts: 'iso,xiso', site: 'https://xemu.app' },
   { id: 'org.libretro.RetroArch', win: { id: 'Libretro.RetroArch', hint: 'retroarch', exe: '^retroarch\\.exe$' }, name: 'RetroArch', system: 'Many systems', args: '"{rom}"', exts: '', site: 'https://www.retroarch.com', note: 'Pick a core inside RetroArch for each system; Bladedeck adds it as an app.' }
@@ -44,24 +45,25 @@ const Shop = (() => {
   let tab = 'free', free = null, hb = { platform: '', q: '', page: 1, games: [], total: 0, pages: 1 }, have = {}, busy = {}, paths = null;
   const st = () => S.lib.settings;
   // The install key for this computer: a Flathub ID on Linux, a winget ID on Windows.
-  const key = (e) => (paths?.win ? e.win?.id : (paths?.flatpak ? e.id : '')) || '';
+  const key = (e) => (e.gh ? `gh:${e.gh}` : (paths?.win ? e.win?.id : (paths?.flatpak ? e.id : ''))) || '';
   // Install one app (Flathub or winget) and say how to start it: { exe, pre } or null.
   async function install(e) {
     const k = key(e); if (!k) return null;
     if (!have[k]) {
       busy[k] = 0; draw();
       toast(`Installing ${e.name}…${paths.win ? ' Windows may ask for permission.' : ' This can take a few minutes.'}`);
-      const r = paths.win ? await api.emuInstallWin(e.win) : await api.emuInstall(e.id);
+      const r = e.gh ? await api.emuGhInstall(e.gh) : paths.win ? await api.emuInstallWin(e.win) : await api.emuInstall(e.id);
       delete busy[k]; draw();
       if (!r.ok) { toast(`${e.name} did not install: ${r.error}`, 'err'); return null; }
-      have[k] = paths.win ? r.data.exe : true;
+      have[k] = e.gh || paths.win ? r.data.exe : true;
     }
-    return paths.win ? { exe: have[k], pre: '' } : { exe: paths.flatpak, pre: `run --filesystem=home ${e.id} ` };
+    return e.gh || paths.win ? { exe: have[k], pre: '' } : { exe: paths.flatpak, pre: `run --filesystem=home ${e.id} ` };
   }
   async function refreshHave(list) {
     const wins = paths.win ? list.map((e) => e.win || null) : [];
     const got = await api.emuInstalled(paths.win ? [] : list.map((e) => e.id || ''), wins);
-    list.forEach((e, i) => { const k = key(e); if (k) have[k] = got[i]; });
+    list.forEach((e, i) => { const k = key(e); if (k && !e.gh) have[k] = got[i]; });
+    for (const e of list.filter((x) => x.gh)) have[key(e)] = await api.emuGhInstalled(e.gh);
   }
 
   function web(url) { api.dockOpen({ url, web: true, browser: Dock.browser() }); toast('Opened in your browser.'); }

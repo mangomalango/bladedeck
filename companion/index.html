@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#14000a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Bladedeck</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header id="top"><div class="orb"></div><div class="who"><b id="pc">Bladedeck</b><span id="lvl"></span></div><i id="dot" title="Connection"></i></header>
+  <main id="view"></main>
+  <nav id="tabs">
+    <button data-tab="now" class="on"><i>▶</i>Now</button>
+    <button data-tab="library"><i>🎮</i>Library</button>
+    <button data-tab="remote"><i>✛</i>Remote</button>
+    <button data-tab="clips"><i>🎬</i>Clips</button>
+    <button data-tab="me"><i>⭐</i>Me</button>
+  </nav>
+  <div id="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>

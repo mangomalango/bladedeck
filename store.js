@@ -299,6 +299,34 @@ function register({ getWin }) {
 
   ipcMain.handle('store-paths', () => ({ roms: path.join(os.homedir(), 'Games', 'ROMs'), sep: path.sep, win: process.platform === 'win32',
     flatpak: ['/usr/bin/flatpak', '/usr/local/bin/flatpak'].find((p) => fs.existsSync(p)) || '' }));
+  /* Emulators published on GitHub (Xenia Canary): the newest build for this system is downloaded
+     into ~/Games/Emulators/<name> and unpacked; the program is found and returned. */
+  const GH = { xenia: { repo: 'xenia-canary/xenia-canary-releases', name: 'Xenia Canary', asset: { linux: /linux.*\.tar/i, win32: /windows.*\.zip/i }, exe: { linux: /^xenia_canary$/i, win32: /^xenia_canary\.exe$/i } } };
+  const ghDir = (g) => path.join(os.homedir(), 'Games', 'Emulators', g.name);
+  const ghFind = (g) => { const want = g.exe[process.platform]; if (!want) return null; const walk = (d, n) => { let it; try { it = fs.readdirSync(d, { withFileTypes: true }); } catch { return null; } for (const x of it) { if (x.isFile() && want.test(x.name)) return path.join(d, x.name); } for (const x of it) if (x.isDirectory() && n < 6) { const f = walk(path.join(d, x.name), n + 1); if (f) return f; } return null; }; return walk(ghDir(g), 0); };
+  ipcMain.handle('emu-gh-installed', (_e, id) => { const g = GH[id]; return g ? ghFind(g) : null; });
+  ipcMain.handle('emu-gh-install', wrap(async (_e, id) => {
+    const g = GH[id]; if (!g) throw new Error('Bad request.');
+    const have = ghFind(g); if (have) return { exe: have, already: true };
+    const rel = await getJson(`https://api.github.com/repos/${g.repo}/releases/latest`);
+    const asset = (rel.assets || []).find((a) => g.asset[process.platform]?.test(a.name));
+    if (!asset) throw new Error(`There is no ${g.name} build for this system.`);
+    send('emu-progress', { id: `gh:${id}`, pct: 5 });
+    const r = await fetch(asset.browser_download_url, { headers: UA, signal: AbortSignal.timeout(600000) });
+    if (!r.ok) throw new Error(`The download failed (${r.status}).`);
+    const tmp = path.join(os.tmpdir(), `bladedeck-${id}-${asset.name.replace(/[^\w.-]/g, '')}`);
+    fs.writeFileSync(tmp, Buffer.from(await r.arrayBuffer()));
+    send('emu-progress', { id: `gh:${id}`, pct: 70 });
+    const dest = ghDir(g); fs.mkdirSync(dest, { recursive: true });
+    try {
+      if (/\.zip$/i.test(tmp)) await run('unzip', ['-o', '-q', tmp, '-d', dest], 300000).catch(() => run('tar', ['-xf', tmp, '-C', dest], 300000));
+      else await run('tar', ['-xf', tmp, '-C', dest], 300000);
+    } finally { fs.rmSync(tmp, { force: true }); }
+    const exe = ghFind(g);
+    if (!exe) throw new Error(`${g.name} was downloaded, but its program was not found inside.`);
+    if (process.platform !== 'win32') { try { fs.chmodSync(exe, 0o755); } catch { /* read-only */ } }
+    return { exe, already: false, version: rel.tag_name };
+  }));
   ipcMain.handle('emu-installed', (_e, ids = [], wins = []) => (process.platform === 'win32'
     ? wins.map((w) => (w && w.hint ? winFind(w.hint, w.exe) : null))
     : ids.map((id) => process.platform === 'linux' && flatpakHas(id))));
@@ -383,12 +411,17 @@ function register({ getWin }) {
   ipcMain.handle('watch-set', (_e, dirs = []) => { watchFolders(dirs.filter((d) => typeof d === 'string' && path.isAbsolute(d)), send); return true; });
   ipcMain.handle('watch-defaults', () => [path.join(os.homedir(), 'Games'), downloadsDir()]);
 
-  ipcMain.handle('sound-state', wrap(async () => {
-    if (process.platform === 'win32') return require('./winaudio').ask('state', app.getPath('userData'));
-    if (process.platform !== 'linux') throw new Error('nosys');
-    return soundState();
-  }));
-  ipcMain.handle('sound-set', wrap(async (_e, { kind, id, volume, mute }) => {
+  ipcMain.handle('sound-state', wrap(() => soundGet()));
+  ipcMain.handle('sound-set', wrap((_e, o) => soundSetFn(o)));
+}
+
+// The sound card, for the page and for the phone app.
+async function soundGet() {
+  if (process.platform === 'win32') return require('./winaudio').ask('state', app.getPath('userData'));
+  if (process.platform !== 'linux') throw new Error('nosys');
+  return soundState();
+}
+async function soundSetFn({ kind, id, volume, mute } = {}) {
     const v = volume == null ? null : `${Math.max(0, Math.min(150, Math.round(+volume)))}%`;
     const m = mute == null ? null : mute ? '1' : '0';
     const ID = String(id).replace(/[^\w.:@+{}#-]/g, '');
@@ -407,7 +440,6 @@ function register({ getWin }) {
       await Promise.all(ins.map((i) => pactl(['move-sink-input', String(i.index), ID]).catch(() => {})));
     }
     return soundState();
-  }));
 }
 
-module.exports = { register, romsDir };
+module.exports = { register, romsDir, soundGet, soundSetFn };

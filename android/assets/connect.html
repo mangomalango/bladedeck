@@ -1,0 +1,59 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+  :root { --accent: #ff2d8a; color-scheme: dark; font-family: system-ui, Roboto, sans-serif; }
+  html, body { margin: 0; min-height: 100%; background: radial-gradient(120% 70% at 20% 0%, #5a0030 0%, #14000a 60%) fixed #14000a; color: #fff; }
+  main { padding: 48px 20px 30px; display: flex; flex-direction: column; gap: 14px; }
+  .orb { width: 84px; height: 84px; border-radius: 50%; margin: 0 auto 6px; background: radial-gradient(circle at 35% 30%, #fff, #ffd23f 25%, var(--accent) 60%, #4a0024); box-shadow: 0 0 40px rgba(255,45,138,.6); }
+  h1 { margin: 0; text-align: center; font-size: 28px; } p { margin: 0; color: rgba(255,255,255,.65); text-align: center; }
+  .pc { display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 18px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14); color: #fff; font: inherit; text-align: left; }
+  .pc b { display: block; font-size: 17px; } .pc small { color: rgba(255,255,255,.6); } .pc i { font-style: normal; font-size: 26px; }
+  .pc:active { background: rgba(255,45,138,.35); }
+  input { font: inherit; color: #fff; background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.14); border-radius: 14px; padding: 14px; }
+  button.go { font: inherit; color: #fff; border: 0; border-radius: 14px; padding: 14px; font-weight: 700; background: linear-gradient(135deg, var(--accent), #ff7a59); }
+  .scan { text-align: center; color: rgba(255,255,255,.6); font-size: 14px; } .row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  h2 { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 14px 4px 0; }
+</style></head>
+<body><main>
+  <div class="orb"></div><h1>Bladedeck</h1><p id="lead">Finding your Bladedeck on this Wi-Fi…</p>
+  <div id="list"></div>
+  <div class="scan" id="scan"></div>
+  <h2>Or type its address</h2>
+  <div class="row"><input id="ip" placeholder="192.168.1.20" inputmode="decimal"><button class="go" id="go">Connect</button></div>
+  <p style="font-size:13px">On the PC: Bladedeck, System, Phone app shows the address and a pairing code.</p>
+</main>
+<script>
+  const PORT = 47616, list = document.getElementById('list');
+  const saved = () => { try { return JSON.parse(localStorage.getItem('pcs') || '[]'); } catch (e) { return []; } };
+  const remember = (ip, pc) => { const l = saved().filter((x) => x.ip !== ip); l.unshift({ ip, pc, at: Date.now() }); localStorage.setItem('pcs', JSON.stringify(l.slice(0, 6))); };
+  const found = new Map();
+  function open(ip, pc) { remember(ip, pc); location.href = `http://${ip}:${PORT}/`; }
+  function draw() {
+    const all = [...found.values()];
+    list.innerHTML = all.map((x) => `<button class="pc" data-ip="${x.ip}"><i>🖥️</i><span><b>${x.pc}</b><small>${x.ip}${x.saved ? ' · used before' : ''}</small></span></button>`).join('');
+  }
+  list.onclick = (e) => { const b = e.target.closest('[data-ip]'); if (b) open(b.dataset.ip, found.get(b.dataset.ip).pc); };
+  document.getElementById('go').onclick = () => { const ip = document.getElementById('ip').value.trim(); if (ip) open(ip, ip); };
+  async function hello(ip, ms) {
+    const c = new AbortController(); const t = setTimeout(() => c.abort(), ms);
+    try { const r = await fetch(`http://${ip}:${PORT}/api/hello`, { signal: c.signal }); const j = await r.json(); return j.bladedeck ? j.pc : null; } catch (e) { return null; } finally { clearTimeout(t); }
+  }
+  (async () => {
+    const lost = location.hash === '#lost', sw = location.hash === '#switch';
+    if (lost) document.getElementById('lead').textContent = 'Lost Bladedeck. Is the PC on, and Bladedeck open?';
+    // The last one first: if it answers, go straight there.
+    for (const s of saved()) {
+      const pc = await hello(s.ip, 1500);
+      if (pc) { found.set(s.ip, { ip: s.ip, pc, saved: true }); draw(); if (!sw && !lost && s === saved()[0]) { open(s.ip, pc); return; } }
+    }
+    const me = (window.BladedeckApp && BladedeckApp.address()) || '';
+    const base = me.split('.').slice(0, 3).join('.');
+    if (!base) { document.getElementById('scan').textContent = 'Connect to Wi-Fi, or type the address below.'; return; }
+    document.getElementById('scan').textContent = `Looking on ${base}.x …`;
+    const ips = Array.from({ length: 254 }, (_, i) => `${base}.${i + 1}`).filter((ip) => ip !== me);
+    for (let i = 0; i < ips.length; i += 32) {
+      await Promise.all(ips.slice(i, i + 32).map(async (ip) => { const pc = await hello(ip, 900); if (pc && !found.has(ip)) { found.set(ip, { ip, pc }); draw(); } }));
+    }
+    document.getElementById('scan').textContent = found.size ? 'Tap your PC.' : 'No Bladedeck found. Turn on Phone app in Bladedeck (System, Phone app), or type its address.';
+  })();
+</script></body></html>

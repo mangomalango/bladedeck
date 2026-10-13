@@ -756,6 +756,7 @@ ipcMain.handle('net-poke', (_e, host, body) => Net.poke(String(host), body));
 require('./online').register({ settings: () => loadLib().settings, mediaDir });
 require('./store').register({ getWin: () => win });
 require('./capture').register({ getWin: () => win });
+require('./companion').register({ getWin: () => win, loadLib: () => loadLib() });
 
 // ---------------------------------------------------------------- running apps: freeze, web apps, focus
 const Procs = require('./procs');

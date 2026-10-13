@@ -18,6 +18,8 @@
       "main.js",
       "online.js",
       "store.js",
+      "companion/**",
+      "companion.js",
       "capture.js",
       "winaudio.js",
       "winpad.js",
@@ -43,5 +45,8 @@
   },
   "allowScripts": {
     "electron@33.4.11": true
+  },
+  "dependencies": {
+    "qrcode-generator": "^1.4.4"
   }
 }

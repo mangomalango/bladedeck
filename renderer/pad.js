@@ -208,5 +208,5 @@ const OSK = (() => {
     const t = target; close(); t?.focus();
   }, true);
 
-  return { open, close, handle, isOpen };
+  return { open, close, handle, isOpen, target: () => target };
 })();
