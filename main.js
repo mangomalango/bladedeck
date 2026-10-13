@@ -764,6 +764,7 @@ ipcMain.handle('pid-info', (_e, pid) => Procs.info(pid));
 const WebApps = require('./webapps').register({ getDeck: () => win });
 WebApps.setSend((ch, d) => { if (win && !win.isDestroyed()) win.webContents.send(ch, d); });
 // Keep Bladedeck over Steam's "launching" pop-ups until the game's own window arrives.
+ipcMain.handle('deck-focus', () => { if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } return true; });
 ipcMain.handle('keep-on-top', (_e, on) => { if (win) win.setAlwaysOnTop(!!on, process.platform === 'win32' ? 'screen-saver' : 'floating'); return true; });
 // Windows has no KWin: bring a program to the front by its process.
 ipcMain.handle('focus-pid', (_e, pid) => new Promise((res) => {

@@ -241,11 +241,11 @@ async function launch(e) {
   el?.classList.add('charging');
   // Steam and Heroic show their own "launching" pop-ups; stay on top of them until the game arrives.
   const cover = e.type === 'steam' || (e.type === 'gog' && !e.exe);
-  if (cover) api.keepOnTop(true);
+  if (cover) { api.keepOnTop(true); guardSteam(); }
   const pending = api.launch({ entry: e, emulator, settings: S.lib.settings });
   const arrived = FX.tracers(el);
   const r = await pending;
-  if (!r.ok) { el?.classList.remove('charging'); FX.fizzle(el); toast(r.error, 'err'); launching = false; if (cover) api.keepOnTop(false); return; }
+  if (!r.ok) { el?.classList.remove('charging'); FX.fizzle(el); toast(r.error, 'err'); launching = false; if (cover) { api.keepOnTop(false); steamGuard = null; } return; }
   await arrived;
   el?.classList.remove('charging');
   FX.ripple(el); Sound.play('ripple');
@@ -255,7 +255,16 @@ async function launch(e) {
   if (opened) { const p0 = S.playing, o = opened; isGameWindow(p0, o).then((ok) => { if (ok && !p0.winPid) { p0.winPid = o.pid; uncoverSteam(p0); } }); }
   // Every game started this run, so several can run at once (see Quick Resume).
   S.sessions = [...S.sessions.filter((x) => x.id !== e.id), S.playing];
-  if (S.playing.covered) { const p0 = S.playing; setTimeout(() => uncoverSteam(p0), 25000); }
+  if (S.playing.covered) {
+    const p0 = S.playing;
+    setTimeout(() => {
+      if (!p0.covered) return;
+      // Still no game: Steam is probably asking something. Show it.
+      const asked = steamGuard && steamGuard.hidden.size;
+      if (!p0.winPid && asked) { revealSteam(); toast('Steam seems to need you. Bladedeck will wait for the game.'); }
+      uncoverSteam(p0);
+    }, 25000);
+  }
   Tasks.sync(e);
   if (e.recordNext) { e.recordNext = false; save(); Recorder.start(e); }
   setTimeout(() => {
@@ -295,8 +304,42 @@ async function isGameWindow(p, ev) {
 }
 // Stop covering Steam's windows: the game is here, the player went somewhere else, or they want to
 // see what Steam is asking. Staying on top never lasts long, so it can never trap focus.
-function uncoverSteam(p) { if (p && p.covered) { p.covered = false; api.keepOnTop(false); } }
-addEventListener('blur', () => setTimeout(() => { if (S.playing?.covered && !document.hasFocus()) uncoverSteam(S.playing); }, 300));
+function uncoverSteam(p) { if (p && p.covered) { p.covered = false; api.keepOnTop(false); } steamGuard = null; }
+
+/* Steam guard: while a Steam (or Heroic) game starts, any Steam window that shows up or comes to
+   the front is minimized at once and Bladedeck takes focus back, so Steam's "launching" pop-up
+   and its library window never cover the start. It ends when the game's window is here. If
+   Steam needs an answer (a cloud conflict, "Processing Vulkan shaders"), X shows its windows,
+   and so does waiting 25 seconds without the game appearing. Works wherever Bladedeck can see
+   windows: KDE, Windows, and X11 desktops with wmctrl. */
+let steamGuard = null;
+const launcherWin = (cls) => steamWin(cls) || /^heroic$/i.test(cls || '');
+function guardSteam() { steamGuard = { since: Date.now(), hidden: new Map() }; }
+function revealSteam() {
+  const g = steamGuard; steamGuard = null;
+  if (g) for (const id of g.hidden.keys()) api.winAct(id, 'show');
+}
+api.onPeek((ev) => {
+  if (ev.kind !== 'windows' || !steamGuard) return;
+  if (Date.now() - steamGuard.since > 60000) { steamGuard = null; return; }
+  let l; try { l = JSON.parse(ev.caption) || []; } catch { return; }
+  for (const w of l) {
+    if (!launcherWin(w.cls) || w.min) continue;
+    // New Steam windows, and ones Steam brings to the front, go away while the game starts.
+    if (!steamGuard.hidden.has(w.id) || w.active) {
+      steamGuard.hidden.set(w.id, w.caption);
+      api.winAct(w.id, 'min');
+      if (w.active) api.deckFocus();
+    }
+  }
+});
+// Losing focus to Steam during a start does not count; losing it to anything else ends the cover.
+addEventListener('blur', () => setTimeout(() => {
+  if (!S.playing?.covered || document.hasFocus()) return;
+  const active = Dock.windows().find((w) => w.active);
+  if (active && launcherWin(active.cls) && steamGuard) { api.winAct(active.id, 'min'); steamGuard.hidden.set(active.id, active.caption); api.deckFocus(); return; }
+  uncoverSteam(S.playing);
+}, 400));
 // The first real window to open after a launch is the game (Steam's own windows don't count).
 let launchedAt = 0, opened = null;
 const steamWin = (cls) => /^steam(webhelper)?$/i.test(cls || '');
@@ -980,7 +1023,7 @@ function handle(a) {
   if (Resume.handle(a)) return;
   if (Volume.handle(a)) return;
   // While a game starts behind Bladedeck, X shows whatever Steam is asking.
-  if (a === 'x' && S.playing?.covered) { uncoverSteam(S.playing); api.minimize(); return; }
+  if (a === 'x' && S.playing?.covered) { revealSteam(); uncoverSteam(S.playing); api.minimize(); return; }
   if (a === 'guide') { Guide.toggle('type'); return; }
   if (Guide.handle(a)) return;
   if (Running.handle(a)) return;
