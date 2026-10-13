@@ -27,7 +27,7 @@ public static class BDPad {
   }
 }
 '@
-$was = $false; $wasY = $false
+$was = $false; $wasY = $false; $wasX = $false; $wasRb = $false
 while ($true) {
   $b = [BDPad]::Buttons()
   # BACK is 0x20, START is 0x10, Y is 0x8000.
@@ -37,6 +37,13 @@ while ($true) {
   $y = (($b -band 0x8020) -eq 0x8020)
   if ($y -and -not $wasY) { [Console]::Out.WriteLine('pip'); [Console]::Out.Flush() }
   $wasY = $y
+  # BACK + X records, BACK + RB saves the replay.
+  $x = (($b -band 0x4020) -eq 0x4020)
+  if ($x -and -not $wasX) { [Console]::Out.WriteLine('rec'); [Console]::Out.Flush() }
+  $wasX = $x
+  $rb = (($b -band 0x0220) -eq 0x0220)
+  if ($rb -and -not $wasRb) { [Console]::Out.WriteLine('clip'); [Console]::Out.Flush() }
+  $wasRb = $rb
   Start-Sleep -Milliseconds 40
 }
 `;
@@ -48,7 +55,7 @@ function start(dir, onChord, onPip = () => {}) {
   try { fs.writeFileSync(file, PS1); } catch { return; }
   proc = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', file], { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
   proc.stdout.setEncoding('utf8');
-  proc.stdout.on('data', (d) => { if (/chord/.test(d)) onChord(); if (/pip/.test(d)) onPip(); });
+  proc.stdout.on('data', (d) => { if (/chord/.test(d)) onChord(); for (const k of ['pip', 'rec', 'clip']) if (new RegExp(k).test(d)) onPip(k); });
   proc.on('exit', () => { proc = null; });
   proc.on('error', () => { proc = null; });
 }

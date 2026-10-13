@@ -898,3 +898,17 @@ body.np-on .detail, body.run-on .detail { gap: 24px; }
 body.np-on .poster, body.run-on .poster { width: clamp(150px, 12vw, 220px); flex: none; }
 .info { min-width: 0; flex: 1; }
 .info h3 { overflow-wrap: normal; word-break: normal; }
+
+/* ---------------------------------------------------------------- captures */
+#rec.replay { background: color-mix(in srgb, var(--accent) 70%, #000); animation: none; }
+.dlg:has(.cg) { width: min(1100px, 96vw); }
+.cg { display: flex; flex-direction: column; gap: 10px; }
+.cg-view { background: #000; border-radius: 14px; overflow: hidden; aspect-ratio: 16 / 9; display: grid; place-items: center; }
+.cg-view video { width: 100%; height: 100%; object-fit: contain; }
+.cg-ext { color: #fff; text-align: center; }
+.cg-cap { margin: 0; font-size: 13.5px; color: var(--ink-dim); } .cg-cap b { color: var(--ink); }
+.cg-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; }
+.dlg .cg-th { flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 12px; border-radius: 12px; min-width: 150px; text-align: left; }
+.cg-th span { font-size: 13px; font-weight: 600; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cg-th small { font-size: 11.5px; color: var(--ink-dim); }
+.dlg .cg-th.on { box-shadow: 0 0 0 2px var(--accent-hi); }

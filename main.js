@@ -135,7 +135,7 @@ function createWindow() {
         // Without KWin, list windows another way (Windows, or Linux on X11 with wmctrl).
         require('./winlist').start({ dir: dataDir(), mode: m, onList: (l) => { if (win && !win.isDestroyed()) win.webContents.send('peek', { kind: 'windows', caption: JSON.stringify(l), pid: 0, cls: '' }); } });
       });
-    if (process.platform === 'win32') require('./winpad').start(dataDir(), () => peekToggle(), () => { if (win) win.webContents.send('peek', { kind: 'pip', caption: '', pid: 0, cls: '' }); });
+    if (process.platform === 'win32') require('./winpad').start(dataDir(), () => peekToggle(), (kind = 'pip') => { if (win) win.webContents.send('peek', { kind, caption: '', pid: 0, cls: '' }); });
   });
   win.on('closed', () => { win = null; });
   startNet();
@@ -691,9 +691,9 @@ ipcMain.handle('peek-mode', () => Peek.mode());
 // window or screen the player picked (on Wayland the system picker opens just this one time),
 // instead of asking for a source first and then again for the video.
 let captureWant = { caption: '', types: ['window'] };
-ipcMain.handle('capture-want', (_e, caption = '', types = ['window'], ask = false) => {
+ipcMain.handle('capture-want', (_e, caption = '', types = ['window'], ask = false, audio = false) => {
   if (process.platform === 'linux' && process.env.XDG_SESSION_TYPE === 'wayland' && !ask) return false;
-  captureWant = { caption: String(caption), types: types.filter((t) => t === 'window' || t === 'screen') };
+  captureWant = { caption: String(caption), types: types.filter((t) => t === 'window' || t === 'screen'), audio: !!audio };
   return true;
 });
 app.whenReady().then(() => session.defaultSession.setDisplayMediaRequestHandler(async (_req, cb) => {
@@ -703,7 +703,8 @@ app.whenReady().then(() => session.defaultSession.setDisplayMediaRequestHandler(
     const hit = src.length <= 1 ? src[0]
       : want && (src.find((s) => s.name.toLowerCase() === want) || src.find((s) => s.name.toLowerCase().includes(want) || want.includes(s.name.toLowerCase())));
     if (!hit) return cb({});
-    cb({ video: hit });
+    // Windows can hand over the game's sound too.
+    cb(captureWant.audio && process.platform === 'win32' ? { video: hit, audio: 'loopback' } : { video: hit });
   } catch { cb({}); }
 }));
 
@@ -754,6 +755,7 @@ ipcMain.handle('net-poke', (_e, host, body) => Net.poke(String(host), body));
 // ---------------------------------------------------------------- artwork and RetroAchievements
 require('./online').register({ settings: () => loadLib().settings, mediaDir });
 require('./store').register({ getWin: () => win });
+require('./capture').register({ getWin: () => win });
 
 // ---------------------------------------------------------------- running apps: freeze, web apps, focus
 const Procs = require('./procs');

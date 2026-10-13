@@ -18,6 +18,7 @@
       "main.js",
       "online.js",
       "store.js",
+      "capture.js",
       "winaudio.js",
       "winpad.js",
       "winlist.js",

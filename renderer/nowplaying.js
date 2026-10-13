@@ -145,6 +145,8 @@ const NowPlaying = (() => {
     if (mins !== null) bits.push(mins < 1 ? 'Just started' : `Playing for ${mins} min`);
     if (mins !== null && cur.entry) bits.push(Player.nextReward(mins));
     if (cur.entry?.goal) bits.push(`🎯 ${cur.entry.goal}`);
+    const keys = Capture.saveKeys(cur.entry);
+    if (keys?.save) bits.push(`Save state ${keys.save} · load ${keys.load}`);
     sEl.textContent = bits.join(' · ') || (mode === 'kwin' ? 'Running in the background' : '');
   }
 

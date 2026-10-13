@@ -197,6 +197,8 @@ function systemActions() {
     { id: 'sys-store', title: 'Add store launchers', sub: 'Steam, Heroic and Lutris as apps',     glyph: '⇪', run: addLaunchers },
     { id: 'sys-get',   title: 'Get games',          sub: 'Free games, homebrew and emulators',    glyph: '⬇', run: () => Shop.open() },
     { id: 'sys-qr',    title: 'Quick Resume',       sub: 'Switch between running games and apps, or freeze them', glyph: '▣', run: () => Resume.open() },
+    { id: 'sys-cap',   title: 'Captures',           sub: 'Your recordings and saved clips',       glyph: '🎬', run: () => Capture.gallery() },
+    { id: 'sys-rec',   title: 'Record',             sub: 'Start or stop recording (View + X)',    glyph: '⏺', run: () => Capture.toggleRecord() },
     { id: 'sys-pip',   title: 'Walkthrough window', sub: 'A small YouTube that floats over your game', glyph: '📺', run: () => walkthrough() },
     { id: 'sys-vol',   title: 'Sound',              sub: 'Volume, outputs, mic and every app',    glyph: '🔊', run: () => Volume.open() },
     { id: 'sys-emu',   title: 'Emulators',          sub: 'Add, edit and scan game folders',       glyph: '◉', run: manageEmulators },
@@ -266,7 +268,8 @@ async function launch(e) {
     }, 25000);
   }
   Tasks.sync(e);
-  if (e.recordNext) { e.recordNext = false; save(); Recorder.start(e); }
+  if (e.recordNext) { e.recordNext = false; save(); Capture.recordFor(e, 300); }
+  Capture.sessionStarted();
   setTimeout(() => {
     launching = false;
     syncAway();
@@ -367,7 +370,7 @@ api.onPeek((ev) => { if (ev.kind === 'pip') walkthrough(); });
 api.onPeek((ev) => {
   if (ev.kind !== 'gone' || !ev.pid) return;
   for (const ses of S.sessions.filter((x) => x.winPid === ev.pid)) {
-    S.sessions = S.sessions.filter((x) => x !== ses);
+    S.sessions = S.sessions.filter((x) => x !== ses); Capture.sessionsChanged();
     if (ses === S.playing || ses.tracked) continue; // the panel, or the main process, handles those
     const e = S.lib.entries.find((x) => x.id === ses.id);
     if (e) sessionOver(e, Math.round((Date.now() - ses.t) / 1000));
@@ -404,6 +407,7 @@ api.onEnded(({ id, seconds }) => {
   const e = S.lib.entries.find((x) => x.id === id);
   if (S.playing?.id === id) { S.playing = null; NowPlaying.end(); }
   S.sessions = S.sessions.filter((x) => x.id !== id);
+  Capture.sessionsChanged();
   if (Recorder.busy()) Recorder.stop();
   if (e) sessionOver(e, seconds);
 });
@@ -415,7 +419,7 @@ api.onReturned(() => {
   if (Recorder.busy() && Recorder.since() > 20000) Recorder.stop();
   const p = S.playing;
   if (p && !p.tracked && Date.now() - p.t > 15000) {
-    S.playing = null; S.sessions = S.sessions.filter((x) => x !== p);
+    S.playing = null; S.sessions = S.sessions.filter((x) => x !== p); Capture.sessionsChanged();
     const e = S.lib.entries.find((x) => x.id === p.id);
     if (e) sessionOver(e, Math.round((Date.now() - p.t) / 1000));
   }
@@ -897,6 +901,12 @@ const CONTROLS = [
     ['Close it', 'Y', ''],
     ['Show Steam while a game is starting', 'X', 'X']
   ]],
+  ['Recording and clips', [
+    ['Start or stop recording (works in games)', 'View + X', 'Ctrl+Alt+R'],
+    ['Save the last moments (replay)', 'View + RB', 'Ctrl+Alt+S'],
+    ['Your clips', 'System, Captures', 'System, Captures'],
+    ['Save state / load state (emulators)', 'the emulator\'s keys, shown on the live panel', 'same']
+  ]],
   ['Walkthrough window', [
     ['Pop a walkthrough video up or away (works in games)', 'View + Y', 'Ctrl+Alt+Y'],
     ['Open it for a question', 'Guide flap, YouTube', 'Guide flap, YouTube']
@@ -956,6 +966,8 @@ function openSettings() {
       <label>Music folder (leave empty for your Music folder)${row('musicDir', 'dir', st.musicDir)}</label>
       <div class="checks"><label><input type="checkbox" name="musicDuringGames" ${st.musicDuringGames ? 'checked' : ''}> Keep music playing during games</label><label><input type="checkbox" name="peekMinimize" ${st.peekMinimize ? 'checked' : ''}> Minimize the game when peeking with Ctrl+M</label></div>
       <p class="note">Ctrl+M jumps between a game or app and Bladedeck. On KDE you can change the key in System Settings, Shortcuts, KWin, "Bladedeck: peek". Minimizing the game can freeze its live view, so it is off by default.</p>
+      <h3 class="set-h">Recording</h3>
+      ${Capture.settingsHtml()}
       <h3 class="set-h">Watched folders</h3>
       ${Watch.settingsHtml()}
       <h3 class="set-h">Guide</h3>
@@ -986,14 +998,14 @@ function openSettings() {
       Object.assign(st, { musicDir: val(root, 'musicDir'), musicDuringGames: chk(root, 'musicDuringGames'), peekMinimize: chk(root, 'peekMinimize') });
       Object.assign(st, { prewarmSteam: chk(root, 'prewarmSteam'), shaderCache: chk(root, 'shaderCache'), gamemode: chk(root, 'gamemode'),
         sgdbKey: val(root, 'sgdbKey'), raUser: val(root, 'raUser'), raKey: val(root, 'raKey') });
-      Guide.readSettings(root); Watch.readSettings(root); Running.refresh();
+      Guide.readSettings(root); Watch.readSettings(root); Capture.readSettings(root); Running.refresh();
       if (peekWas !== st.peekMinimize) api.peekConfig({ minimize: st.peekMinimize });
       if (dirWas !== st.musicDir) Music.load(true).then(Music.draw);
       Sound.sync(); Showcase.reset();
       applyTheme(val(root, 'theme')); $('#who').textContent = st.playerName; Player.header(); S.bi = 0; S.pcNav = 'blade:0'; save();
       if (S.mode === 'console') renderConsole(); else renderPc();
     } }],
-    onOpen: (root) => root.addEventListener('click', (ev) => {
+    onOpen: (root) => { Capture.settingsOpen(root); root.addEventListener('click', (ev) => {
       const x = ev.target.closest('[data-x]')?.dataset.x;
       if (x === 'look') { closeModal(); Look.open(); }
       if (x === 'ratest') {
@@ -1005,7 +1017,7 @@ function openSettings() {
       if (x === 'themes') api.openThemes();
       if (x === 'css') api.openCss();
       if (x === 'blades') $('[name=blades]', root).value = JSON.stringify(S.defaultBlades, null, 2);
-    })
+    }); }
   });
 }
 
@@ -1117,8 +1129,10 @@ function bindInput() {
     const st = { up: b(12) || p.axes[1] < -0.6, down: b(13) || p.axes[1] > 0.6, left: b(14) || p.axes[0] < -0.6, right: b(15) || p.axes[0] > 0.6,
       a: b(0), b: b(1), x: b(2), y: b(3), lb: b(4), rb: b(5), lt: b(6), rt: b(7), back: b(8), start: b(9), ach: b(10), music: b(11), vol: b(16) };
     if (st.back && st.start && !paired) { paired = true; api.peekToggle(); }
-    // View + Y: the walkthrough window, from inside a game too.
+    // View + Y: the walkthrough window. View + X: record. View + RB: save the last moments. In games too.
     if (st.back && st.y && !paired) { paired = true; walkthrough(); }
+    if (st.back && st.x && !paired) { paired = true; Capture.toggleRecord(); }
+    if (st.back && st.rb && !paired) { paired = true; Capture.saveReplay(); }
     if (!S.pad && document.hasFocus()) for (const k in st) if (st[k]) { S.pad = true; break; }
     const focused = document.hasFocus();
     // Holding the guide trigger pulls the flap out with the stick; the stick is not the menu's then.
@@ -1127,7 +1141,7 @@ function bindInput() {
       const dir = k === 'up' || k === 'down' || k === 'left' || k === 'right';
       if (!focused) { /* the game is using the pad */ }
       else if (pulling && (dir || k === 'lt' || k === 'rt')) { /* the flap has it */ }
-      else if (k === 'y' && st.back) { /* View + Y is the walkthrough window */ }
+      else if ((k === 'y' || k === 'x' || k === 'rb') && st.back) { /* View + Y / X / RB are chords */ }
       else if (k === 'lt' || k === 'rt') { if (!st[k] && prev[k] && (!Guide.isTrigger(k) || Guide.tapped())) { Secrets.bump(); handle(k); } }
       else if (k === 'back' && st.back && !paired && !viewHeld && viewAt && now - viewAt > 550) { viewHeld = true; handle('resume'); }
       else if (k === 'back' || k === 'start') { if (!st[k] && prev[k] && !paired && !(k === 'back' && viewHeld)) { Secrets.bump(); handle(k); } }

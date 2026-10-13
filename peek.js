@@ -95,6 +95,8 @@ workspace.windowActivated.connect(() => sendList());
 sendList();
 registerShortcut('${SHORTCUT}', 'Bladedeck: peek at the launcher and jump back', 'Ctrl+M', toggle);
 registerShortcut('${RETURN}', 'Bladedeck: return to the game (used by Bladedeck)', '', returnTo);
+registerShortcut('Bladedeck Record', 'Bladedeck: start or stop recording', 'Ctrl+Alt+R', () => tell('rec', workspace.activeWindow));
+registerShortcut('Bladedeck Clip', 'Bladedeck: save the last moments (replay)', 'Ctrl+Alt+S', () => tell('clip', workspace.activeWindow));
 registerShortcut('Bladedeck Walkthrough', 'Bladedeck: pop the walkthrough video up or away', 'Ctrl+Alt+Y', () => tell('pip', workspace.activeWindow));
 `;
 
@@ -141,7 +143,9 @@ async function start(w, { dataDir, minimize, handler }) {
   // Fallback: Ctrl+M shows Bladedeck, and from Bladedeck it minimizes it to reveal the game.
   try {
     globalShortcut.register('CommandOrControl+M', electronToggle);
-    try { globalShortcut.register('CommandOrControl+Alt+Y', () => onEvent({ kind: 'pip', caption: '', pid: 0, cls: '' })); } catch { /* taken */ }
+    for (const [k, kind] of [['CommandOrControl+Alt+Y', 'pip'], ['CommandOrControl+Alt+R', 'rec'], ['CommandOrControl+Alt+S', 'clip']]) {
+      try { globalShortcut.register(k, () => onEvent({ kind, caption: '', pid: 0, cls: '' })); } catch { /* taken */ }
+    }
     mode = 'electron';
   } catch { mode = null; }
   return mode;
