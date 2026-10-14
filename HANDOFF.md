@@ -15,9 +15,21 @@ Task IDs and cards: see TEAM.md (next free ID: BD-005).
   Contract: SPEC §1 (web-dl-*, archive-*, fs-reveal, game-info), §3 downloads. Verify:
   `npm run check`, `npm run test-copy -- --real`, then in DevTools (port 9333):
   `WebDl.open()`, and `api.archiveRun({op:'compress', file:'<an allowed folder>', fmt:'7z'})`.
+  **Done, Windows (Claude Sonnet), no code change:** test copy with --real, scripted over port
+  9333. webDlFolders: dl `C:\Users\natha\Downloads`, games `...\Games\ROMs\Downloaded`, 7-Zip
+  found. Compress .7z and .zip and Extract (into "Some Game (2)", no overwrite) all ok in
+  ~\Bladedeck; a path outside (C:\Windows\win.ini) is refused. gameInfo(L4D2) returns kind,
+  story, play, multi, split. errors.log empty. Not checked: Show in Explorer (the test copy
+  blocks fs-reveal by design) and the Downloads window's look (WebDl.open() ran without error,
+  but the scripted text read the guide behind it); both need the owner's eyes.
 - **BD-002** · windows · Claude Sonnet · ROM tidy and naming on Windows paths: `Watch.romTitle`
   and `Watch.fits` with backslash paths (`C:\Games\Crackdown.1.EUR.X360-ZTM\default.xex`,
   a `.bin` under `...\pfx\drive_c\...`). Contract: SPEC §2 (romTidy).
+  **Done, Windows (Claude Sonnet), no code change:** the real fits/romTitle/junk code run in node
+  on Windows paths: Crackdown.1.EUR.X360-ZTM\default.xex -> "Crackdown 1"; PS3_GAME\USRDIR\EBOOT.BIN
+  -> its folder's name; .bin under pfx\drive_c and compatdata skipped; a plain PSX .bin kept. Note
+  only: the extension regex `/\.([^./]+)$/` lets a backslash in, so an extension-less file under
+  a dotted folder gets a junk "extension" (it never matches a list, so it is harmless).
 - **BD-003** · both · Gemini · Audit master `53c2aac..dfe66ea` (Nearby hint, clip scoring, game
   info, Downloads, archive.js, test-copy mode, ROM tidy, SPEC check) with `/bladedeck-audit`.
 - **BD-004** · both · owner + Claude Opus · Nearby both ways once the Linux firewall line is run:
