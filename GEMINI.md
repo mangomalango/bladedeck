@@ -1,5 +1,15 @@
 # Bladedeck: briefing for AI assistants
 
+**Names:** the owner sometimes calls this project "Steamblade" (its first name, and the name of the
+console-mode idea). Steamblade and Bladedeck are the same project: this repository.
+
+**Working with Claude:** Claude (Claude Code) also works on this repository, in a separate tool.
+You cannot message each other; you coordinate through `HANDOFF.md` in this folder. Read it first:
+it says what was done last, what is in progress, and which tasks are yours. When you finish
+something, add a short entry at the top of its log (date, who, what changed, what is left) and
+take a snapshot (`npm run snapshot -- "what changed"`). Never work on a task the other has marked
+as in progress.
+
 Bladedeck is a console-style game launcher (Electron 33) for Steam, emulators, native ports and any
 program, with a controller-first "console mode" and a windowed "PC mode". The owner (mangomalango)
 runs it on CachyOS, KDE Plasma on Wayland, Intel Arc graphics, and also builds a Windows version.
