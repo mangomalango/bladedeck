@@ -19,6 +19,10 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Log
 
+- **2026-10-14, Claude (Windows):** Released v0.2.2 (owner's go-ahead): the Windows work above,
+  Bluetooth, and the packaging fix. AppImage and exe from this commit's CI run; the phone app is
+  v0.2.1's (Android 1.2, unchanged). Installed on the owner's Windows PC.
+
 - **2026-10-14, Claude (Windows, branch windows-fixes):** First real run on the owner's Windows
   11 PC (RX 9070 XT, one Samsung screen), from source and from the packaged `win-unpacked` build,
   against a copy of the owner's library (C:\bdtest). Full list in WINDOWS.md. Fixed:
