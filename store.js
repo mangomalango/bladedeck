@@ -519,6 +519,16 @@ async function soundSetFn({ kind, id, volume, mute } = {}) {
    screen it plays on its speaker (or headphones). The screen is KWin's name for it (HDMI-A-1,
    DP-2, eDP-1). Returns the output's label, or '' when nothing needed to change. */
 async function soundFollow(screen) {
+  // Windows names a screen's HDMI or DisplayPort sound after the monitor ("SAMSUNG (AMD High
+  // Definition Audio Device)"); players.js names screens "Screen 2 (SAMSUNG)".
+  if (process.platform === 'win32') {
+    const mon = (/\(([^)]+)\)\s*$/.exec(String(screen)) || [])[1]; if (!mon) return '';
+    const r = await soundGet(); const outs = (r?.data || r)?.outputs || [];
+    const pick = outs.find((o) => !o.unplugged && `${o.label} ${o.port}`.toLowerCase().includes(mon.toLowerCase()));
+    if (!pick || pick.on) return '';
+    await soundSetFn({ kind: 'default', id: pick.name });
+    return pick.label;
+  }
   if (process.platform !== 'linux') return '';
   const pick = await outputForScreen(screen);
   if (!pick || pick.on) return '';

@@ -28,6 +28,10 @@ public static class BDWin {
   [DllImport("user32.dll")] static extern bool PostMessage(IntPtr h, int msg, IntPtr w, IntPtr l);
   [DllImport("user32.dll")] static extern void keybd_event(byte vk, byte scan, int flags, IntPtr extra);
   [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int a, out int v, int size);
+  [StructLayout(LayoutKind.Sequential)] struct RECT { public int l, t, r, b; }
+  [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
+  [DllImport("user32.dll")] static extern bool IsZoomed(IntPtr h);
+  [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int w, int hh, int flags);
   static Dictionary<int, string> names = new Dictionary<int, string>();
   static string J(string s) {
     StringBuilder b = new StringBuilder("\"");
@@ -50,10 +54,21 @@ public static class BDWin {
       string cls = c.ToString(); if (cls == "Progman" || cls == "Shell_TrayWnd" || cls == "WorkerW") return true;
       int pid; GetWindowThreadProcessId(h, out pid); if (pid == self) return true;
       if (!first) b.Append(','); first = false;
-      b.Append("{\"id\":\"w32:" + h.ToInt64() + "\",\"caption\":" + J(t.ToString()) + ",\"cls\":" + J(Name(pid)) + ",\"pid\":" + pid + ",\"min\":" + (IsIconic(h) ? "true" : "false") + ",\"active\":" + (h == fg ? "true" : "false") + "}");
+      RECT rc; GetWindowRect(h, out rc);
+      b.Append("{\"id\":\"w32:" + h.ToInt64() + "\",\"caption\":" + J(t.ToString()) + ",\"cls\":" + J(Name(pid)) + ",\"pid\":" + pid + ",\"min\":" + (IsIconic(h) ? "true" : "false") + ",\"active\":" + (h == fg ? "true" : "false") + ",\"rect\":[" + rc.l + "," + rc.t + "," + (rc.r - rc.l) + "," + (rc.b - rc.t) + "]}");
       return true;
     }, IntPtr.Zero);
     return b.Append(']').ToString();
+  }
+  // Onto another screen (x, y, w, h of that screen in pixels): a maximized or full-screen window
+  // fills the new one, any other keeps its size and moves to the screen's corner.
+  public static void Move(long id, int x, int y, int w, int hh) {
+    IntPtr h = new IntPtr(id); RECT rc; GetWindowRect(h, out rc);
+    bool zoomed = IsZoomed(h), full = !zoomed && rc.r - rc.l >= w && rc.b - rc.t >= hh;
+    if (zoomed) ShowWindow(h, 9);
+    if (full) SetWindowPos(h, IntPtr.Zero, x, y, w, hh, 0x0014);
+    else SetWindowPos(h, IntPtr.Zero, x + 40, y + 40, 0, 0, 0x0015);
+    if (zoomed) ShowWindow(h, 3);
   }
   public static void Act(long id, string a) {
     IntPtr h = new IntPtr(id);
@@ -77,6 +92,7 @@ while ($true) {
   $line = [Console]::In.ReadLine(); if ($line -eq $null) { break }
   try {
     if ($line -eq 'list') { $r = [BDWin]::List(${self}) }
+    elseif ($line.StartsWith('move|')) { $p = $line.Split('|'); [BDWin]::Move([long]$p[1], [int]$p[2], [int]$p[3], [int]$p[4], [int]$p[5]); $r = [BDWin]::List(${self}) }
     else { $p = $line.Split('|'); [BDWin]::Act([long]$p[1], $p[0]); $r = [BDWin]::List(${self}) }
   } catch { $r = '[]' }
   [Console]::Out.WriteLine($r); [Console]::Out.Flush()
@@ -122,9 +138,21 @@ function x11List() {
   }));
 }
 
+/* Windows: which screen each window is on, named the way players.js names Windows screens, so
+   multi-screen and sound-follows-the-game work as they do with KDE's connector names. */
+function withScreens(out) {
+  let l; try { l = JSON.parse(out); } catch { return null; }
+  if (process.platform !== 'win32') return l;
+  const { screen } = require('electron'), { screenName } = require('./players');
+  for (const w of l) {
+    if (!w.rect || w.min) continue;
+    try { const [x, y, width, height] = w.rect; w.out = screenName(screen.getDisplayMatching(screen.screenToDipRect(null, { x, y, width, height }))); } catch { /* off screen */ }
+  }
+  return l;
+}
 async function poll() {
   const out = x11 ? await x11List() : await ask('list');
-  if (out !== last) { last = out; try { send(JSON.parse(out)); } catch { /* skip */ } }
+  if (out !== last) { last = out; const l = withScreens(out); if (l) send(l); }
 }
 
 // mode is the peek mode; with KWin the script already sends windows.
@@ -143,7 +171,18 @@ function start({ dir, mode, onList }) {
 
 async function act(id, a) {
   id = String(id);
-  if (id.startsWith('w32:')) { const out = await ask(`${a === 'min' || a === 'close' ? a : 'show'}|${id.slice(4).replace(/\D/g, '')}`); last = out; try { send(JSON.parse(out)); } catch { /* skip */ } return true; }
+  if (id.startsWith('w32:')) {
+    const h = id.slice(4).replace(/\D/g, '');
+    let cmd = `${a === 'min' || a === 'close' ? a : 'show'}|${h}`;
+    // screen:<name> moves the window onto that screen (multi-screen puts each game on its player's).
+    if (String(a).startsWith('screen:')) {
+      const { screen } = require('electron'), { screenName } = require('./players');
+      const d = screen.getAllDisplays().find((x) => screenName(x) === String(a).slice(7)); if (!d) return false;
+      const r = screen.dipToScreenRect(null, d.bounds);
+      cmd = `move|${h}|${r.x}|${r.y}|${r.width}|${r.height}`;
+    }
+    const out = await ask(cmd); last = out; const l = withScreens(out); if (l) send(l); return true;
+  }
   if (id.startsWith('x11:')) {
     const w = id.slice(4).replace(/[^0-9a-fx]/gi, '');
     const run = (cmd, args) => new Promise((r) => execFile(cmd, args, { timeout: 4000 }, (err) => r(!err)));

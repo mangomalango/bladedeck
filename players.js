@@ -128,7 +128,9 @@ function crc32(buf) {
 let btSeq = 0;
 /* One output report with only the parts asked for marked valid; everything else (lights, rumble
    the game is playing) is left as it is. o: { path, speaker, headphones (0-100), rumble (12-100) } */
+const WIN_DS = 'Not needed on Windows: over a USB cable the DualSense is an ordinary sound device ("Wireless Controller" in the sound card).';
 function dsWrite(o = {}) {
+  if (process.platform === 'win32') return { ok: false, error: WIN_DS };
   if (process.platform !== 'linux') return { ok: false, error: 'DualSense features work on Linux.' };
   const h = dsHid(); if (!h) return { ok: false, error: 'No DualSense is connected.' };
   const c = Buffer.alloc(47);
@@ -186,6 +188,7 @@ async function dsStatus() {
 /* mode: '' (Bladedeck leaves the controller's sound alone), 'jack', 'speaker' or 'both'. Each
    output Bladedeck makes is a mono sound output pointing at the channel that reaches it. */
 async function dsOutputs(mode, vol = {}) {
+  if (process.platform === 'win32') return mode ? { ok: false, error: WIN_DS } : { ok: true };
   if (process.platform !== 'linux') return { ok: false, error: 'DualSense sound is supported on Linux.' };
   if (mode === true) mode = 'both'; if (mode === false) mode = '';
   for (const m of await loaded()) await run('pactl', ['unload-module', m.id]);
@@ -239,7 +242,7 @@ async function displays() {
   }
   return ds.map((d, i) => {
     const k = ks.find((o) => o.pos && Math.abs(o.pos.x - d.bounds.x) < 4 && Math.abs(o.pos.y - d.bounds.y) < 4);
-    const name = k?.name || '';
+    const name = k?.name || (process.platform === 'win32' ? screenName(d) : '');
     return { id: d.id, n: i + 1, name, label: d.label || name || `Screen ${i + 1}`, builtIn: /^(eDP|LVDS|DSI)/i.test(name) || d.internal === true, bounds: d.bounds, primary: d.id === prim };
   });
 }
@@ -275,6 +278,12 @@ async function extend(on) {
   const args = unmirrored.flatMap((x) => [`output.${x.name}.position.${x.pos.x},${x.pos.y}`, ...(x.source ? [`output.${x.name}.mirror.${x.source}`] : [])]);
   unmirrored = null;
   return { ok: ok(await run('kscreen-doctor', args, 10000)) };
+}
+/* Windows has no connector names like KDE's, so a screen is named by its place in the list and
+   its monitor's name ("Screen 2 (SAMSUNG)"); winlist.js names each window's screen the same way. */
+function screenName(d) {
+  const all = screen.getAllDisplays(), i = all.findIndex((x) => x.id === d.id);
+  return `Screen ${i + 1}${d.label ? ` (${d.label})` : ''}`;
 }
 function displayById(id) { return screen.getAllDisplays().find((d) => d.id === +id) || null; }
 function place(w, d) {
@@ -400,4 +409,4 @@ function stop() {
   }
 }
 
-module.exports = { register, wrapForPlayer, pads, stop, p2: () => p2 };
+module.exports = { register, wrapForPlayer, pads, stop, screenName, p2: () => p2 };

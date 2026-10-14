@@ -149,7 +149,8 @@ const Players = (() => {
     claimingSlot = slot;
     let gp = null;
     const watch = setInterval(() => { const g = all().find((x) => x.buttons.some((b) => b.pressed)); if (g && !gp) gp = { index: g.index, vp: vpOf(g) }; }, 30);
-    const dev = await api.padsClaim();
+    // Windows: no system-side claim, so the controller is known only by the pad pressed in the page.
+    let dev = WIN ? await new Promise((r) => { const t0 = Date.now(), i = setInterval(() => { if (gp || Date.now() - t0 > 8000) { clearInterval(i); r(gp ? { id: `gp:${gp.vp}:${gp.index}`, name: (all().find((x) => x.index === gp.index)?.id || 'Controller').replace(/\s*\(.*$/, '') } : null); } }, 50); }) : await api.padsClaim();
     await new Promise((r) => setTimeout(r, 120));
     clearInterval(watch);
     // Let go of the button before the menu listens again.
@@ -184,9 +185,13 @@ const Players = (() => {
 
   /* -------------------------------------------------------------- Settings: Controllers */
   const ICON = { DualSense: '🎮', 'DualSense Edge': '🎮', 'DualShock 4': '🎮', Xbox: '🎮', 'Xbox-style': '🎮', 'Switch Pro': '🕹', Nintendo: '🕹', '8BitDo': '🕹', Steam: '🎮', Stadia: '🎮', Controller: '🎮' };
+  // Windows has no controller list of its own in main (Linux reads /sys): the page's gamepads are it.
+  const WIN = navigator.userAgent.includes('Windows');
+  const winPads = () => usable(all()).map((g) => ({ id: `gp:${vpOf(g)}:${g.index}`, name: g.id.replace(/\s*\(.*$/, '') || 'Controller', conn: 'Connected',
+    kind: /054c/i.test(g.id) ? 'DualSense' : /045e|xinput|xbox/i.test(g.id) ? 'Xbox' : /057e/i.test(g.id) ? 'Nintendo' : /28de/i.test(g.id) ? 'Steam' : /18d1/i.test(g.id) ? 'Stadia' : 'Controller' }));
   async function drawControllers(box) {
     const [all0, ds, sd] = await Promise.all([api.padsList().catch(() => []), api.dsStatus().catch(() => ({})), api.stadiaStatus?.().catch(() => ({})) ?? {}]);
-    const list = all0.filter((p) => !p.aux);
+    const list = WIN && !all0.length ? winPads() : all0.filter((p) => !p.aux);
     const c = cfg(), st = S.lib.settings;
     const who = (p) => (c.p1?.pad === p.id ? 'Player 1' : c.p2?.pad === p.id ? 'Player 2' : '');
     box.innerHTML = `
@@ -204,7 +209,8 @@ const Players = (() => {
         <p class="note">${sd.usb ? `Connected by USB: buttons, ${sd.rumble ? 'rumble' : 'rumble (once Linux loads its driver, hid-google-stadiaff, which happens by itself when it is plugged in)'}, its headphone jack and its microphone work.` : 'Connected over Bluetooth: every button works. Linux gives it no rumble or sound over Bluetooth; a USB cable adds both.'}</p>
         <p class="note">Its own buttons: <b>Stadia</b> opens the sound card, <b>Assistant</b> asks Bladedeck by voice, <b>Capture</b> saves the last moments (hold it to start or stop recording). They work in games too. The headphone jack shows up in Sound as "Controller headphones".</p>` : ''}
       <h4 class="set-sub">DualSense sound and microphone</h4>
-      ${ds.present && ds.usb ? `<p class="note">Connected by USB: its speaker, headphone jack and microphone work.</p>
+      ${WIN ? '<p class="note">On Windows a DualSense connected by <b>USB cable</b> is an ordinary sound device and microphone ("Wireless Controller"): pick it in the sound card. Separate speaker and headphone outputs are a Linux feature.</p>'
+        : ds.present && ds.usb ? `<p class="note">Connected by USB: its speaker, headphone jack and microphone work.</p>
         <label>Sound from the controller<select name="dsMode">
           <option value="" ${!st.dsMode ? 'selected' : ''}>Leave it to the system (headphones when plugged in, else the speaker)</option>
           <option value="jack" ${st.dsMode === 'jack' ? 'selected' : ''}>Headphone jack (stereo)</option>
@@ -297,9 +303,13 @@ const Players = (() => {
     const outs = (snd.ok ? snd.data.outputs : []).filter((o) => !o.unplugged);
     const scr = (slot) => `<select name="ms${slot}screen"><option value="">${slot === 1 ? 'Where Bladedeck is now' : 'Pick a screen'}</option>${ds.map((d) => `<option value="${d.id}" ${String(c[`p${slot}`]?.screen) === String(d.id) ? 'selected' : ''}>${esc(d.builtIn ? `Laptop screen (${d.name || d.label})` : d.name || d.label)} · ${d.bounds.width}×${d.bounds.height}</option>`).join('')}</select>`;
     const out = (slot) => `<select name="ms${slot}out"><option value="">That screen's own speakers</option>${outs.map((o) => `<option value="${esc(o.name)}" ${c[`p${slot}`]?.out === o.name ? 'selected' : ''}>${esc(o.port && !/^analog/i.test(o.port) ? o.port : o.label)}</option>`).join('')}</select>`;
-    const need = [[ds.length >= 2, `Two screens (${ds.length} connected)`], [list.length >= 2, `Two controllers (${list.length} connected)`], [NowPlaying.mode() === 'kwin', 'KDE Plasma (puts each game on its player\'s screen)']];
+    const pads0 = WIN && !list.length ? winPads() : list;
+    const need = [[ds.length >= 2, `Two screens (${ds.length} connected)`], [pads0.length >= 2, `Two controllers (${pads0.length} connected)`],
+      WIN ? [true, 'Windows puts each game on its player\'s screen'] : [NowPlaying.mode() === 'kwin', 'KDE Plasma (puts each game on its player\'s screen)']];
     box.innerHTML = `
-      <p class="note">Two players, two screens, two games at once, each with their own menu, controller and sound. Games Bladedeck starts itself (PC games, emulators, ports) get only their player's controller; a Steam game started through Steam sees every controller.</p>
+      <p class="note">Two players, two screens, two games at once, each with their own menu, controller and sound. ${WIN
+        ? 'On Windows each menu answers only its player\'s controller and each game opens on its player\'s screen, but games see every controller and play on the default sound output: those two need Linux.'
+        : 'Games Bladedeck starts itself (PC games, emulators, ports) get only their player\'s controller; a Steam game started through Steam sees every controller.'}</p>
       <ul class="sp-need">${need.map(([ok, t]) => `<li class="${ok ? 'ok' : 'no'}">${ok ? '✓' : '✗'} ${esc(t)}</li>`).join('')}</ul>
       ${mir.length ? `<div class="ph-fw"><b>Your screens show the same picture</b><p>${esc(mir.map((m) => `${m.name} copies ${m.source}`).join(', '))}. For two players they need to be side by side. Bladedeck can do that now and put them back when multi-screen is turned off.</p><button type="button" data-ms="extend">Use them as two screens</button></div>` : ''}
       <div class="row2"><div class="ms-p"><b>Player 1</b><label>Screen${scr(1)}</label><label>Sound${out(1)}</label><small>${esc(c.p1?.padName || 'Controller: not picked (any that is not Player 2\'s)')}</small></div>
