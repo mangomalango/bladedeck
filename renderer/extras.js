@@ -34,10 +34,11 @@ const Extras = (() => {
         with: 'Bladedeck only covers its browser panels and web apps. This PC covers everything on the current Wi-Fi. For your phone, add the same servers in Tailscale\'s DNS settings.',
         btn: '', act: () => {},
         extra: `<label class="ex-tog"><input type="checkbox" data-ex="dnsApp" ${s.adguardApp ? 'checked' : ''}> In Bladedeck (its browser and web apps)</label>${sys ? `<label class="ex-tog"><input type="checkbox" data-ex="dnsSys" ${sys.adguard ? 'checked' : ''}> For this whole PC (${esc(sys.connection)})</label>` : ''}` },
-      { id: 'discord', icon: '💬', name: 'Discord', what: 'Your chats one press away in the dock, in a game or out of one.',
-        state: discord ? 'In your dock' : 'Not in your dock', on: discord,
-        with: 'Friends you add with a Discord link open straight in it.',
-        btn: discord ? '' : 'Add to the dock', act: () => { const d = (st().dock = st().dock || { on: true, slots: [] }); d.slots.push(fromPreset('discord')); save(); Dock.draw(); toast('Discord is in the dock.'); } },
+      { id: 'discord', icon: '💬', name: 'Discord', what: 'Your chats one press away in the dock, and Rich Presence to show what you play.',
+        state: [discord ? 'In your dock' : 'Not in your dock', s.discordRpc === true && s.discordClientId ? 'sharing what you play' : ''].filter(Boolean).join(' · '), on: discord,
+        with: 'To show what you play on your Discord profile: make an application at discord.com/developers/applications (New Application, call it Bladedeck), copy its Application ID here, and tick the box. Off until you do.',
+        btn: discord ? '' : 'Add to the dock', act: () => { const d = (st().dock = st().dock || { on: true, slots: [] }); d.slots.push(fromPreset('discord')); save(); Dock.draw(); toast('Discord is in the dock.'); },
+        extra: `<label class="ex-tog">Discord Application ID<input type="text" data-ex="discordClientId" value="${esc(s.discordClientId || '')}" placeholder="from discord.com/developers/applications" autocomplete="off"></label><label class="ex-tog"><input type="checkbox" data-ex="discordRpc" ${s.discordRpc === true ? 'checked' : ''}> Share what I'm playing on my Discord profile</label>` },
       { id: 'ra', icon: '🏆', name: 'RetroAchievements', what: 'Achievements and progress for games you play in emulators.',
         state: s.raUser && s.raKey ? `Signed in as ${s.raUser}` : 'Not set up', on: !!(s.raUser && s.raKey),
         with: 'Progress shows on each emulated game, and counts toward its tasks.',
@@ -107,6 +108,8 @@ const Extras = (() => {
   function read(root) {
     const s = st(), q = (k) => root.querySelector(`[data-ex="${k}"]`);
     if (q('weekly')) s.backupWeekly = q('weekly').checked;
+    if (q('discordClientId')) { const id = q('discordClientId').value.trim(); s.discordClientId = /^\d{15,22}$/.test(id) ? id : ''; if (id && !s.discordClientId) toast('A Discord Application ID is a long number.', 'err'); }
+    if (q('discordRpc')) { s.discordRpc = q('discordRpc').checked; if (s.discordRpc && !s.discordClientId) toast('Add your Discord Application ID first.', 'err'); if (!s.discordRpc) api.discordClear?.(); }
     if (q('repo')) { const r = q('repo').value.trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\/+$/, ''); s.updateRepo = /^[\w.-]+\/[\w.-]+$/.test(r) ? r : ''; if (r && !s.updateRepo) toast('The repository is written as owner/name, like nate/bladedeck.', 'err'); }
     if (q('check')) s.updateCheck = q('check').checked;
     save();

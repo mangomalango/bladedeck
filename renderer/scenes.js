@@ -22,13 +22,15 @@ const Scenes = (() => {
 
   function size() { w = c.width = innerWidth; h = c.height = innerHeight; sand = null; }
   size(); addEventListener('resize', size);
-  document.addEventListener('deck-away', (ev) => { away = ev.detail; });
+  document.addEventListener('deck-away', (ev) => { away = ev.detail; if (!away) ensureLoop(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) ensureLoop(); });
 
   function set(k) {
     kind = k || null;
     c.hidden = !kind;
     document.body.dataset.scene = kind || '';
     bubbles = []; pops = []; flakes = []; swimmers = new Map(); fresh = true;
+    if (kind) ensureLoop();
   }
 
   /* ============================================================ bubbles */
@@ -298,15 +300,26 @@ const Scenes = (() => {
   }, { passive: true });
 
   /* ============================================================ loop */
-  (function frame(ts) {
+  let running = false;
+  function ensureLoop() {
+    if (running || !kind || away || document.hidden) return;
+    running = true;
+    last = 0;
     requestAnimationFrame(frame);
-    if (!kind || away || document.hidden || ts - last < 33) return;
+  }
+  function frame(ts) {
+    if (!kind || away || document.hidden) {
+      running = false;
+      return;
+    }
+    requestAnimationFrame(frame);
+    if (ts - last < 33) return;
     const dt = Math.min(0.1, last ? (ts - last) / 1000 : 0.033);
     last = ts; t += still ? 0 : dt;
     x.clearRect(0, 0, w, h);
     if (kind === 'bubbles') stepBubbles(still ? 0 : dt, Math.round((w * h) / 52000));
     else if (kind === 'aquarium') { drawWater(); stepFlakes(dt); stepFish(still ? 0 : dt); }
-  })(0);
+  }
 
   return { set, openTank, earn, drop, kind: () => kind };
 })();

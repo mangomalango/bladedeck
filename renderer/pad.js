@@ -131,7 +131,7 @@ const OSK = (() => {
       <div class="osk-top"><b>${esc(target.placeholder || target.getAttribute('aria-label') || target.name || 'Type')}</b></div>
       <div class="osk-line">${pre}<i class="osk-caret"></i>${post || (v ? '' : '<span class="osk-ph"></span>')}</div>
       ${ROWS.map((row, i) => `<div class="osk-row">${row.map((k, j) => `<button type="button" data-k="${k}" class="${i === r && j === Math.min(c, row.length - 1) ? 'cur' : ''} ${(k === 'shift' && shift) || (k === 'sym' && sym) ? 'on' : ''}" style="flex:${WIDE[k] || 1}">${esc(show(k))}</button>`).join('')}</div>`).join('')}
-      <p class="osk-tip"><i class="pad a">A</i>type <i class="pad x">X</i>delete <i class="pad y">Y</i>space <i class="pad k">LB RB</i>move <i class="pad k">Start</i>done <i class="pad b">B</i>close</p></div>`;
+      <p class="osk-tip"><i class="pad a">A</i>type <i class="pad x">X</i>delete <i class="pad y">Y</i>space <i class="pad k">LB RB</i>move <i class="pad k">LT</i>shift <i class="pad k">RT</i>symbols <i class="pad k">Start</i>done <i class="pad b">B</i>close</p></div>`;
   }
 
   function put(text) {
@@ -189,6 +189,8 @@ const OSK = (() => {
     else if (a === 'y') put(' ');
     else if (a === 'lb') { caret = Math.max(0, caret - 1); draw(); }
     else if (a === 'rb') { caret = Math.min(target.value.length, caret + 1); draw(); }
+    else if (a === 'lt') { shift = !shift; draw(); Sound.play('tick'); }
+    else if (a === 'rt') { sym = !sym; draw(); Sound.play('tick'); }
     else if (a === 'start') done();
     else if (a === 'b') close();
     return true;

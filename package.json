@@ -19,6 +19,7 @@
     "productName": "Bladedeck",
     "files": [
       "main.js",
+      "discord.js",
       "online.js",
       "store.js",
       "wallpaper.js",

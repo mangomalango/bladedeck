@@ -95,7 +95,11 @@ const Sound = (() => {
       voice({ f0: 700, f1: 1800, dur: 0.09, vol: 0.025, when: 0.07, rev: 1.2 });
       bubble(0.02, 0.16); bubble(0.015, 0.24);
     },
-    secret: () => [392, 523, 659, 880, 1175].forEach((f, i) => voice({ f0: f, dur: 0.9, vol: 0.025, when: i * 0.11, rev: 1.4 }))
+    secret: () => [392, 523, 659, 880, 1175].forEach((f, i) => voice({ f0: f, dur: 0.9, vol: 0.025, when: i * 0.11, rev: 1.4 })),
+    trophy: () => {
+      [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => voice({ f0: f, f1: f * 1.004, dur: 1.2, vol: 0.04, when: i * 0.08, rev: 1.6, type: 'triangle' }));
+      voice({ f0: 2093, dur: 0.9, vol: 0.015, when: 0.36, rev: 2, type: 'sine' });
+    }
   };
 
   function play(name) {

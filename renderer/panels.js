@@ -281,7 +281,7 @@ const Panels = (() => {
   // Games start: unpinned panels tuck away.
   document.addEventListener('deck-away', (ev) => { if (!ev.detail) return; for (const p of open.values()) if (!p.pinned && !p.min) minimize(p, true); });
 
-  return { show, act, list, handle, leave, isOpen, video, overGames, active: () => !!focused, has: (k) => open.has(k), focus: (k) => { const p = open.get(k); if (p) act(k, 'show'); } };
+  return { show, act, list, handle, leave, isOpen, video, overGames, active: () => !!focused, current: () => focused, has: (k) => open.has(k), focus: (k) => { const p = open.get(k); if (p) act(k, 'show'); } };
 })();
 
 /* Files: Bladedeck's own file browser for the Files panel. Places on the left (Bladedeck's own

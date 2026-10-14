@@ -209,6 +209,8 @@ contextBridge.exposeInMainWorld('bladedeck', {
   musicDefault: () => ipcRenderer.invoke('music-default'),
   musicScan: (dir) => ipcRenderer.invoke('music-scan', dir),
   onPeek: (cb) => ipcRenderer.on('peek', (_e, d) => cb(d)),
+  discordSet: (info) => ipcRenderer.invoke('discord-set', info),
+  discordClear: () => ipcRenderer.invoke('discord-clear'),
   presence: (p) => ipcRenderer.invoke('presence', p),
   netInfo: () => ipcRenderer.invoke('net-info'),
   netPeers: () => ipcRenderer.invoke('net-peers'),

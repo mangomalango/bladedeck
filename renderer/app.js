@@ -97,6 +97,7 @@ function applyTheme(id) {
   Scenes.set(t.scene === 'drive' ? null : t.scene);
   Drive.set(t.scene === 'drive' && !Wallpaper.on());
   S.theme = t; S.lib.settings.theme = t.id;
+  document.dispatchEvent(new CustomEvent('theme-changed'));
 }
 function cycleTheme() {
   const i = S.themes.findIndex((t) => t.id === S.theme.id);
@@ -114,8 +115,8 @@ function rgba(hex, a) {
 function startBg() {
   const c = $('#bg'); const x = c.getContext('2d'); let w = 0, h = 0, last = 0;
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let drawn = null;
-  const size = () => { w = c.width = Math.max(1, innerWidth >> 1); h = c.height = Math.max(1, innerHeight >> 1); drawn = null; };
+  let drawn = null, running = false;
+  const size = () => { w = c.width = Math.max(1, innerWidth >> 1); h = c.height = Math.max(1, innerHeight >> 1); drawn = null; ensureLoop(); };
   size(); addEventListener('resize', size);
 
   function draw(t) {
@@ -141,12 +142,25 @@ function startBg() {
       x.closePath(); x.fill();
     }
   }
-  (function frame(ts) {
+  function frame(ts) {
+    if (document.hidden || away || (still && drawn === S.theme?.id)) {
+      running = false;
+      return;
+    }
     requestAnimationFrame(frame);
-    if (document.hidden || away || ts - last < 33) return; // a game has the screen: no drawing
-    if (still && drawn === S.theme?.id) return;
+    if (ts - last < 33) return; // a game has the screen: no drawing
     drawn = S.theme?.id; last = ts; draw(ts / 1000);
-  })(0);
+  }
+  function ensureLoop() {
+    if (running || document.hidden || away || (still && drawn === S.theme?.id)) return;
+    running = true;
+    last = 0;
+    requestAnimationFrame(frame);
+  }
+  document.addEventListener('deck-away', (ev) => { if (!ev.detail) ensureLoop(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) ensureLoop(); });
+  document.addEventListener('theme-changed', () => { drawn = null; ensureLoop(); });
+  ensureLoop();
 }
 
 function startClock() {
@@ -527,6 +541,7 @@ api.onPeek((ev) => {
   for (const ses of S.sessions.filter((x) => x.winPid === ev.pid)) {
     S.sessions = S.sessions.filter((x) => x !== ses); Capture.sessionsChanged();
     if (Players.on() && !S.sessions.length) Players.ended();
+    if (!S.sessions.length) api.discordClear?.();
     if (ses === S.playing || ses.tracked) continue; // the panel, or the main process, handles those
     const e = S.lib.entries.find((x) => x.id === ses.id);
     if (e) sessionOver(e, Math.round((Date.now() - ses.t) / 1000));
@@ -575,6 +590,7 @@ api.onEnded(({ id, seconds }) => {
   if (S.playing?.id === id) { S.playing = null; NowPlaying.end(); }
   S.sessions = S.sessions.filter((x) => x.id !== id);
   Capture.sessionsChanged();
+  if (!S.sessions.length) api.discordClear?.();
   if (Recorder.busy()) Recorder.stop();
   if (e) sessionOver(e, seconds);
 });
@@ -781,11 +797,11 @@ function refresh(keepId) {
 }
 
 /* ---------------------------------------------------------------- modal helper */
-function openModal({ title, html, wide, buttons = [], onOpen }) {
+function openModal({ title, html, wide, className = '', buttons = [], onOpen }) {
   closeModal();
   S.modal = true;
   const root = $('#modal');
-  root.innerHTML = `<div class="dlg ${wide ? 'wide' : ''}" role="dialog" aria-modal="true"><h2>${esc(title)}</h2><div class="dlg-body">${html}</div>
+  root.innerHTML = `<div class="dlg ${wide ? 'wide' : ''} ${className}" role="dialog" aria-modal="true"><h2>${esc(title)}</h2><div class="dlg-body">${html}</div>
     <div class="dlg-foot">${buttons.map((b, i) => `<button data-btn="${i}" class="${b.primary ? 'primary' : ''} ${b.danger ? 'danger' : ''} ${b.left ? 'left' : ''}">${esc(b.label)}</button>`).join('')}</div></div>`;
   root.classList.add('open');
   root.onclick = async (ev) => {
@@ -1188,7 +1204,7 @@ function openSettings() {
   if (Players.isP2()) { toast('Settings are on Player 1\'s screen.'); return; }
   const st = S.lib.settings;
   openModal({
-    title: 'Settings', wide: true,
+    title: 'Settings', wide: true, className: 'settings',
     /* Tabs down the side (LB / RB on a controller); every page's controls stay in the form, so Save
        keeps all of them, whichever page they are on. */
     html: `<div class="set">
@@ -1329,11 +1345,11 @@ function hints() {
   const h = (k, t, cls = k) => `<span class="h"><i class="pad ${cls}">${k.toUpperCase()}</i>${t}</span>`;
   const run = Running.active() && Running.current(), dock = Dock.active() && Dock.current();
   // Every overlay says what its buttons do too: nothing is a hidden gesture.
-  const settingsOpen = !!document.querySelector('#modal .dlg.settings');
+  const settingsOpen = !!document.querySelector('#modal .set, #modal .dlg.settings');
   const html = Wreck.isOn() ? h('lb', '/ RB pick', 'k') + h('a', 'Play') + h('b', 'Blades back')
     : S.modal ? h('a', 'Choose') + (settingsOpen ? h('lb', '/ RB pages', 'k') : '') + h('b', 'Close')
     : Guide.isOpen() ? (Guide.pane() === 'guide' ? h('a', 'Choose') + h('b', 'Back') : h('lb', '/ RB tabs', 'k') + h('a', 'Choose') + h('b', 'Close'))
-    : Panels.active() ? h('a', 'Press') + h('b', 'Back') + h('start', 'Arrange', 'k') + h('back', 'Menu', 'k')
+    : Panels.active() ? (Panels.current()?.kind === 'finder' ? h('a', 'Choose') + h('y', 'Search') + h('lb', '/ RB source', 'k') + h('b', 'Back') : h('a', 'Press') + h('b', 'Back') + h('start', 'Arrange', 'k') + h('back', 'Menu', 'k'))
     : Resume.isOpen() ? h('a', 'Switch to it') + h('x', 'Freeze / thaw') + h('y', 'Close…') + h('b', 'Back')
     : Notify.isOpen() ? h('x', 'Clear all') + h('b', 'Close')
     : Volume.isOpen() ? h('a', 'Mute') + h('lb', '/ RB big steps', 'k') + h('b', 'Close')
@@ -1361,6 +1377,7 @@ function handleInput(a) {
   if (Resume.handle(a)) return;
   if (Volume.handle(a)) return;
   if (Panels.handle(a)) return;
+  if (typeof AchClips !== 'undefined' && AchClips.handleKey?.(a)) return;
   // While a game starts behind Bladedeck, X shows whatever Steam is asking.
   if (a === 'x' && S.playing?.covered) { revealSteam(); uncoverSteam(S.playing); api.minimize(); return; }
   if (a === 'guide') { Guide.toggle('type'); return; }
@@ -1391,7 +1408,7 @@ function handleInput(a) {
 function modalInput(a) {
   if (a === 'b') { closeModal(); return; }
   // Settings: LB and RB go through its pages.
-  const sr = $('#modal .dlg.settings');
+  const sr = $('#modal .set, #modal .dlg.settings');
   if (sr && (a === 'lb' || a === 'rb')) { settingsTab($('#modal'), setTab + (a === 'rb' ? 1 : -1)); Sound.play('tick'); return; }
   PadNav.input($('#modal'), a);
 }

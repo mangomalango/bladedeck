@@ -64,7 +64,11 @@ const Voice = (() => {
     notify('Bladedeck is listening', 'Say a command, like "next song" or "set a timer for 10 minutes".');
     say('<i class="vc-dot"></i><b>Listening…</b><span class="vc-lv"><i></i><i></i><i></i><i></i><i></i></span>');
     const ctx = new AudioContext({ sampleRate: 16000 });
-    const src = ctx.createMediaStreamSource(stream), node = ctx.createScriptProcessor(2048, 1, 1);
+    const src = ctx.createMediaStreamSource(stream);
+    // Bandpass pre-filtering: cut out controller motor rumble / handling touches (<85 Hz) and high-frequency hiss (>7.2 kHz)
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 85; hp.Q.value = 0.7;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7200; lp.Q.value = 0.7;
+    const node = ctx.createScriptProcessor(2048, 1, 1);
     /* Speech is "loud" compared with the room. The room is the quietest moment of the first third
        of a second (people often start talking the instant they press), and the bar adapts to the
        microphone: a laptop's built-in one records far more quietly than a headset. */
@@ -84,15 +88,19 @@ const Voice = (() => {
         if ((heard && quiet > 900) || ms > 8000 || (!heard && ms > 4500)) resolve();
       };
     });
-    src.connect(node); node.connect(ctx.destination);
+    src.connect(hp).connect(lp).connect(node); node.connect(ctx.destination);
     await done;
-    node.disconnect(); src.disconnect(); stream.getTracks().forEach((t) => t.stop()); ctx.close();
+    node.disconnect(); lp.disconnect(); hp.disconnect(); src.disconnect(); stream.getTracks().forEach((t) => t.stop()); ctx.close();
     listening = false; stopNow = null;
     // Something clearly above the room still counts, even if it never crossed the bar.
     if (!heard && peak > Math.max(0.003, floor * 2)) heard = true;
     if (!heard) { say('<b>Didn\'t hear anything.</b>', 2200); notify('Voice', 'Didn\'t hear anything. Check the microphone in Sound.'); return; }
     say('<i class="vc-dot think"></i><b>…</b>');
     const all = new Float32Array(chunks.reduce((n, c) => n + c.length, 0)); let o = 0; for (const c of chunks) { all.set(c, o); o += c.length; }
+    // Clean DC offset before amplification so the baseline is centered for the acoustic model.
+    let mean = 0; for (let i = 0; i < all.length; i++) mean += all[i];
+    mean /= (all.length || 1);
+    for (let i = 0; i < all.length; i++) all[i] -= mean;
     // A quiet microphone is turned up before the words are worked out: the model hears loud,
     // clear speech far better (up to 20 times louder, never past full scale).
     let top = 0; for (let i = 0; i < all.length; i++) top = Math.max(top, Math.abs(all[i]));

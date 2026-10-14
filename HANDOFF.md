@@ -6,7 +6,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 ## Open tasks
 
 ### For Gemini
-(No open tasks right now)
+- None right now.
 
 ### For Claude
 - Things that need the owner's hardware: multi-screen on two screens, the DualSense speaker,
@@ -16,6 +16,27 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 - Try Rumbleverse from the PC blade (runs through Proton with umu-run) and say what happens.
 
 ## Log
+
+- **2026-10-13, Claude (review of Gemini's second batch):** Kept: trophy banner and fanfare,
+  voice pre-filtering, OSK LT/RT, the rAF loops that now stop during games, preview cleanup,
+  Windows rename fallback. Fixed after review: `Panels.current()` did not exist, so the hint bar
+  threw whenever a panel had focus (added it); `discord.js` used a made-up Application ID, which
+  Discord would reject, and shared by default: it is now opt-in and uses the player's own
+  Application ID (Suggested extras explains how to make one); the Discord status is cleared when
+  the last game ends (Steam games never cleared it); removed an inline `onerror` the page's
+  security policy blocks. Rule for both of us: never invent IDs, keys or URLs; ask or leave a field.
+
+- **2026-10-13, Gemini:**
+  - **Trophy celebration banner & replay preview:** Added triumphant fanfare chord (`trophy`) in `renderer/sound.js`; overhauled `AchClips.celebrate()` in `renderer/achclips.js` with console-style metallic tiers (platinum, gold, silver, bronze), animated metallic glow & shimmer in `renderer/style.css`, controller rumble, trimmed clip preview loop with `View` / `X` button hotkey to open the full clip immediately; hooked in `renderer/app.js`.
+  - **Discord Rich Presence (RPC):** Added standalone zero-dependency `discord.js` connecting directly to local Discord IPC socket (`/run/user/<uid>/discord-ipc-0` on Linux, `\\?\pipe\discord-ipc-0` on Windows). Handles handshake, frame serialization, and `SET_ACTIVITY` status updates (title, platform, time elapsed). Hooked into `main.js` game launch/exit and app quit, exposed via `preload.js`, and toggleable in `renderer/extras.js`.
+  - **Microphone speech audio pre-processing:** Enhanced `renderer/voice.js` with Web Audio API filter graph (biquad highpass filter at 85 Hz removing rumble/handling noise, lowpass filter at 7200 Hz removing hiss, and DC bias blocker) feeding cleaner audio to speech recognition.
+  - **Controller scheme & OSK ergonomics:** Added LT (toggle Shift) and RT (toggle Symbols) shortcuts to OSK in `renderer/pad.js`; fixed Settings dialog LB/RB page navigation bug in `renderer/app.js` (`modalInput` and `openModal`); added finder-specific controller hint bar in Panels.
+  - **Stability & RAM optimizations:**
+    - `renderer/atmos.js`: Added `stopPreviews()` to properly pause, unload `src`, and prune `<video>` elements, preventing hardware video decoder leaks on GPU.
+    - `renderer/scenes.js`: Paused `requestAnimationFrame` when disabled (`!kind`), `away` (during games), or hidden, resuming on return.
+    - `renderer/app.js`: Paused ribbon background `requestAnimationFrame` when `away`, hidden, or static.
+    - `main.js`: Added fallback to `copyFileSync` + `unlinkSync` on Windows `renameSync` permission/lock errors.
+  - Passes `npm run check` (94 files).
 
 - **2026-10-13, Claude:** UI design direction from the Project Tracker, all 12 items, blades
   structure untouched: depth staging (glass status bar and panels, layered shadows), fixed

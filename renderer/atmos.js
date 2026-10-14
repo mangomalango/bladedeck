@@ -76,14 +76,25 @@ const Atmos = (() => {
 
   /* -------------------------------------------------------------- preview loop */
   let pv = { id: null, t: 0 };
+  function stopPreviews() {
+    for (const v of document.querySelectorAll('.pv-loop')) {
+      v.pause();
+      v.removeAttribute('src');
+      try { v.load(); } catch {}
+      v.closest('.pv-on')?.classList.remove('pv-on');
+      v.remove();
+    }
+  }
   function preview(e, poster) {
     clearTimeout(pv.t);
+    stopPreviews();
     if (!poster || !e || e.run || st().previewLoop === false || document.body.classList.contains('away')) return;
     const clips = (e.media || []).filter((m) => m.kind === 'video' && m.path);
     if (!clips.length) return;
     const id = e.id;
     pv = { id, t: setTimeout(() => {
       if (S.sel?.id !== id || !poster.isConnected) return;
+      stopPreviews();
       const m = clips.find((c) => c.tag === 'achievement') || clips[(Math.random() * clips.length) | 0];
       const v = document.createElement('video');
       v.className = 'pv-loop'; v.muted = true; v.playsInline = true; v.src = fileUrl(m.path);
@@ -95,7 +106,7 @@ const Atmos = (() => {
       poster.appendChild(v);
     }, 1200) };
   }
-  document.addEventListener('deck-away', (ev) => { for (const v of document.querySelectorAll('.pv-loop')) ev.detail ? v.pause() : v.play().catch(() => {}); });
+  document.addEventListener('deck-away', (ev) => { if (ev.detail) stopPreviews(); });
 
   /* -------------------------------------------------------------- living widget */
   const chip = document.createElement('button');

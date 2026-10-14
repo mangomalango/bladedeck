@@ -61,7 +61,16 @@ function readJson(p, fallback) {
 function writeJson(p, obj) {
   const tmp = p + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(obj, null, 2));
-  fs.renameSync(tmp, p);
+  try {
+    fs.renameSync(tmp, p);
+  } catch (err) {
+    if (process.platform === 'win32') {
+      fs.copyFileSync(tmp, p);
+      try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+    } else {
+      throw err;
+    }
+  }
 }
 
 function loadLib() {
@@ -206,7 +215,7 @@ function quiet(on) {
     quietProc.kill(); quietProc = null;
   }
 }
-app.on('will-quit', () => { require('./livecap').stop(); require('./procs').thawAll(); require('./capture').stop(); require('./players').stop(); require('./winlist').stop(); quiet(false); Peek.stop(); Net.stop(); if (process.platform === 'win32') { require('./winaudio').stop(); require('./winpad').stop(); } });
+app.on('will-quit', () => { require('./discord').stop(); require('./livecap').stop(); require('./procs').thawAll(); require('./capture').stop(); require('./players').stop(); require('./winlist').stop(); quiet(false); Peek.stop(); Net.stop(); if (process.platform === 'win32') { require('./winaudio').stop(); require('./winpad').stop(); } });
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
@@ -310,11 +319,13 @@ ipcMain.handle('launch', async (_e, { entry, emulator, settings, player }) => {
     if (entry.type === 'steam') {
       await shell.openExternal(`steam://rungameid/${encodeURIComponent(entry.appid)}`);
       if (settings && settings.quietWhilePlaying) quiet(true);
+      require('./discord').setActivity({ title: entry.title, type: 'steam', appid: entry.appid, started: Date.now() });
       return { ok: true };
     }
     if (entry.type === 'gog' && entry.heroicId && !entry.exe) {
       await shell.openExternal(`heroic://launch/gog/${encodeURIComponent(entry.heroicId)}`);
       if (settings && settings.quietWhilePlaying) quiet(true);
+      require('./discord').setActivity({ title: entry.title, type: 'gog', started: Date.now() });
       return { ok: true };
     }
 
@@ -387,9 +398,11 @@ ipcMain.handle('launch', async (_e, { entry, emulator, settings, player }) => {
 
     // The renderer minimizes once its launch animation has played out.
     if (settings && settings.quietWhilePlaying) quiet(true);
+    require('./discord').setActivity({ title: entry.title, system: emulator?.name || entry.system || '', type: entry.type, appid: entry.appid, started });
 
     child.once('exit', () => {
       quiet(false);
+      require('./discord').clearActivity();
       const seconds = Math.round((Date.now() - started) / 1000);
       if (!asker.isDestroyed()) asker.send('launch-ended', { id: entry.id, seconds });
       if (!win || asker !== win.webContents) return;
@@ -966,6 +979,7 @@ require('./webdl').register({ getWin: () => win });
 require('./finder').register();
 require('./minecraft').register();
 require('./backup').register({ getWin: () => win, libFile, dataDir });
+require('./discord').register({ settings: () => loadLib().settings });
 
 // ---------------------------------------------------------------- running apps: freeze, web apps, focus
 const Procs = require('./procs');
