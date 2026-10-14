@@ -112,7 +112,8 @@ async function updateCheck(repo) {
     const latest = String(j.tag_name || '').replace(/^v/i, ''), mine = app.getVersion();
     const num = (v) => v.split(/[.-]/).slice(0, 3).map((x) => parseInt(x, 10) || 0);
     const [a, b] = [num(latest), num(mine)];
-    const newer = a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+    // A test build (0.2.3-dev) is older than the release of the same number.
+    const newer = a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || (mine.includes('-') && !latest.includes('-') ? 1 : 0);
     // Only a github.com page for that same repository is ever handed back to open.
     const page = /^https:\/\/github\.com\//.test(j.html_url || '') ? j.html_url : `https://github.com/${repo}/releases`;
     return { ok: true, latest, mine, newer: newer > 0, page };
