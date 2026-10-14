@@ -14,6 +14,10 @@ Bladedeck is a console-style game launcher (Electron 33) for Steam, emulators, n
 program, with a controller-first "console mode" and a windowed "PC mode". The owner (mangomalango)
 runs it on CachyOS, KDE Plasma on Wayland, Intel Arc graphics, and also builds a Windows version.
 
+**In Antigravity:** this file and `.agents/rules/bladedeck.md` load by themselves. Two workflows
+are ready: `/bladedeck-review` (review the newest work into NIGHTLY-REVIEW-gemini.md) and
+`/bladedeck-test` (try the features in a safe test copy).
+
 ## Layout
 - `main.js`: the Electron main process: windows, launching games, library file, most IPC.
 - One main-process module per feature, each with a `register()`: `players.js` (controllers,
