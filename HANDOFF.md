@@ -39,6 +39,16 @@ Task IDs and cards: see TEAM.md (next free ID: BD-008).
   the drives from PowerShell (C:\ as home, other fixed and USB drives), `pick()` honours the
   keep-free rule. Windows Firewall must let TCP 47628 in (Private only; ask the owner before any
   rule change). Contract: SPEC §3 ROM sync.
+  **BD-005 and BD-006 done, Windows, no code change:** master 067c791 merged; check and spec OK
+  (257 channels); `npm run sweep` opened 48 System items, blades, games, Settings and PC windows
+  with no errors (16 outward calls blocked). romsync.plan() lists C:\ (home, 16.7 GB free, spare 0)
+  and D:..I:\ (D: and E: are 64 MB drives, spare 0); pick(list, 1 GB) and pick(list, 300 GB) choose
+  G:\ (most spare), and pick(list, 10 TB) gives null. pick() creates "<drive>\Bladedeck ROMs" when
+  it tests a drive (writable()). Firewall: no rule changed by an assistant. The owner runs
+  scripts/windows/firewall-private.ps1 (admin): it backs up, then makes the Bladedeck, dist and dev
+  Electron rules Private-only. NOTE: this PC's Ethernet is NetworkCategory **Public** (only
+  Tailscale is Private), so Private-only rules would cut Nearby/ROM sync at home unless the owner
+  also passes -HomePrivate. TCP 47628 is covered by the existing all-ports rules.
 - **BD-007** · both · owner + both Claudes · A real ROM sync Linux <-> Windows once both firewalls
   allow it: pair from ROM sync (System, Games and library), Sync now, the games join the library.
 - **BD-004** · both · owner + Claude (Linux) · Nearby both ways once the Linux firewall line is run:
