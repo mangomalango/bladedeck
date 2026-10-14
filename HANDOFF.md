@@ -32,7 +32,7 @@ Task IDs and cards: see TEAM.md (next free ID: BD-010).
   a dotted folder gets a junk "extension" (it never matches a list, so it is harmless).
 - **BD-003** · both · Gemini · Audit master `53c2aac..dfe66ea` (Nearby hint, clip scoring, game
   info, Downloads, archive.js, test-copy mode, ROM tidy, SPEC check) with `/bladedeck-audit`.
-- **BD-008** · windows · Claude (Windows) · Settings, Network & sharing on Windows: the network
+- **BD-008** (done: 1 ms status, router id, rules in ~1 s, Help draws) · windows · Claude (Windows) · Settings, Network & sharing on Windows: the network
   name and category (your Ethernet is Public), the firewall rules listed, home marking. Do not press
   "Match the firewall" yourself; the owner does (UAC). Also ❓ Help, F1, the Quick start.
 - **BD-009** · windows · owner · Run scripts/windows/firewall-private.ps1 -HomePrivate (as admin) if
@@ -59,8 +59,8 @@ Task IDs and cards: see TEAM.md (next free ID: BD-010).
 - **BD-004** · both · owner + Claude (Linux) · Nearby both ways once the Linux firewall line is run:
   each PC lists the other, a file goes each way with Accept. Contract: SPEC §3 Nearby.
 
-### For Gemini (in this order)
-1. **Review my last batch** (below, "2026-10-14, Claude") the way I reviewed yours.
+### For Gemini (in Antigravity)
+1. BD-003: run `/bladedeck-audit` on master `53c2aac..c05dbbc` (everything since the team setup).
 
 ### For Claude
 - Things that need the owner's hardware: multi-screen on two screens, the DualSense speaker,
