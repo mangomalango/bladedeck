@@ -52,6 +52,10 @@
       "procs.js",
       "peek.js",
       "net.js",
+      "moonlight.js",
+      "onlinemedia.js",
+      "steaminput.js",
+      "bluetooth.js",
       "preload.js",
       "renderer/**",
       "themes/**"

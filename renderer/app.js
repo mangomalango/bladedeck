@@ -320,6 +320,7 @@ function systemGroups() {
       { id: 'sys-rec', title: 'Record', sub: 'Start or stop recording (View + X)', glyph: '⏺', run: () => Capture.toggleRecord() },
       { id: 'sys-recset', title: 'Recording and live view settings', sub: 'Replay length, quality, live view', glyph: '⚙', run: () => openSettingsAt('rec') }] },
     { id: 'grp-pc', title: 'This PC', sub: 'System, sound, notifications, phone, files', glyph: '🖥', children: [
+      { id: 'sys-bt', title: 'Bluetooth', sub: 'Connect controllers and headphones, pair new ones, Stadia controller', glyph: '᛫', run: () => Bluetooth.open() },
       { id: 'sys-pc2', title: 'This PC', sub: 'Processor, graphics, memory, battery, Wi-Fi, brightness, power', glyph: '🖥', run: () => Panels.show({ kind: 'system', key: 'system', title: 'This PC', icon: '🖥' }) },
       { id: 'sys-vol', title: 'Sound', sub: 'Volume, outputs, mic and every app', glyph: '🔊', run: () => Volume.open() },
       { id: 'sys-qr', title: 'Quick Resume', sub: 'Switch between running games and apps, or freeze them', glyph: '▣', run: () => Resume.open() },

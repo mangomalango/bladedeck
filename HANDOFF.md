@@ -19,6 +19,21 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Log
 
+- **2026-10-14, Claude (Linux):** Packaging bug: package.json "files" lists every module by
+  name, and moonlight.js, onlinemedia.js and steaminput.js were never added, so builds since the
+  Moonlight commit stopped at start ("Cannot find module"). Added, and `npm run check` now fails
+  when a module main.js loads (directly or through others) is missing from that list. Add every
+  new main-process file there.
+  Bluetooth (`bluetooth.js`, `renderer/bluetooth.js`, System, Bluetooth): on/off (rfkill +
+  bluetoothctl), paired devices with Connect/Disconnect, pairing something new (20 s scan), and
+  "Turn Bluetooth on when Bladedeck starts" so paired, trusted controllers reconnect by
+  themselves. The Stadia controller over Bluetooth is HID only (buttons and battery; no audio
+  service, by design) and its Wi-Fi only ever talked to Stadia's servers (closed 2023), so its
+  3.5 mm jack and mic need USB: "stadiaJack" makes its jack the default output when it is plugged
+  in by USB and gives the old output back when it is unplugged. Windows opens ms-settings:bluetooth.
+  Status read-only tested here (Bluetooth soft-blocked; Stadia paired and trusted); connect, pair
+  and the USB jack switch not tried with the controller.
+
 - **2026-10-14, Claude:** Steam Controller put the PC to sleep. Cause: Steam's desktop layout
   (app 413080, used whenever no game runs, so in Bladedeck too) binds `controller_action
   host_suspend` to holding Menu on Steam Deck-style controllers and pressing Share on Xbox ones;

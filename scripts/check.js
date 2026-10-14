@@ -29,5 +29,20 @@ for (const f of files) {
     console.error(`✗ ${path.relative(root, f)}\n${String(err.stderr || err.message).trim()}\n`);
   }
 }
+// Every file main.js and the modules it loads require must be packed into the app (the "files"
+// list in package.json), or the built app stops at start while running from source works.
+const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+const packed = new Set(pkg.build.files.filter((f) => !f.includes('*')));
+const seen = new Set();
+(function need(file) {
+  if (seen.has(file)) return; seen.add(file);
+  const text = fs.readFileSync(path.join(root, file), 'utf8');
+  for (const m of text.matchAll(/require\('\.\/([\w-]+)(?:\.js)?'\)/g)) {
+    const dep = `${m[1]}.js`;
+    if (!fs.existsSync(path.join(root, dep))) continue;
+    if (!packed.has(dep) && !seen.has(dep)) { bad++; console.error(`✗ ${dep} is loaded by ${file} but missing from "files" in package.json`); }
+    need(dep);
+  }
+})('main.js');
 console.log(bad ? `${bad} of ${files.length} files have errors.` : `All ${files.length} files are fine.`);
 process.exit(bad ? 1 : 0);

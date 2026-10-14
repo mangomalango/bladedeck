@@ -1659,3 +1659,9 @@ body.hdmi-on > #top, body.hdmi-on > #hints { opacity: 0; pointer-events: none; }
 .cn-game b { font-size: 12.5px; font-weight: 500; line-height: 1.2; }
 /* The controller's highlight shows on every output choice, the ones with nothing plugged in too. */
 #vol .vo-off button.cur { box-shadow: 0 0 0 3px var(--accent-hi); opacity: 1; }
+
+/* Bluetooth (renderer/bluetooth.js) */
+.bt-dev { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.05); margin: 6px 0; }
+.bt-dev > i { font-style: normal; font-size: 22px; }
+.bt-dev > div { flex: 1; display: flex; flex-direction: column; }
+.bt-dev span { font-size: .85em; opacity: .7; }

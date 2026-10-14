@@ -223,7 +223,7 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
 else {
   app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
-  app.whenReady().then(() => { ensureUserFiles(); createWindow(); setTimeout(prewarmSteam, 3000); });
+  app.whenReady().then(() => { ensureUserFiles(); createWindow(); setTimeout(prewarmSteam, 3000); require('./bluetooth').startup(loadLib().settings).catch(() => {}); });
   /* A helper program that is missing (more likely on Windows) or a bug in a background job must
      not stop Bladedeck with an error box: it goes to errors.log in Bladedeck's folder instead,
      which is the file to send when something misbehaves. */
@@ -1005,6 +1005,7 @@ require('./minecraft').register();
 require('./moonlight').register();
 require('./onlinemedia').register(() => loadLib().settings);
 require('./steaminput').register();
+require('./bluetooth').register();
 require('./backup').register({ getWin: () => win, libFile, dataDir });
 require('./discord').register({ settings: () => loadLib().settings });
 require('./adblock').register({ settings: () => loadLib().settings });
