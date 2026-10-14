@@ -1362,3 +1362,68 @@ body.wrecked > main, body.wrecked > #top, body.wrecked > #hints, body.wrecked #d
 .wk-acts { display: flex; gap: 12px; }
 #wreck .wk-play { padding: 14px 40px; border-radius: 999px; font-size: 18px; background: #fff; color: #000; border: 0; }
 #wreck .wk-more { padding: 14px 20px; border-radius: 999px; }
+
+/* ================================================================ UI design direction (atmos.js) */
+/* TV safe zones: every edge-anchored piece moves in by the overscan margin (0 unless set). */
+:root { --sx: 0px; --sy: 0px; }
+#top { top: var(--sy); left: var(--sx); right: var(--sx); }
+#console { top: calc(68px + var(--sy)); left: var(--sx); right: var(--sx); bottom: calc(72px + var(--sy)); }
+#pc { top: calc(68px + var(--sy)); left: var(--sx); right: var(--sx); bottom: var(--sy); }
+#hints { bottom: var(--sy); left: var(--sx); right: var(--sx); }
+body.np-on #console, body.run-on #console { left: calc(360px + var(--sx)); } body.np-on #pc, body.run-on #pc { left: calc(350px + var(--sx)); }
+#np, #run { left: calc(18px + var(--sx)); top: calc(84px + var(--sy)); }
+#dock { left: calc(10px + var(--sx)); } #dock.row { left: calc(18px + var(--sx)); }
+#toasts { bottom: calc(84px + var(--sy)); }
+#flap[data-side="right"] { margin-right: var(--sx); } #flap[data-side="left"] { margin-left: var(--sx); }
+#flap[data-side="top"] { margin-top: var(--sy); } #flap[data-side="bottom"] { margin-bottom: var(--sy); }
+#safe-marks { position: fixed; inset: var(--sy) var(--sx); z-index: 80; pointer-events: none; opacity: 0; transition: opacity .3s; }
+#safe-marks.on { opacity: 1; }
+#safe-marks i { position: absolute; width: 46px; height: 46px; border: 4px solid #fff; box-shadow: 0 0 0 2px #000; }
+#safe-marks i:nth-child(1) { left: 0; top: 0; border-right: 0; border-bottom: 0; }
+#safe-marks i:nth-child(2) { right: 0; top: 0; border-left: 0; border-bottom: 0; }
+#safe-marks i:nth-child(3) { left: 0; bottom: 0; border-right: 0; border-top: 0; }
+#safe-marks i:nth-child(4) { right: 0; bottom: 0; border-left: 0; border-top: 0; }
+#safe-marks b { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,.75); color: #fff; padding: 10px 18px; border-radius: 999px; font-weight: 500; }
+
+/* Living background: the day's light and the season's hue on the background layers only. */
+#bg, #scene, #wall, #showcase { filter: var(--tod-filter, none); transition: filter 30s linear; }
+
+/* Depth staging: background, glass panels, content tiles and the status bar on layers of their own. */
+body.depth #top { background: linear-gradient(180deg, color-mix(in srgb, var(--panel-solid) 55%, transparent), color-mix(in srgb, var(--panel-solid) 18%, transparent)); backdrop-filter: blur(12px) saturate(1.2); border-bottom: 1px solid color-mix(in srgb, var(--glass-edge) 45%, transparent); box-shadow: 0 6px 22px color-mix(in srgb, var(--shadow) 60%, transparent); }
+body.depth .blade.active .inner { backdrop-filter: blur(10px) saturate(1.15); }
+body.depth .blade { box-shadow: 0 18px 50px color-mix(in srgb, var(--shadow) 70%, transparent), inset 0 1px 0 color-mix(in srgb, var(--glass-edge) 60%, transparent); }
+body.depth .item .thumb { box-shadow: 0 4px 12px var(--shadow); }
+body.depth .detail .poster { box-shadow: 0 26px 60px color-mix(in srgb, var(--shadow) 90%, transparent); }
+body.depth #hints { background: linear-gradient(0deg, color-mix(in srgb, var(--panel-solid) 40%, transparent), transparent); }
+
+/* Focus lens: the focused tile lifts toward you, a little bigger, its shadow falling over its neighbours. */
+body.depth .item.sel { transform: translateX(8px) scale(1.05); z-index: 2; box-shadow: inset 0 0 0 1px rgba(255,255,255,.55), 0 14px 34px color-mix(in srgb, var(--accent) 45%, transparent), 0 22px 40px rgba(0,0,0,.28); }
+body.depth .list:has(.item.sel) .item:not(.sel) { opacity: .86; }
+body.depth .tile.sel .cv { transform: translateY(-6px) scale(1.06); box-shadow: 0 0 0 3px var(--accent-hi), 0 20px 40px rgba(0,0,0,.4); }
+.tile .cv { transition: transform .2s var(--ease), box-shadow .2s; }
+
+/* Unmistakable focus everywhere, readable from the couch: one strong ring that breathes a little. */
+@keyframes focus-breathe { 0%, 100% { box-shadow: 0 0 0 3px var(--accent-hi), 0 0 18px 2px color-mix(in srgb, var(--accent-hi) 55%, transparent); } 50% { box-shadow: 0 0 0 3px var(--accent-hi), 0 0 28px 6px color-mix(in srgb, var(--accent-hi) 70%, transparent); } }
+.pad-hl, #dock .dk.hl, .rn.hl, #np.hl, .qr-card.cur, #flap .hl, .fd-card.pad-hl, .wk-tile.on, .set-tabs button.pad-hl { animation: focus-breathe 1.8s ease-in-out infinite; outline: 3px solid var(--accent-hi) !important; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .pad-hl, #dock .dk.hl, .rn.hl, #np.hl, .qr-card.cur, #flap .hl, .fd-card.pad-hl { animation: none; } }
+
+/* Preview loop on the highlighted game's poster. */
+.detail .poster { position: relative; }
+.pv-loop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .6s; border-radius: inherit; }
+.poster.pv-on .pv-loop { opacity: 1; }
+
+/* Living widget: weather and the date by the clock, opening Today. */
+#wx-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--glass-edge); background: color-mix(in srgb, var(--glass) 70%, transparent); color: var(--ink); font-size: 14px; cursor: pointer; }
+#wx-chip[hidden] { display: none; }
+#wx-chip b { font-weight: 600; } #wx-chip em { font-style: normal; color: var(--ink-dim); }
+.td-days { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.td-days div { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px; border-radius: 14px; background: color-mix(in srgb, var(--glass-hi) 20%, transparent); }
+.td-days span { font-size: 28px; }
+.td-month { font-weight: 600; margin-bottom: 8px; }
+.td-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.td-grid i { font-style: normal; color: var(--ink-dim); font-size: 12px; }
+.td-grid span { padding: 6px 0; border-radius: 8px; }
+.td-grid span.now { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.td-grid span.mark { box-shadow: inset 0 -3px 0 var(--accent-hi); }
+body.dock-on #console { left: calc(64px + var(--sx)); } body.dock-on #pc { left: calc(58px + var(--sx)); }
+body.dock-on.np-on #console, body.dock-on.run-on #console { left: calc(360px + var(--sx)); } body.dock-on.np-on #pc, body.dock-on.run-on #pc { left: calc(350px + var(--sx)); }

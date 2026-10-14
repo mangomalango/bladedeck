@@ -241,7 +241,7 @@ const Weather = (() => {
     });
     return `${Math.round(c.temperature_2m)}${w.unit} and ${word.toLowerCase()} in ${esc(w.place.split(',')[0])}.`;
   }
-  return { show };
+  return { show, sky };
 })();
 
 /* Timers and alarms: kept in settings so they survive a restart, checked once a second only while

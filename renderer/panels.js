@@ -24,7 +24,9 @@ const Panels = (() => {
 
   // The space panels can use: below the top bar, above the hints.
   const isOpen = (k) => { const p = open.get(k); return !!p && !p.min; };
-  const area = () => ({ x: 14, y: 76, w: innerWidth - 28, h: innerHeight - 76 - 84 });
+  // Inside the TV safe margin too (Settings, Look and sound).
+  const inset = (k) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(k)) || 0;
+  const area = () => { const sx = inset('--sx'), sy = inset('--sy'); return { x: 14 + sx, y: 76 + sy, w: innerWidth - 28 - 2 * sx, h: innerHeight - 76 - 84 - 2 * sy }; };
   const SNAPS = [
     ['Middle', (a) => ({ w: a.w * 0.64, h: a.h * 0.78, x: a.x + a.w * 0.18, y: a.y + a.h * 0.11 })],
     ['Right half', (a) => ({ w: a.w / 2 - 6, h: a.h, x: a.x + a.w / 2 + 6, y: a.y })],

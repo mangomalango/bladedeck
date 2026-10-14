@@ -390,5 +390,5 @@ const Guide = (() => {
     layout(); set(0); draw();
   }
 
-  return { init, open, close, toggle, frame, tapped, isTrigger, handle, settingsHtml, readSettings, tab: (t) => (isOpen && pane === t ? close() : open('pad', t)), quick: () => toggle('pad', 'quick'), isOpen: () => isOpen, pulling: () => !!grab?.used };
+  return { init, open, close, toggle, frame, tapped, isTrigger, handle, settingsHtml, readSettings, tab: (t) => (isOpen && pane === t ? close() : open('pad', t)), quick: () => toggle('pad', 'quick'), isOpen: () => isOpen, pane: () => pane, pulling: () => !!grab?.used };
 })();

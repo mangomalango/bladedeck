@@ -1,0 +1,38 @@
+{
+  "id": "aero-sky",
+  "name": "Aero Sky",
+  "vars": {
+    "--bg": "linear-gradient(170deg, #e9fbff 0%, #8fd8ff 38%, #2a9be0 70%, #0b5fae 100%)",
+    "--ink": "#04284a",
+    "--ink-dim": "#386489",
+    "--accent": "#0f86d8",
+    "--accent-hi": "#6fd0ff",
+    "--accent-ink": "#ffffff",
+    "--glass-hi": "rgba(255,255,255,0.9)",
+    "--glass": "rgba(255,255,255,0.38)",
+    "--glass-lo": "rgba(160,220,255,0.35)",
+    "--glass-edge": "rgba(255,255,255,0.9)",
+    "--shadow": "rgba(0,50,110,0.32)",
+    "--panel": "rgba(255,255,255,0.5)",
+    "--panel-solid": "#e6f7ff",
+    "--field": "#ffffff",
+    "--line": "rgba(10,70,130,0.2)",
+    "--btn-hi": "#ffffff",
+    "--btn-lo": "#b6e2fb",
+    "--radius": "20px",
+    "--font": "\"Segoe UI\", \"Frutiger\", \"Lucida Grande\", system-ui, sans-serif"
+  },
+  "ribbon": {
+    "colors": [
+      "#ffffff",
+      "#bdeaff",
+      "#5cc1f5"
+    ],
+    "alpha": 0.36,
+    "blend": "source-over",
+    "width": 150,
+    "count": 6,
+    "speed": 0.26
+  },
+  "css": "\n/* Frutiger Aero: glossy glass, soft drop shadows on text, bubbles of light. */\n.title-h, .info h3, .item b, #who, .wk-info h1 { text-shadow: 0 1px 0 rgba(255,255,255,.55), 0 2px 8px rgba(0, 60, 120, .28); }\n.blade, .dlg, .fw, #np, #run, #dock { backdrop-filter: blur(14px) saturate(1.35); }\n.blade::before { background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.08) 48%, transparent 52%) !important; }\n.item.sel { background: linear-gradient(180deg, color-mix(in srgb, var(--accent-hi) 92%, #fff), var(--accent) 55%, color-mix(in srgb, var(--accent) 80%, #000)) !important; }\nbutton.primary, .primary { background: linear-gradient(180deg, #ffffff 0%, var(--accent-hi) 45%, var(--accent) 55%, color-mix(in srgb, var(--accent) 70%, #003) 100%) !important; color: #fff !important; text-shadow: 0 1px 1px rgba(0,0,0,.35); }\nbody::before { content: \"\"; position: fixed; inset: -20% -10% auto -10%; height: 70%; pointer-events: none; z-index: 0;\n  background: radial-gradient(60% 50% at 30% 30%, rgba(255,255,255,.45), transparent 70%), radial-gradient(40% 40% at 80% 20%, rgba(255,255,255,.25), transparent 70%); }\n"
+}

@@ -70,7 +70,7 @@ const Running = (() => {
   function place() {
     const np = document.getElementById('np');
     const npOn = document.body.classList.contains('np-on') && !np.hidden;
-    el.style.top = `${npOn ? Math.round(np.getBoundingClientRect().bottom + 12) : 84}px`;
+    el.style.top = npOn ? `${Math.round(np.getBoundingClientRect().bottom + 12)}px` : '';
   }
   new ResizeObserver(() => { if (!el.hidden) { place(); Dock.draw(); } }).observe(document.getElementById('np'));
   new MutationObserver(() => { if (!el.hidden) place(); }).observe(document.body, { attributes: true, attributeFilter: ['class'] });

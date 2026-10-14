@@ -606,6 +606,7 @@ function renderConsole() {
 }
 
 function setBlade(i, force) {
+  if (!force && (i < 0 || i >= S.blades.length)) Atmos.bump($('#blades'), i < 0 ? 1 : -1, 'x');
   i = Math.max(0, Math.min(S.blades.length - 1, i));
   if (i === S.bi && !force) return;
   if (i !== S.bi && S.blades[S.bi]?.special === 'system') sysGroup = null;
@@ -626,6 +627,8 @@ function fillBlade(i, keepId) {
   const body = $('.body', $$('.blade')[i]);
   body.innerHTML = `<div class="list">${items.length ? items.map(itemHtml).join('') : `<p class="empty">${emptyText(b)}</p>`}</div><div class="detail"></div>`;
   let idx = keepId ? items.findIndex((x) => x.id === keepId) : -1;
+  // Each blade comes back to the game you were on, even after a restart (fixed anchors).
+  if (idx < 0 && S.ii[i] == null && !b.special) idx = items.findIndex((x) => x.id === Atmos.anchorOf(b));
   if (idx < 0) idx = S.ii[i] || 0;
   setItem(idx, true);
 }
@@ -642,6 +645,7 @@ function itemHtml(e, i) {
 function setItem(j, quiet) {
   const n = S.items.length;
   if (!n || S.items.every((x) => x.header)) { S.sel = null; updateDetail(); Showcase.show(null); return; }
+  if (!quiet && (j < 0 || j >= n || (j < (S.ii[S.bi] || 0) && S.items.slice(0, j + 1).every((x) => x.header)))) Atmos.bump($('.blade.active .list'), j < (S.ii[S.bi] || 0) ? 1 : -1);
   j = Math.max(0, Math.min(n - 1, j));
   // Section titles are skipped, in the way you were going (and never left as the last stop).
   const dir = j < (S.ii[S.bi] || 0) ? -1 : 1;
@@ -654,6 +658,7 @@ function setItem(j, quiet) {
   const it = $('.item.sel', list);
   if (it) list.scrollTo({ top: it.offsetTop - list.clientHeight / 2 + it.offsetHeight / 2, behavior: quiet ? 'auto' : 'smooth' });
   S.sel = S.items[j];
+  Atmos.remember(S.blades[S.bi], S.sel);
   updateDetail();
   if (!quiet && moved) sndTick();
 }
@@ -668,7 +673,7 @@ function updateDetail() {
     ${e.run ? '' : `<span class="task-pill">${Tasks.count(e)} of ${TASKS.length} tasks. Start for more</span>`}
     ${Ach.fits(e) && (Ach.on() || e.type === 'steam') ? '<p class="stat ach"></p>' : ''}
     <p class="cta">${e.run ? 'Press A to open' : 'Press A to launch'}</p></div>`;
-  Showcase.show(e); GameTheme.show(e); Ach.fill(e, $('.ach', d));
+  Showcase.show(e); GameTheme.show(e); Ach.fill(e, $('.ach', d)); Atmos.preview(e, $('.poster', d));
 }
 // Re-draws the selected game's panel after its tasks or media change, without moving anything.
 function refreshQuiet() {
@@ -1199,6 +1204,9 @@ function openSettings() {
         <label>Theme<select name="theme">${S.themes.map((t) => `<option value="${t.id}" ${t.id === st.theme ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
         <div class="checks"><label><input type="checkbox" name="fx" ${st.fx !== false ? 'checked' : ''}> Animations</label><label><input type="checkbox" name="intro" ${st.intro !== false ? 'checked' : ''}> Launch intro</label><label><input type="checkbox" name="bootAnim" ${st.bootAnim !== false ? 'checked' : ''}> Boot animation</label><label><input type="checkbox" name="showcase" ${st.showcase !== false ? 'checked' : ''}> Play clips and pictures behind games</label></div>
         <label class="range-row">Clip and picture strength<input type="range" name="showcaseAlpha" min="0.2" max="1" step="0.05" value="${st.showcaseAlpha ?? 0.6}"></label>
+        <div class="checks"><label><input type="checkbox" name="depth" ${st.depth !== false ? 'checked' : ''}> Depth and glass: layered, frosted panels and a lifted focus</label><label><input type="checkbox" name="livingBg" ${st.livingBg !== false ? 'checked' : ''}> Living background: brighter by day, dimmer at night, a hue for each season</label><label><input type="checkbox" name="previewLoop" ${st.previewLoop !== false ? 'checked' : ''}> A highlighted game plays a short loop of your own clip</label><label><input type="checkbox" name="widget" ${st.widget !== false ? 'checked' : ''}> Weather and date at the top (opens a calendar)</label></div>
+        <label class="range-row">TV safe margin (overscan) <b class="safe-v">${st.tvSafe || 0}%</b><input type="range" name="tvSafe" min="0" max="10" step="0.5" value="${st.tvSafe || 0}"></label>
+        <p class="note">On a TV, CRT or plasma that cuts off the edges, raise it until the corner marks are fully on screen.</p>
         <h4 class="set-sub">Sound</h4>
         <div class="checks"><label><input type="checkbox" name="sounds" ${st.sounds ? 'checked' : ''}> Menu sounds</label><label><input type="checkbox" name="ambient" ${st.ambient ? 'checked' : ''}> Deep-sea ambience</label><label><input type="checkbox" name="soundFollow" ${st.soundFollow !== false ? 'checked' : ''}> Sound follows a game to another screen (the TV's speakers when it moves to the TV)</label><label><input type="checkbox" name="hoverMusic" ${st.hoverMusic !== false ? 'checked' : ''}> Play a game's own music when it stays highlighted for 3 seconds</label></div>
         <label class="range-row">Ambience volume<input type="range" name="ambientVolume" min="0" max="1" step="0.05" value="${st.ambientVolume ?? 0.5}"></label>
@@ -1268,6 +1276,8 @@ function openSettings() {
       const peekWas = st.peekMinimize, dirWas = st.musicDir;
       Object.assign(st, { musicDir: val(root, 'musicDir'), musicDuringGames: chk(root, 'musicDuringGames'), peekMinimize: chk(root, 'peekMinimize'), romsFullscreen: chk(root, 'romsFullscreen'), showStats: chk(root, 'showStats'), hoverMusic: chk(root, 'hoverMusic'), achClips: chk(root, 'achClips'), askStates: chk(root, 'askStates') });
       st.liveAuto = chk(root, 'liveAuto');
+      Object.assign(st, { depth: chk(root, 'depth'), livingBg: chk(root, 'livingBg'), previewLoop: chk(root, 'previewLoop'), widget: chk(root, 'widget'), tvSafe: +val(root, 'tvSafe') || 0 });
+      document.body.classList.toggle('depth', st.depth !== false); Atmos.apply();
       Object.assign(st, { prewarmSteam: chk(root, 'prewarmSteam'), shaderCache: chk(root, 'shaderCache'), gamemode: chk(root, 'gamemode'), padBackground: chk(root, 'padBackground'), soundFollow: chk(root, 'soundFollow'),
         sgdbKey: val(root, 'sgdbKey'), raUser: val(root, 'raUser'), raKey: val(root, 'raKey') });
       Boot.setOn(st.bootAnim !== false); Guide.readSettings(root); Watch.readSettings(root); Capture.readSettings(root); Players.readControllers(root); Players.readMulti(root); Running.refresh();
@@ -1279,6 +1289,8 @@ function openSettings() {
     } }],
     onOpen: (root) => {
       Capture.settingsOpen(root);
+      root.addEventListener('input', (ev) => { if (ev.target.name === 'tvSafe') { $('.safe-v', root).textContent = `${ev.target.value}%`; Atmos.calibrate(+ev.target.value); } });
+      S.modalGone = () => Atmos.safe();
       root.querySelector('.dlg').classList.add('settings');
       settingsTab(root, setTab);
       Players.wireControllers($('.pl-box', root)); Players.wireMulti($('.ms-box', root), root);
@@ -1316,7 +1328,17 @@ function hints() {
   if (hintsDefault === null) hintsDefault = bar.innerHTML;
   const h = (k, t, cls = k) => `<span class="h"><i class="pad ${cls}">${k.toUpperCase()}</i>${t}</span>`;
   const run = Running.active() && Running.current(), dock = Dock.active() && Dock.current();
-  const html = run ? h('a', 'Switch to it') + (run.canPause ? h('x', run.paused ? 'Resume' : 'Pause') : '') + (run.canClose ? h('y', 'Close…') : '') + h('b', 'Back')
+  // Every overlay says what its buttons do too: nothing is a hidden gesture.
+  const settingsOpen = !!document.querySelector('#modal .dlg.settings');
+  const html = Wreck.isOn() ? h('lb', '/ RB pick', 'k') + h('a', 'Play') + h('b', 'Blades back')
+    : S.modal ? h('a', 'Choose') + (settingsOpen ? h('lb', '/ RB pages', 'k') : '') + h('b', 'Close')
+    : Guide.isOpen() ? (Guide.pane() === 'guide' ? h('a', 'Choose') + h('b', 'Back') : h('lb', '/ RB tabs', 'k') + h('a', 'Choose') + h('b', 'Close'))
+    : Panels.active() ? h('a', 'Press') + h('b', 'Back') + h('start', 'Arrange', 'k') + h('back', 'Menu', 'k')
+    : Resume.isOpen() ? h('a', 'Switch to it') + h('x', 'Freeze / thaw') + h('y', 'Close…') + h('b', 'Back')
+    : Notify.isOpen() ? h('x', 'Clear all') + h('b', 'Close')
+    : Volume.isOpen() ? h('a', 'Mute') + h('lb', '/ RB big steps', 'k') + h('b', 'Close')
+    : sysGroup && S.blades[S.bi]?.special === 'system' && S.mode === 'console' ? h('a', 'Open') + h('b', 'Back to System')
+    : run ? h('a', 'Switch to it') + (run.canPause ? h('x', run.paused ? 'Resume' : 'Pause') : '') + (run.canClose ? h('y', 'Close…') : '') + h('b', 'Back')
     : dock ? h('a', dock.open ? 'Show / hide' : dock.edit ? 'Edit dock' : 'Open') + (dock.open ? h('x', 'Minimize') + h('y', 'Close…') : '') + h('b', 'Back')
     : NowPlaying.highlighted() ? h('a', 'Back to the game') + h('x', 'Live view') + h('b', 'Back')
     : hintsDefault;
@@ -1394,7 +1416,7 @@ function pcInput(a) {
   const g = $('#grid'); const n = S.pcItems.length;
   const cols = g ? getComputedStyle(g).gridTemplateColumns.split(' ').length : 1;
   const i = Math.max(0, S.pcItems.indexOf(S.sel));
-  const to = (k) => { if (n) { pcSelect(S.pcItems[Math.max(0, Math.min(n - 1, k))]); sndTick(); } };
+  const to = (k) => { if (!n) return; if (k < 0 || k >= n) Atmos.bump(g, k < 0 ? 1 : -1); pcSelect(S.pcItems[Math.max(0, Math.min(n - 1, k))]); sndTick(); };
   switch (a) {
     case 'left': if (i % cols === 0 && (NowPlaying.edge() || Running.edge() || Dock.edge())) break; to(i - 1); break;
     case 'right': to(i + 1); break;
@@ -1543,6 +1565,7 @@ function bindInput() {
   Secrets.installThemes();
   applyTheme(S.lib.settings.theme);
   Look.apply();
+  document.body.classList.toggle('depth', S.lib.settings.depth !== false); Atmos.apply();
   $('#who').textContent = S.lib.settings.playerName;
   { const b = document.querySelector('.bt-sub'); if (b) b.textContent = `Welcome back, ${S.lib.settings.playerName || 'player'}`; }
   Player.header();

@@ -1,0 +1,38 @@
+{
+  "id": "aero-night",
+  "name": "Aero Night",
+  "vars": {
+    "--bg": "linear-gradient(170deg, #0b2a4a 0%, #0f4d84 45%, #0a7fb8 80%, #31c4e8 100%)",
+    "--ink": "#eaf8ff",
+    "--ink-dim": "#a7cde6",
+    "--accent": "#22a8e8",
+    "--accent-hi": "#7fe0ff",
+    "--accent-ink": "#ffffff",
+    "--glass-hi": "rgba(255,255,255,0.35)",
+    "--glass": "rgba(255,255,255,0.12)",
+    "--glass-lo": "rgba(80,170,230,0.18)",
+    "--glass-edge": "rgba(255,255,255,0.45)",
+    "--shadow": "rgba(0,10,30,0.55)",
+    "--panel": "rgba(10,40,70,0.55)",
+    "--panel-solid": "#0e3150",
+    "--field": "#123a5c",
+    "--line": "rgba(160,220,255,0.18)",
+    "--btn-hi": "#2d6f9e",
+    "--btn-lo": "#164a72",
+    "--radius": "20px",
+    "--font": "\"Segoe UI\", \"Frutiger\", \"Lucida Grande\", system-ui, sans-serif"
+  },
+  "ribbon": {
+    "colors": [
+      "#7fe0ff",
+      "#2fa8e8",
+      "#ffffff"
+    ],
+    "alpha": 0.36,
+    "blend": "source-over",
+    "width": 150,
+    "count": 6,
+    "speed": 0.26
+  },
+  "css": "\n/* Frutiger Aero: glossy glass, soft drop shadows on text, bubbles of light. */\n.title-h, .info h3, .item b, #who, .wk-info h1 { text-shadow: 0 1px 0 0 2px 10px rgba(0,0,0,.5); }\n.blade, .dlg, .fw, #np, #run, #dock { backdrop-filter: blur(14px) saturate(1.35); }\n.blade::before { background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.03) 48%, transparent 52%) !important; }\n.item.sel { background: linear-gradient(180deg, color-mix(in srgb, var(--accent-hi) 92%, #fff), var(--accent) 55%, color-mix(in srgb, var(--accent) 80%, #000)) !important; }\nbutton.primary, .primary { background: linear-gradient(180deg, #ffffff 0%, var(--accent-hi) 45%, var(--accent) 55%, color-mix(in srgb, var(--accent) 70%, #003) 100%) !important; color: #fff !important; text-shadow: 0 1px 1px rgba(0,0,0,.35); }\nbody::before { content: \"\"; position: fixed; inset: -20% -10% auto -10%; height: 70%; pointer-events: none; z-index: 0;\n  background: radial-gradient(60% 50% at 30% 30%, rgba(255,255,255,.12), transparent 70%), radial-gradient(40% 40% at 80% 20%, rgba(255,255,255,.08), transparent 70%); }\n\n.blade .inner { background: color-mix(in srgb, var(--panel-solid) 55%, transparent); }\n"
+}

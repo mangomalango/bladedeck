@@ -17,6 +17,15 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Log
 
+- **2026-10-13, Claude:** UI design direction from the Project Tracker, all 12 items, blades
+  structure untouched: depth staging (glass status bar and panels, layered shadows), fixed
+  anchors (each blade remembers its game across restarts), TV safe margin with corner marks
+  (Look and sound), focus lens (lifted, scaled focus tile), one strong breathing focus ring
+  everywhere plus a watchdog that restores lost dialog focus, controller hints for every overlay,
+  elastic list and blade edges, living background (time of day and season), Frutiger Aero
+  themes (Aero Sky, Aero Lime, Aero Night), weather and date widget opening a Today calendar,
+  preview loop of your own clip on the highlighted game's poster. New file: `renderer/atmos.js`.
+
 - **2026-10-13, Claude (review of Gemini's work):** Gemini's fixes checked line by line and kept;
   the webdl.js page-URL match is a real catch. Fixed after review: tour cards for Browse,
   Minecraft and Backup gave wrong directions (they are under System, Games and library / Gaming
