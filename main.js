@@ -375,6 +375,8 @@ ipcMain.handle('launch', async (_e, { entry, emulator, settings, player }) => {
     // GameMode asks the system for full speed while the game runs.
     const gm = settings && settings.gamemode && process.platform === 'linux' && onPath('gamemoderun');
     if (gm) { args = [exe, ...args]; exe = gm; }
+    // Older games that freeze on many cores (The Suffering and other early-2000s engines): one core.
+    if (entry.oneCore && process.platform === 'linux' && onPath('taskset')) { args = ['-c', '0', exe, ...args]; exe = 'taskset'; }
     // Multi-screen: the player's own controller only, their sound, and input while unfocused.
     let playerEnv = {};
     if (player && player.multi && process.platform === 'linux') {

@@ -2,6 +2,8 @@
 :root { --accent: #ff2d8a; --accent-hi: #ffd23f; --ink: #fff; --dim: rgba(255,255,255,.62); --glass: rgba(255,255,255,.07); --edge: rgba(255,255,255,.14);
   --bg: #14000a; --r: 18px; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color-scheme: dark; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* `hidden` must win over the display rules below, or the alarm overlay (#ring) covers the page. */
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; background: radial-gradient(120% 70% at 20% 0%, color-mix(in srgb, var(--accent) 35%, #000) 0%, var(--bg) 60%) fixed, var(--bg); color: var(--ink); }
 body { display: flex; flex-direction: column; overscroll-behavior: none; user-select: none; }
 button { font: inherit; color: inherit; border: 1px solid var(--edge); background: var(--glass); border-radius: 14px; padding: 10px 14px; cursor: pointer; transition: transform .1s, background .15s; }

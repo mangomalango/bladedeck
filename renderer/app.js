@@ -879,6 +879,7 @@ function editEntry(existing, preset = {}) {
         <label>Arguments<input type="text" name="args" value="${esc(e.args || '')}"></label>
         <label>Start in folder${row('cwd', 'dir', e.cwd, "Defaults to the program's folder")}</label>
         <label>Environment (optional), one KEY=value per line<textarea name="env" rows="2" placeholder="WINEDLLOVERRIDES=dxgi=n,b">${esc(e.env || '')}</textarea></label>
+        <div class="checks"><label><input type="checkbox" name="oneCore" ${e.oneCore ? 'checked' : ''}> Run on one processor core (fixes freezes in some older games)</label></div>
       </div>
       <div data-for="rom" style="display:flex;flex-direction:column;gap:12px">
         <label>Emulator<select name="emulatorId">${emus.length ? emus.map((x) => `<option value="${x.id}" ${e.emulatorId === x.id ? 'selected' : ''}>${esc(x.name)}${x.system ? ' (' + esc(x.system) + ')' : ''}</option>`).join('') : '<option value="">No emulators yet. Add one first.</option>'}</select></label>
@@ -905,7 +906,7 @@ function editEntry(existing, preset = {}) {
           if (!em || !o.rom) { toast('Pick an emulator and a game file.', 'err'); return false; }
           o.system = em.system || em.name;
         } else {
-          o.exe = val(root, 'exe'); o.args = val(root, 'args'); o.cwd = val(root, 'cwd'); o.env = val(root, 'env');
+          o.exe = val(root, 'exe'); o.args = val(root, 'args'); o.cwd = val(root, 'cwd'); o.env = val(root, 'env'); o.oneCore = chk(root, 'oneCore');
           if (!o.exe && !(o.type === 'gog' && o.heroicId)) { toast('Pick a program to run.', 'err'); return false; }
         }
         if (existing) Object.assign(existing, o); else S.lib.entries.push(o);
