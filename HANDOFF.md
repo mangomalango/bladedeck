@@ -8,7 +8,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-Task IDs and cards: see TEAM.md (next free ID: BD-008).
+Task IDs and cards: see TEAM.md (next free ID: BD-010).
 
 - **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
   .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
@@ -32,10 +32,15 @@ Task IDs and cards: see TEAM.md (next free ID: BD-008).
   a dotted folder gets a junk "extension" (it never matches a list, so it is harmless).
 - **BD-003** · both · Gemini · Audit master `53c2aac..dfe66ea` (Nearby hint, clip scoring, game
   info, Downloads, archive.js, test-copy mode, ROM tidy, SPEC check) with `/bladedeck-audit`.
-- **BD-005** · windows · Claude (Windows) · Bring the newest Linux build to Windows: merge master,
+- **BD-008** · windows · Claude (Windows) · Settings, Network & sharing on Windows: the network
+  name and category (your Ethernet is Public), the firewall rules listed, home marking. Do not press
+  "Match the firewall" yourself; the owner does (UAC). Also ❓ Help, F1, the Quick start.
+- **BD-009** · windows · owner · Run scripts/windows/firewall-private.ps1 -HomePrivate (as admin) if
+  you want Private-only; or press "Match the firewall to my choice" in Settings, Network & sharing.
+- **BD-005** (done) · windows · Claude (Windows) · Bring the newest Linux build to Windows: merge master,
   `npm run check`, `npm run sweep` (a test copy walks every System item, blade, game, Settings tab
   and PC window and prints errors). Fix Windows-only breakage behind win32; report the sweep's output.
-- **BD-006** · windows · Claude (Windows) · ROM sync on Windows: `require('./romsync').plan()` lists
+- **BD-006** (done) · windows · Claude (Windows) · ROM sync on Windows: `require('./romsync').plan()` lists
   the drives from PowerShell (C:\ as home, other fixed and USB drives), `pick()` honours the
   keep-free rule. Windows Firewall must let TCP 47628 in (Private only; ask the owner before any
   rule change). Contract: SPEC §3 ROM sync.
@@ -67,6 +72,20 @@ Task IDs and cards: see TEAM.md (next free ID: BD-008).
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-14, Claude (Linux, lead):** Owner's asks: network privacy, Help, tutorial, readable Settings.
+  Network & sharing (`netshare.js`, `renderer/netshare.js`, a Settings tab): Nearby, and ROM sync
+  with it, only run on a home network (Windows Private, or a network marked home; the network at
+  first run is marked home, so Windows' Public-labelled home Ethernet keeps working), unless "Also
+  share on public networks" is on. Windows: the page shows Bladedeck's firewall rules and a
+  "Match the firewall to my choice" button (UAC). Linux: the ufw line. Help (`renderer/help.js`,
+  ❓ Help in the top bar, F1, System's first item): quick start, controls, guide, browser,
+  settings with search, the tour by topic, voice control on/off and what to say, common questions.
+  Tour: chapters (TOUR_CHAPTERS); the first run shows the 7-card Quick start only; new cards
+  (Help, ROM sync, Network). Settings: switches, bold names with the explanation under them, page
+  headers, a search box. romsync's drive check no longer makes folders on drives it only looks at
+  (seen on Windows: D:..I:). Merged windows-fixes (scripts/windows/firewall-private.ps1 for the
+  owner to run). Sweep: 50 System items, no errors.
 
 - **2026-10-14, Claude (Linux, lead):** Team setup and debug round 2.
   TEAM.md (roles, branches, task cards, the debug loop with Gemini's audit, safety, the owner's

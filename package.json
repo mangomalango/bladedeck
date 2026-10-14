@@ -61,6 +61,7 @@
       "gameinfo.js",
       "archive.js",
       "romsync.js",
+      "netshare.js",
       "steaminput.js",
       "bluetooth.js",
     "steamlink.js",

@@ -82,7 +82,12 @@ const keep = (d) => Math.max(KEEP_MIN, d.size * KEEP_SHARE);
 const spare = (d) => Math.max(0, d.free - keep(d));
 const homeDrive = (list) => list.filter((d) => os.homedir() === d.mount || os.homedir().startsWith(d.mount.replace(/[\\/]?$/, path.sep))).sort((a, b) => b.mount.length - a.mount.length)[0];
 const folderOn = (d, list) => (d === homeDrive(list) ? (load().dir || path.join(os.homedir(), 'Games', 'ROMs', 'Synced')) : path.join(d.mount, 'Bladedeck ROMs'));
-function writable(dir) { try { fs.mkdirSync(dir, { recursive: true }); fs.accessSync(dir, fs.constants.W_OK); return true; } catch { return false; } }
+// Can it be written to? Checked on the folder, or the nearest one that exists: looking at a drive
+// must not leave an empty folder on it (the folder is made when a ROM is actually copied there).
+function writable(dir) {
+  let d = dir; while (!fs.existsSync(d)) { const up = path.dirname(d); if (up === d) return false; d = up; }
+  try { fs.accessSync(d, fs.constants.W_OK); return true; } catch { return false; }
+}
 // The drive for the next file: home's first, then the one with the most room.
 function pick(list, bytes) {
   const home = homeDrive(list);

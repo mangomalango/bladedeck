@@ -292,6 +292,7 @@ function systemGroups() {
     ...(Secrets.has('toolbox') ? [{ id: 'sys-tool', title: "Rivet's Toolbox", sub: 'Secrets you have found', glyph: '⚒', run: () => Secrets.openToolbox() }] : [])
   ];
   return [
+    { id: 'sys-helphub', title: 'Confused? Start here', sub: 'Help: quick start, controls, guide, voice, browser, answers', glyph: '❓', run: () => Help.open() },
     { id: 'grp-lib', title: 'Games and library', sub: 'Add, scan, find art, get games, sources', glyph: '▦', children: [
       { id: 'sys-quick', title: 'Find everything', sub: 'Steam, GOG, Heroic, Moonlight and store launchers in one go', glyph: '✦', run: findEverything },
       { id: 'sys-add', title: 'Add a game or app', sub: 'Pick a program, Steam ID or game file', glyph: '+', run: () => editEntry() },
@@ -1310,7 +1311,7 @@ function openControls() {
 /* ---------------------------------------------------------------- settings */
 // Fewer, plainer pages: everything about running games and emulators is Gaming software, and
 // everything about playing with someone else in the room is Local multiplayer.
-const SET_TABS = [['general', 'General'], ['look', 'Look and sound'], ['games', 'Gaming software'], ['pads', 'Controllers'], ['multi', 'Local multiplayer'], ['rec', 'Recording and live view'], ['online', 'Accounts'], ['adv', 'Advanced']];
+const SET_TABS = [['general', 'General'], ['look', 'Look and sound'], ['games', 'Gaming software'], ['pads', 'Controllers'], ['multi', 'Local multiplayer'], ['net', 'Network & sharing'], ['rec', 'Recording and live view'], ['online', 'Accounts'], ['adv', 'Advanced']];
 let setTab = 0;
 function settingsTab(root, i) {
   setTab = (i + SET_TABS.length) % SET_TABS.length;
@@ -1318,6 +1319,8 @@ function settingsTab(root, i) {
   root.querySelectorAll('.set-tabs button').forEach((b, k) => b.classList.toggle('on', k === setTab));
   root.querySelectorAll('.set-sec').forEach((sec) => { sec.hidden = sec.dataset.sec !== id; });
   root.querySelector('.set-pages').scrollTop = 0;
+  SetLook.head(root, id, SET_TABS[setTab][1]);
+  const find = root.querySelector('.set-find'); if (find?.value) { find.value = ''; root.querySelector('.set')?.classList.remove('finding'); root.querySelectorAll('.set-sec [hidden].row, .set-sec > label[hidden]').forEach((x) => { x.hidden = false; }); }
   if (S.pad) PadNav.mark(root.querySelector('.set-tabs button.on'));
 }
 // Settings, opened on one page (after a dialog of its own closed it).
@@ -1393,10 +1396,10 @@ function openSettings() {
         <div class="btns"><button type="button" data-x="split">Split screen…</button></div>
         <h4 class="set-sub">Multi-screen: a screen each</h4>
         <div class="ms-box"><p class="note">Looking for screens…</p></div>
-        <h4 class="set-sub">Nearby: other Bladedecks</h4>
-        <div class="checks"><label><input type="checkbox" name="lanOn" ${st.lanOn !== false ? 'checked' : ''}> Show me to other Bladedecks nearby</label><label><input type="checkbox" name="lanShare" ${st.lanShare === true ? 'checked' : ''}> Share my game list with them</label></div>
+        <p class="note">Nearby (other Bladedecks on your network) is on the Network & sharing page.</p>
         <p class="note">Who is which player, and each controller's rumble and sound, are on the Controllers page.</p>
       </section>
+      <section class="set-sec" data-sec="net">${NetShare.settingsHtml(st)}</section>
       <section class="set-sec" data-sec="rec">${Capture.settingsHtml()}
         <h4 class="set-sub">Live view</h4>
         <div class="checks"><label><input type="checkbox" name="liveAuto" ${st.liveAuto !== false ? 'checked' : ''}> Live view starts by itself: the first time you jump out of a game it asks once, then it is just there</label></div>
@@ -1433,7 +1436,7 @@ function openSettings() {
       document.body.classList.toggle('depth', st.depth !== false); Atmos.apply();
       Object.assign(st, { steamInput: chk(root, 'steamInput'), prewarmSteam: chk(root, 'prewarmSteam'), shaderCache: chk(root, 'shaderCache'), gamemode: chk(root, 'gamemode'), padBackground: chk(root, 'padBackground'), soundFollow: chk(root, 'soundFollow'),
         sgdbKey: val(root, 'sgdbKey'), raUser: val(root, 'raUser'), raKey: val(root, 'raKey') });
-      Boot.setOn(st.bootAnim !== false); Guide.readSettings(root); Watch.readSettings(root); Capture.readSettings(root); Players.readControllers(root); Players.readMulti(root); Running.refresh();
+      Boot.setOn(st.bootAnim !== false); Guide.readSettings(root); NetShare.read(root); setTimeout(() => api.netshareApply?.(), 400); Watch.readSettings(root); Capture.readSettings(root); Players.readControllers(root); Players.readMulti(root); Running.refresh();
       if (peekWas !== st.peekMinimize) api.peekConfig({ minimize: st.peekMinimize });
       if (dirWas !== st.musicDir) Music.load(true).then(Music.draw);
       Sound.sync(); Showcase.reset(); Voice.syncWake?.();
@@ -1442,6 +1445,8 @@ function openSettings() {
     } }],
     onOpen: (root) => {
       Capture.settingsOpen(root);
+      SetLook.enhance(root, () => settingsTab(root, setTab)); SetLook.head(root, SET_TABS[setTab][0], SET_TABS[setTab][1]); NetShare.fill(root);
+      root.addEventListener('click', (ev) => { const b = ev.target.closest('[data-ns]'); if (b) NetShare.click(root, b); });
       root.addEventListener('change', (ev) => { if (ev.target.name === 'screenType') Atmos.screenTips(root); if (ev.target.name === 'soundPack') root.querySelectorAll('.pack-dir').forEach((x) => { x.hidden = ev.target.value !== 'custom'; }); });
       const omStats = () => api.onlineMediaStats().then((s) => { const el = $('.om-stats', root); if (el) el.textContent = !s.ytdlp ? `Needs yt-dlp (${s.install}).` : `${s.files} file${s.files === 1 ? '' : 's'} kept, ${(s.bytes / 1048576).toFixed(0)} MB${s.queued ? `, ${s.queued} still to get` : ''}. Each game is looked up once; Edit a game to pick a different clip or song.`; });
       omStats();
@@ -1770,7 +1775,7 @@ function bindInput() {
   Music.load().then(Music.draw);
   // Player 2's menu (multi-screen) is just a menu: the main one does the watching, music and network.
   if (Players.isP2()) { S.lib.settings.playerName = 'Player 2'; $('#who').textContent = 'Player 2'; Players.applySounds(); Guide.init(); Dock.draw(); Running.refresh(); return; }
-  Dock.draw(); Guide.init(); Watch.start(); ensureEmuApps(); Tour.maybeOffer(); Running.refresh();
+  Dock.draw(); Guide.init(); Watch.start(); NetShare.init(); ensureEmuApps(); Tour.maybeOffer(); Running.refresh();
   Friends.presence(); Players.applySounds(); Players.applyPad(); Extras.boot(); Roms.fixArgs();
   api.onDownloads((list) => Downloads.update(list));
   // First run: go and find everything so the library is never empty.

@@ -128,14 +128,20 @@ function firewall() {
   return { name: 'ufw', fix: 'sudo ufw allow proto udp from 192.168.0.0/16 to any port 47617 && sudo ufw allow proto tcp from 192.168.0.0/16 to any port 47618:47628' };
 }
 
+// What the page asked for, and whether this network may see us (netshare.js: home, or public allowed).
+let want = null, gate = () => true, idOf = () => '';
+function apply() {
+  if (!want || want.enabled === false || !gate()) { stop(); return false; }
+  const info = want;
+  me = { name: String(info.name || 'Player').slice(0, 40), pc: os.hostname(), playing: info.playing || null, level: +info.level || 1, titles: info.share ? (info.titles || []).slice(0, 600) : null };
+  start(idOf());
+  return true;
+}
+
 function register({ getWin, dataId }) {
   send = (ch, d) => { const w = getWin(); if (w && !w.isDestroyed()) w.webContents.send(ch, d); };
-  ipcMain.handle('lan-set', (_e, info) => {
-    if (!info || info.enabled === false) { stop(); return false; }
-    me = { name: String(info.name || 'Player').slice(0, 40), pc: os.hostname(), playing: info.playing || null, level: +info.level || 1, titles: info.share ? (info.titles || []).slice(0, 600) : null };
-    start(dataId());
-    return true;
-  });
+  idOf = dataId;
+  ipcMain.handle('lan-set', (_e, info) => { want = info || null; return apply(); });
   ipcMain.handle('lan-firewall', () => firewall());
   ipcMain.handle('lan-peers', () => [...peers.values()].map(({ addr, lastAsk, ...p }) => p));
   ipcMain.handle('lan-offer', async (_e, peerId, file) => {
@@ -187,4 +193,4 @@ const peer = (id) => { const p = peers.get(String(id)); return p ? { id: p.id, n
 function sendTo(id, msg) { const p = peers.get(String(id)); if (!p || !sock) return false; sock.send(Buffer.from(JSON.stringify({ ...msg, bd: 1, id: myId, name: me.name })), PORT, p.addr, () => {}); return true; }
 const on = (kind, fn) => hooks.set(kind, fn);
 
-module.exports = { register, stop, peer, sendTo, on, myId: () => myId, newId: () => crypto.randomBytes(8).toString('hex') };
+module.exports = { register, stop, apply, firewall, setGate: (fn) => { gate = fn; }, peer, sendTo, on, myId: () => myId, newId: () => crypto.randomBytes(8).toString('hex') };

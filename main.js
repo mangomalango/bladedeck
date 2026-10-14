@@ -15,7 +15,7 @@ const Net = require('./net');
 const TEST = process.env.BLADEDECK_TEST || '';
 if (TEST) {
   app.setPath('userData', path.resolve(TEST));
-  const BLOCK = /^(launch|split-launch|sys-power|sys-brightness|sys-wifi-connect|sys-wifi-off|bt-(connect|pair|power|scan)|sound-(set|player-sink|follow)|ms-(open|close|extend|place-main|pin-sound|menu)|ds-set|pads-claim|win-act|focus-pid|proc-freeze|peek-\w+|steamlink-(sync|restart)|steam-sleep-fix|companion-(enable|ring|alarms)|lan-(set|offer|send|accept)|romsync-(pair|answer|sync)|net-(hello|poke)|dns-(system|app)|emu-install|emu-install-win|emu-gh-install|moonlight-open|mc-open|dock-open|webapp-open|capture-(record|replay|game|stop)|live-start|presence|discord-set|keep-on-top|open-link|fs-open|fs-reveal|bios-open|capture-open|extras-update|backup-restore|backup-import|xfer-to-phone|quit)$/;
+  const BLOCK = /^(launch|split-launch|sys-power|sys-brightness|sys-wifi-connect|sys-wifi-off|bt-(connect|pair|power|scan)|sound-(set|player-sink|follow)|ms-(open|close|extend|place-main|pin-sound|menu)|ds-set|pads-claim|win-act|focus-pid|proc-freeze|peek-\w+|steamlink-(sync|restart)|steam-sleep-fix|companion-(enable|ring|alarms)|lan-(set|offer|send|accept)|romsync-(pair|answer|sync)|netshare-firewall|net-(hello|poke)|dns-(system|app)|emu-install|emu-install-win|emu-gh-install|moonlight-open|mc-open|dock-open|webapp-open|capture-(record|replay|game|stop)|live-start|presence|discord-set|keep-on-top|open-link|fs-open|fs-reveal|bios-open|capture-open|extras-update|backup-restore|backup-import|xfer-to-phone|quit)$/;
   const handle = ipcMain.handle.bind(ipcMain);
   ipcMain.handle = (ch, fn) => handle(ch, BLOCK.test(ch) ? () => { console.log(`[test copy] blocked ${ch}`); return null; } : fn);
   ipcMain.on('bd-test', (e) => { e.returnValue = true; });
@@ -1053,6 +1053,7 @@ require('./realdebrid').register({ getWin: () => win, settings: () => loadLib().
 { const idFile = path.join(app.getPath('userData'), 'lan-id');
   const lanId = () => { try { return fs.readFileSync(idFile, 'utf8').trim(); } catch { const id = require('./lan').newId(); try { fs.writeFileSync(idFile, id); } catch { /* optional */ } return id; } };
   require('./lan').register({ getWin: () => win, dataId: lanId });
+  require('./netshare').register({ getSettings: () => loadLib().settings });
   app.on('will-quit', () => require('./lan').stop()); }
 require('./companion').register({ getWin: () => win, loadLib: () => loadLib() });
 require('./livecap').register();

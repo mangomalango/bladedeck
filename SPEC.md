@@ -223,6 +223,9 @@ that list in main.js.
 | `gameMusic(e)` | `game-music` | call | gamemusic.js |
 | `onlineMedia(e, kind)` | `online-media` | call | onlinemedia.js |
 | `gameInfo(e)` | `game-info` | call | gameinfo.js |
+| `netshareStatus()` | `netshare-status` | call | netshare.js |
+| `netshareFirewall(pub)` | `netshare-firewall` | call | netshare.js |
+| `netshareApply()` | `netshare-apply` | call | netshare.js |
 | `romsyncState()` | `romsync-state` | call | romsync.js |
 | `romsyncPair(id)` | `romsync-pair` | call | romsync.js |
 | `romsyncAnswer(id, yes)` | `romsync-answer` | call | romsync.js |
