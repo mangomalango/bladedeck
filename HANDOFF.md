@@ -8,7 +8,20 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-Task IDs and cards: see TEAM.md (next free ID: BD-001).
+Task IDs and cards: see TEAM.md (next free ID: BD-005).
+
+- **BD-001** · windows · Claude Sonnet · The Downloads window, Files' Y menu (Extract, Compress
+  .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
+  Contract: SPEC §1 (web-dl-*, archive-*, fs-reveal, game-info), §3 downloads. Verify:
+  `npm run check`, `npm run test-copy -- --real`, then in DevTools (port 9333):
+  `WebDl.open()`, and `api.archiveRun({op:'compress', file:'<an allowed folder>', fmt:'7z'})`.
+- **BD-002** · windows · Claude Sonnet · ROM tidy and naming on Windows paths: `Watch.romTitle`
+  and `Watch.fits` with backslash paths (`C:\Games\Crackdown.1.EUR.X360-ZTM\default.xex`,
+  a `.bin` under `...\pfx\drive_c\...`). Contract: SPEC §2 (romTidy).
+- **BD-003** · both · Gemini · Audit master `53c2aac..dfe66ea` (Nearby hint, clip scoring, game
+  info, Downloads, archive.js, test-copy mode, ROM tidy, SPEC check) with `/bladedeck-audit`.
+- **BD-004** · both · owner + Claude Opus · Nearby both ways once the Linux firewall line is run:
+  each PC lists the other, a file goes each way with Accept. Contract: SPEC §3 Nearby.
 
 ### For Gemini (in this order)
 1. **Review my last batch** (below, "2026-10-14, Claude") the way I reviewed yours.
