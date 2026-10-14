@@ -129,3 +129,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
   app, Real-Debrid WebDAV, per-game environment variables, wrecking-ball alpha draft. Linux
   AppImage installed at `~/AppImages/bladedeck.appimage`; Windows installer in `dist/`. Pushed to
   github.com/mangomalango/bladedeck (private).
+- 2026-10-14 (Claude): controller sound pinned to the DualSense, live view pipeline fixed for KWin,
+  then sound packs (Aero chimes, Blades, Dash, or a folder of your own; Kenney's public-domain
+  packs suggested) and icon packs (Line icons, Aero orbs: Bladedeck's own SVGs in `renderer/icons.js`)
+  in Look and sound / Look and menus. Installed; backup refreshed.
