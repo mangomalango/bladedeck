@@ -92,13 +92,23 @@ async function backup() {
 /* -------------------------------------------------------------- update checks */
 // "owner/name" of the GitHub repository Bladedeck's releases come from.
 const REPO = /^[\w.-]{1,39}\/[\w.-]{1,100}$/;
+function ghApi(path) {
+  return new Promise((res) => {
+    try { require('child_process').execFile('gh', ['api', path], { timeout: 15000 }, (err, out) => { if (err) return res(null); try { res(JSON.parse(String(out))); } catch { res(null); } }); }
+    catch { res(null); }
+  });
+}
 async function updateCheck(repo) {
   if (!REPO.test(String(repo || ''))) return { ok: false, error: 'No release page is set yet.' };
   try {
     const r = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Bladedeck' }, signal: AbortSignal.timeout(10000) });
-    if (r.status === 404) return { ok: false, error: 'That repository has no releases yet.' };
-    if (!r.ok) return { ok: false, error: `GitHub answered ${r.status}.` };
-    const j = await r.json();
+    let j = null;
+    if (r.ok) j = await r.json();
+    // A private repository answers "not found" to everyone else: ask the GitHub CLI, signed in on
+    // this PC, instead. Bladedeck never keeps a token of its own.
+    else if (r.status === 404) j = await ghApi(`repos/${repo}/releases/latest`);
+    if (!j && r.status === 404) return { ok: false, error: 'No release found. If the repository is private, sign the GitHub CLI in on this PC (gh auth login).' };
+    if (!j) return { ok: false, error: `GitHub answered ${r.status}.` };
     const latest = String(j.tag_name || '').replace(/^v/i, ''), mine = app.getVersion();
     const num = (v) => v.split(/[.-]/).slice(0, 3).map((x) => parseInt(x, 10) || 0);
     const [a, b] = [num(latest), num(mine)];

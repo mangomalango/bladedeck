@@ -1605,3 +1605,39 @@ body.dock-on.np-on #console, body.dock-on.run-on #console { left: calc(360px + v
 #vol .vo-off { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; font-size: 12px; color: var(--ink-dim); }
 #vol .vo-off button { font-size: 12px; padding: 4px 10px; opacity: .7; }
 #vol .vo-chips button small { opacity: .8; }
+
+/* Display tuning: burn-in guard (dim, nudged a few pixels) and a CRT scanline look. */
+body.guarded > main, body.guarded > #top, body.guarded > #hints, body.guarded #dock, body.guarded #run { opacity: .35; transform: translate(var(--shift, 0px, 0px)); transition: opacity 2s, transform 2s; }
+body.crt-look::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 70; background: repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 1px, transparent 1px 3px); mix-blend-mode: multiply; }
+.scr-tips ul { margin: 6px 0; padding-left: 20px; font-size: 13px; color: var(--ink-dim); }
+.scr-tips li { margin: 3px 0; }
+
+/* The game being played, blurred behind the menu. */
+#playbg { position: fixed; inset: -40px; z-index: 0; pointer-events: none; background-size: cover; background-position: center; filter: blur(28px) saturate(1.2) brightness(.6); opacity: 0; transition: opacity .8s; }
+#playbg.on { opacity: .55; }
+#playbg[hidden] { display: none; }
+#playbg video { width: 100%; height: 100%; object-fit: cover; transform: scale(1.02); }
+body.away #playbg { opacity: 0; }
+
+/* Console through a capture card: the picture fills Bladedeck, panels float above it. */
+#hdmi { position: fixed; inset: 0; z-index: 9; background: #000; opacity: 0; transition: opacity .3s; }
+#hdmi.in { opacity: 1; }
+#hdmi[hidden] { display: none; }
+#hdmi video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+#hdmi .hd-tip { position: absolute; right: 18px; bottom: 14px; margin: 0; font-size: 12px; color: #fff; opacity: .35; }
+#hdmi.rec::after { content: "● REC"; position: absolute; top: 16px; right: 20px; color: #ff4d4d; font-weight: 700; letter-spacing: .1em; }
+#hdmi .hd-bar { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; padding: 10px 14px; border-radius: 999px; background: rgba(10,14,18,.82); backdrop-filter: blur(12px); color: #fff; }
+#hdmi .hd-bar[hidden] { display: none; }
+#hdmi .hd-bar b { padding: 0 8px; font-weight: 600; }
+#hdmi .hd-bar button { border-radius: 999px; padding: 8px 14px; }
+#hdmi .hd-bar button.cur { outline: 3px solid var(--accent-hi); }
+body.hdmi-on > #top, body.hdmi-on > #hints { opacity: 0; pointer-events: none; }
+
+/* Consoles: a tab per console. */
+.cn-tabs { flex-wrap: wrap; }
+.cn-h { margin: 10px 0 2px; font-weight: 500; }
+.cn-games { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+.cn-game { display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: 12px; text-align: left; }
+.cn-game span { aspect-ratio: 3 / 4; border-radius: 8px; overflow: hidden; display: block; }
+.cn-game span img, .cn-game span .art { width: 100%; height: 100%; object-fit: cover; }
+.cn-game b { font-size: 12.5px; font-weight: 500; line-height: 1.2; }

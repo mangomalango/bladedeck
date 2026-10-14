@@ -299,6 +299,8 @@ function systemGroups() {
       { id: 'sys-dl', title: 'Downloads', sub: 'What is downloading, and what finished', glyph: '⬇', run: () => Notify.open() }] },
     { id: 'grp-soft', title: 'Gaming software', sub: 'Emulators, launchers, Minecraft and extras', glyph: '◉', children: [
       { id: 'sys-emu', title: 'Emulators', sub: 'Add, edit and scan game folders', glyph: '◉', run: manageEmulators },
+      { id: 'sys-hdmi', title: 'Console (capture card)', sub: 'Play an Xbox, PlayStation or any console through an HDMI capture card', glyph: '📼', run: () => Hdmi.open() },
+      { id: 'sys-consoles', title: 'Consoles', sub: 'Each console: its emulators, BIOS, your games, PC ports, texture packs', glyph: '🎮', run: () => Consoles.open() },
       { id: 'sys-emuget', title: 'Install emulators', sub: 'One press each, official builds', glyph: '⇩', run: () => Shop.open('emus') },
       { id: 'sys-mc', title: 'Minecraft', sub: 'Prism Launcher, your instances, controller support', glyph: '⛏', run: () => Minecraft.open() },
       { id: 'sys-cf', title: 'CurseForge and Modrinth', sub: 'Modpacks, into Prism Launcher', glyph: '🔥', run: () => Minecraft.packs() },
@@ -578,6 +580,8 @@ function markDay(e) {
   if (!e.days.includes(d)) { e.days.push(d); if (e.days.length > 30) e.days.shift(); }
 }
 function sessionOver(e, seconds) {
+  // Player 2's menu (multi-screen) hands the session to Player 1's, which keeps the library.
+  if (Players.isP2()) { api.msReport({ id: e.id, seconds }); if (seconds >= 60) toast(`Welcome back! ${Math.round(seconds / 60)} more minutes in ${e.title}.`, 'fun'); return; }
   e.playtime = (e.playtime || 0) + seconds;
   e.bestSession = Math.max(e.bestSession || 0, seconds);
   Scenes.earn(seconds);
@@ -586,6 +590,11 @@ function sessionOver(e, seconds) {
   Tasks.sync(e); refreshQuiet();
   Player.sessionOver(e, seconds);
 }
+// A session Player 2 played (multi-screen): its playtime, last played and days count like Player 1's.
+api.onP2Session?.(({ id, seconds, at }) => {
+  const e = S.lib.entries.find((x) => x.id === id); if (!e) return;
+  e.lastPlayed = at; markDay(e); sessionOver(e, seconds);
+});
 api.onEnded(({ id, seconds }) => {
   const e = S.lib.entries.find((x) => x.id === id);
   // The game that had the screen ended: take it back, so the controller drives Bladedeck again.
@@ -938,7 +947,7 @@ function manageEmulators() {
     html: emus.length
       ? emus.map((em) => `<div class="emu"><b>${esc(em.name)}</b><span>${esc(em.system || '')}</span><button data-em-scan="${em.id}">Scan</button><button data-em-edit="${em.id}">Edit</button></div>`).join('')
       : '<p class="note">No emulators yet. Add one, choose its program, and Bladedeck will scan your game folders and list every game it finds.</p>',
-    buttons: [{ label: 'Install emulators', left: true, onClick: () => { setTimeout(() => Shop.open('emus'), 0); } }, { label: 'Close' }, { label: 'Add emulator', primary: true, onClick: () => { setTimeout(() => editEmulator(), 0); } }],
+    buttons: [{ label: 'Consoles', left: true, onClick: () => { setTimeout(() => Consoles.open(), 0); } }, { label: 'Install emulators', left: true, onClick: () => { setTimeout(() => Shop.open('emus'), 0); } }, { label: 'Close' }, { label: 'Add emulator', primary: true, onClick: () => { setTimeout(() => editEmulator(), 0); } }],
     onOpen: (root) => root.addEventListener('click', (ev) => {
       const sc = ev.target.closest('[data-em-scan]'), ed = ev.target.closest('[data-em-edit]');
       if (sc) { closeModal(); scanRoms(emus.find((x) => x.id === sc.dataset.emScan)); }
@@ -1226,7 +1235,8 @@ function openSettings() {
         <label>Theme<select name="theme">${S.themes.map((t) => `<option value="${t.id}" ${t.id === st.theme ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
         <div class="checks"><label><input type="checkbox" name="fx" ${st.fx !== false ? 'checked' : ''}> Animations</label><label><input type="checkbox" name="intro" ${st.intro !== false ? 'checked' : ''}> Launch intro</label><label><input type="checkbox" name="bootAnim" ${st.bootAnim !== false ? 'checked' : ''}> Boot animation</label><label><input type="checkbox" name="showcase" ${st.showcase !== false ? 'checked' : ''}> Play clips and pictures behind games</label></div>
         <label class="range-row">Clip and picture strength<input type="range" name="showcaseAlpha" min="0.2" max="1" step="0.05" value="${st.showcaseAlpha ?? 0.6}"></label>
-        <div class="checks"><label><input type="checkbox" name="depth" ${st.depth !== false ? 'checked' : ''}> Depth and glass: layered, frosted panels and a lifted focus</label><label><input type="checkbox" name="livingBg" ${st.livingBg !== false ? 'checked' : ''}> Living background: brighter by day, dimmer at night, a hue for each season</label><label><input type="checkbox" name="previewLoop" ${st.previewLoop !== false ? 'checked' : ''}> A highlighted game plays a short loop of your own clip</label><label><input type="checkbox" name="widget" ${st.widget !== false ? 'checked' : ''}> Weather and date at the top (opens a calendar)</label></div>
+        <div class="checks"><label><input type="checkbox" name="depth" ${st.depth !== false ? 'checked' : ''}> Depth and glass: layered, frosted panels and a lifted focus</label><label><input type="checkbox" name="livingBg" ${st.livingBg !== false ? 'checked' : ''}> Living background: brighter by day, dimmer at night, a hue for each season</label><label><input type="checkbox" name="previewLoop" ${st.previewLoop !== false ? 'checked' : ''}> A highlighted game plays a short loop of your own clip</label><label><input type="checkbox" name="playingBg" ${st.playingBg !== false ? 'checked' : ''}> Back in the menu during a game: that game, blurred, behind the menu (a clip, or a still picture when the PC is busy)</label><label><input type="checkbox" name="widget" ${st.widget !== false ? 'checked' : ''}> Weather and date at the top (opens a calendar)</label></div>
+        <h4 class="set-sub">Display tuning</h4>${Atmos.screenHtml()}
         <label class="range-row">TV safe margin (overscan) <b class="safe-v">${st.tvSafe || 0}%</b><input type="range" name="tvSafe" min="0" max="10" step="0.5" value="${st.tvSafe || 0}"></label>
         <p class="note">On a TV, CRT or plasma that cuts off the edges, raise it until the corner marks are fully on screen.</p>
         <h4 class="set-sub">Sound</h4>
@@ -1298,6 +1308,8 @@ function openSettings() {
       const peekWas = st.peekMinimize, dirWas = st.musicDir;
       Object.assign(st, { musicDir: val(root, 'musicDir'), musicDuringGames: chk(root, 'musicDuringGames'), peekMinimize: chk(root, 'peekMinimize'), romsFullscreen: chk(root, 'romsFullscreen'), showStats: chk(root, 'showStats'), hoverMusic: chk(root, 'hoverMusic'), achClips: chk(root, 'achClips'), askStates: chk(root, 'askStates') });
       st.liveAuto = chk(root, 'liveAuto');
+      Object.assign(st, { screenType: val(root, 'screenType'), burnGuard: chk(root, 'burnGuard'), crtLook: chk(root, 'crtLook') });
+      st.playingBg = chk(root, 'playingBg');
       Object.assign(st, { depth: chk(root, 'depth'), livingBg: chk(root, 'livingBg'), previewLoop: chk(root, 'previewLoop'), widget: chk(root, 'widget'), tvSafe: +val(root, 'tvSafe') || 0 });
       document.body.classList.toggle('depth', st.depth !== false); Atmos.apply();
       Object.assign(st, { prewarmSteam: chk(root, 'prewarmSteam'), shaderCache: chk(root, 'shaderCache'), gamemode: chk(root, 'gamemode'), padBackground: chk(root, 'padBackground'), soundFollow: chk(root, 'soundFollow'),
@@ -1311,6 +1323,7 @@ function openSettings() {
     } }],
     onOpen: (root) => {
       Capture.settingsOpen(root);
+      root.addEventListener('change', (ev) => { if (ev.target.name === 'screenType') Atmos.screenTips(root); });
       root.addEventListener('input', (ev) => { if (ev.target.name === 'tvSafe') { $('.safe-v', root).textContent = `${ev.target.value}%`; Atmos.calibrate(+ev.target.value); } });
       S.modalGone = () => Atmos.safe();
       root.querySelector('.dlg').classList.add('settings');
@@ -1323,6 +1336,7 @@ function openSettings() {
       if (x === 'look') { closeModal(); Look.open(); }
       const go = { emus: manageEmulators, emuget: () => Shop.open('emus'), sources: () => Roms.sources(), mc: () => Minecraft.open(), split: () => SplitScreen.open(), backup: () => Backup.open() }[x];
       if (go) { closeModal(); setTimeout(go, 0); return; }
+      if (x === 'screenUse') { Atmos.screenUse(root); return; }
       if (x === 'liveforget') { S.lib.settings.liveAsked = {}; api.liveForget('*'); toast('The live view asks again the next time for each game.'); }
       const j = ev.target.closest('[data-jump]'); if (j) $('#' + j.dataset.jump, root)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       if (x === 'ratest') {
@@ -1341,7 +1355,7 @@ function openSettings() {
 /* ---------------------------------------------------------------- input (keyboard + gamepad share one dispatcher) */
 function activate() { if (S.sel) launch(S.sel); }
 
-function handle(a) { handleInput(a); hints(); if (a === 'up' || a === 'down' || a === 'left' || a === 'right') Players.bump(); }
+function handle(a) { Atmos.poke(); handleInput(a); hints(); if (a === 'up' || a === 'down' || a === 'left' || a === 'right') Players.bump(); }
 /* The hint bar says what the buttons do where you are, so Y reads "Close…" in the Running list
    and the dock rather than "Edit". */
 let hintsDefault = null, hintsNow = '';
@@ -1383,6 +1397,7 @@ function handleInput(a) {
   if (Resume.handle(a)) return;
   if (Volume.handle(a)) return;
   if (Panels.handle(a)) return;
+  if (Hdmi.handle(a)) return;
   if (typeof AchClips !== 'undefined' && AchClips.handleKey?.(a)) return;
   // While a game starts behind Bladedeck, X shows whatever Steam is asking.
   if (a === 'x' && S.playing?.covered) { revealSteam(); uncoverSteam(S.playing); api.minimize(); return; }
@@ -1414,6 +1429,9 @@ function handleInput(a) {
 function modalInput(a) {
   if (a === 'b') { closeModal(); return; }
   // Settings: LB and RB go through its pages.
+  // Consoles: LB and RB go through the consoles.
+  const cr = $('#modal');
+  if (cr?.__lbrb && $('#modal .cn') && (a === 'lb' || a === 'rb')) { cr.__lbrb(a); Sound.play('tick'); return; }
   const sr = $('#modal .set, #modal .dlg.settings');
   if (sr && (a === 'lb' || a === 'rb')) { settingsTab($('#modal'), setTab + (a === 'rb' ? 1 : -1)); Sound.play('tick'); return; }
   PadNav.input($('#modal'), a);

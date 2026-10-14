@@ -358,6 +358,14 @@ function register(d) {
   ipcMain.handle('ms-extend', (_e, on) => extend(!!on));
   ipcMain.handle('ms-place-main', (_e, displayId) => { place(deps.getWin(), displayById(displayId)); return true; });
   // Raise one player's own Bladedeck window (their menu), on their screen.
+  // Player 2's menu cannot write the library, so its finished sessions go to Player 1's menu.
+  ipcMain.handle('ms-report', (e, r) => {
+    if (!p2 || p2.isDestroyed() || e.sender !== p2.webContents) return false;
+    const w = deps.getWin(); if (!w || w.isDestroyed()) return false;
+    const id = String(r?.id || '').slice(0, 80), seconds = Math.max(0, Math.min(86400, Math.round(+r?.seconds || 0)));
+    if (!id) return false;
+    w.webContents.send('p2-session', { id, seconds, at: Date.now() }); return true;
+  });
   ipcMain.handle('ms-my-screen', (e) => screenOf(BrowserWindow.fromWebContents(e.sender)));
   ipcMain.handle('ms-pin-sound', (_e, o) => pinSound(o || {}));
   ipcMain.handle('ms-menu', (e) => { const w = BrowserWindow.fromWebContents(e.sender); if (w) { w.show(); w.moveTop(); w.focus(); require('./peek').focusDeck(w.getTitle()); } return true; });

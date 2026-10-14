@@ -19,6 +19,16 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Log
 
+- **2026-10-14, Claude (version 0.2.0):** the last open features from the Project Tracker.
+  Game background while playing (`renderer/atmos.js` `playingBg`: a blurred clip, or a still
+  picture when the processor is over 60%); console through a capture card (`renderer/hdmi.js`,
+  System, Gaming software; recordings in Videos/Bladedeck/<name>); Consoles, a tab per console
+  with its emulators, BIOS, your games, ports, texture packs and a search of your sources
+  (`renderer/consoles.js`); display tuning per screen type with a burn-in guard and a scanline
+  look (Settings, Look and sound); Player 2's sessions now reach Player 1's library
+  (`ms-report`); update checks ask the signed-in GitHub CLI when the repository is private, and
+  default to mangomalango/bladedeck. Released as v0.2.0 on GitHub.
+
 - **2026-10-14, Claude (took over from Gemini):** Stadia controller support. Recognised as
   "Stadia" (vendor 18d1, product 9400, or "Stadia" in its name) with its connection and battery
   on the Controllers page, plus a section explaining USB (rumble through hid-google-stadiaff,

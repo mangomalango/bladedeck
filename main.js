@@ -652,6 +652,16 @@ ipcMain.handle('clip-open', (_e, id) => {
   clips.set(key, { file, fd: fs.openSync(file, 'w') });
   return key;
 });
+// A recording from a capture card: into Videos/Bladedeck/<console name>, where Captures looks.
+ipcMain.handle('clip-open-videos', (_e, name) => {
+  const safe = String(name || 'Console').replace(/[^\w .'&()-]+/g, '').trim().slice(0, 40) || 'Console';
+  const dir = path.join(app.getPath('videos'), 'Bladedeck', safe);
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, `${safe} recording ${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.webm`);
+  const key = Math.random().toString(36).slice(2);
+  clips.set(key, { file, fd: fs.openSync(file, 'w') });
+  return key;
+});
 ipcMain.handle('clip-chunk', (_e, key, buf) => {
   const c = clips.get(key); if (!c) return false;
   fs.writeSync(c.fd, Buffer.from(buf)); return true;

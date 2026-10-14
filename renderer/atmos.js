@@ -146,6 +146,85 @@ const Atmos = (() => {
       buttons: [{ label: 'Close', primary: true }] });
   }
 
-  function apply() { living(); safe(); widget(); }
-  return { apply, living, safe, calibrate, bump, preview, remember, anchorOf, today };
+  /* -------------------------------------------------------------- display tuning
+     Recommended settings per screen type. "Use them" sets what Bladedeck controls (the safe
+     margin, a burn-in guard, a scanline look); the tips cover what only the screen or an emulator
+     can change. Scaling here means integer scaling: whole-number zoom, so pixels stay square. */
+  const SCREENS = {
+    ips: { name: 'Laptop or desktop monitor (IPS)', safe: 0, guard: false, crt: false, tips: ['Nothing to change in Bladedeck.', 'Emulators: integer scaling on for 2D games keeps pixels even; 1080p screens suit 5x for SNES-era games.', 'Dark scenes can glow at the corners: lower the screen brightness rather than the game\'s.'] },
+    va: { name: 'VA monitor or TV', safe: 0, guard: false, crt: false, tips: ['VA panels smear dark colours in motion: turn on the screen\'s overdrive (often "Response time: Fast").', 'Deep blacks: a dark theme (Aero Night, Blueprint) looks its best here.', 'Emulators: integer scaling on for 2D games.'] },
+    oled: { name: 'OLED (TV, monitor or handheld)', safe: 0, guard: true, crt: false, tips: ['The burn-in guard dims and gently moves the menu after 3 minutes untouched.', 'Use the screen\'s own pixel refresh when it asks; do not leave a paused game on screen for hours.', 'Turn on game mode on the TV for the lowest delay; HDR games look best with HDR on in the system settings.', 'Emulators: black frame insertion (RetroArch, Dolphin) makes motion sharper on 120 Hz OLEDs.'] },
+    tv: { name: 'LCD TV', safe: 2.5, guard: false, crt: false, tips: ['A 2.5% safe margin keeps menus off the edges older TVs cut off; set the TV to "Just scan" or "Screen fit" and lower it to 0.', 'Turn on game mode (lowest delay) and turn off motion smoothing and sharpness.', 'Emulators: integer scaling on; RetroArch\'s "CRT-Royale" or "Lottes" shaders imitate an old TV.'] },
+    plasma: { name: 'Plasma TV', safe: 3, guard: true, crt: false, tips: ['Plasmas can keep a ghost of still images: the burn-in guard dims and moves the menu when it is left alone.', 'A 3% safe margin for the overscan most plasmas have; lower it if the TV has "Just scan".', 'Game mode on, and avoid playing with letterbox bars for very long sessions.'] },
+    crt: { name: 'CRT TV or monitor', safe: 5, guard: false, crt: true, tips: ['A 5% safe margin: CRTs hide their edges behind the bezel.', 'Use 640x480 or 720x480 output and your emulator\'s native resolution, with no shaders (the real screen does the work).', 'Integer scaling off at low resolutions; turn on interlacing only for 480i games.', 'The scanline look adds a soft line pattern to the menu, to match the games.'] }
+  };
+  let idleT = 0, lastInput = Date.now(), shiftT = 0;
+  function poke() {
+    lastInput = Date.now();
+    if (document.body.classList.contains('guarded')) { document.body.classList.remove('guarded'); root.style.removeProperty('--shift'); }
+  }
+  ['keydown', 'pointermove', 'pointerdown', 'wheel'].forEach((ev) => addEventListener(ev, poke, { passive: true, capture: true }));
+  function screenTune() {
+    const s = st();
+    document.body.classList.toggle('crt-look', !!s.crtLook);
+    clearInterval(idleT); clearInterval(shiftT);
+    if (s.burnGuard) {
+      idleT = setInterval(() => { if (Date.now() - lastInput > 180000 && !document.body.classList.contains('away')) document.body.classList.add('guarded'); }, 15000);
+      shiftT = setInterval(() => { if (document.body.classList.contains('guarded')) root.style.setProperty('--shift', `${Math.round(Math.random() * 8 - 4)}px, ${Math.round(Math.random() * 8 - 4)}px`); }, 60000);
+    }
+  }
+  function screenHtml() {
+    const s = st(), cur = s.screenType || '';
+    return `<label>Your screen<select name="screenType"><option value="">Not chosen</option>${Object.entries(SCREENS).map(([k, v]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${v.name}</option>`).join('')}</select></label>
+      <div class="scr-tips">${cur ? `<ul>${SCREENS[cur].tips.map((t) => `<li>${t}</li>`).join('')}</ul>` : '<p class="note">Pick the kind of screen Bladedeck is on for settings that suit it.</p>'}</div>
+      <div class="btns"><button type="button" data-x="screenUse" ${cur ? '' : 'disabled'}>Use the recommended settings</button></div>
+      <div class="checks"><label><input type="checkbox" name="burnGuard" ${s.burnGuard ? 'checked' : ''}> Burn-in guard: dim and gently move the menu after 3 minutes untouched (OLED, plasma)</label><label><input type="checkbox" name="crtLook" ${s.crtLook ? 'checked' : ''}> Scanline look on the menu (CRT)</label></div>`;
+  }
+  // The recommended settings for a screen, put into the open Settings form (Save keeps them).
+  function screenUse(root) {
+    const k = root.querySelector('[name=screenType]').value, v = SCREENS[k]; if (!v) return;
+    const set = (n, val) => { const el = root.querySelector(`[name=${n}]`); if (!el) return; if (el.type === 'checkbox') el.checked = val; else { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })); } };
+    set('tvSafe', v.safe); set('burnGuard', v.guard); set('crtLook', v.crt);
+    toast(`Recommended settings for ${v.name} are filled in. Save keeps them.`);
+  }
+  function screenTips(root) { const k = root.querySelector('[name=screenType]').value; root.querySelector('.scr-tips').innerHTML = k ? `<ul>${SCREENS[k].tips.map((t) => `<li>${t}</li>`).join('')}</ul>` : ''; const b = root.querySelector('[data-x=screenUse]'); if (b) b.disabled = !k; }
+
+  /* -------------------------------------------------------------- the game you are playing, behind the menu
+     Back in the menu while a game runs: a blurred view of it behind everything. A small, slow loop
+     of your own clip of it when the PC has room (processor under 60%), or a still picture (its
+     background art, cover or a screenshot) when it is busy. Nothing plays while the game has the screen. */
+  const pb = document.createElement('div');
+  pb.id = 'playbg'; pb.hidden = true;
+  document.getElementById('bg')?.after(pb);
+  let pbFor = null;
+  async function playingBg() {
+    const p = S.playing, e = p && (typeof entryById === 'function' ? entryById(p.id) : null);
+    if (!e || st().playingBg === false || document.body.classList.contains('away')) { stopPlayingBg(!e); return; }
+    if (pbFor === e.id && !pb.hidden) { pb.querySelector('video')?.play().catch(() => {}); return; }
+    pbFor = e.id;
+    const m = await api.sysMini().catch(() => null);
+    const busy = !m || (m.cpu ?? 100) > 60;
+    const clip = !busy && (e.media || []).filter((x) => x.kind === 'video' && x.path).pop();
+    const still = e.hero || e.background || (e.media || []).filter((x) => x.kind === 'image' && x.path).map((x) => x.path).pop() || e.cover;
+    pb.innerHTML = '';
+    if (clip) {
+      const v = document.createElement('video');
+      v.muted = true; v.loop = true; v.playsInline = true; v.playbackRate = 0.75; v.src = fileUrl(clip.path);
+      v.addEventListener('loadedmetadata', () => { if (isFinite(v.duration) && v.duration > 20) v.currentTime = Math.random() * (v.duration - 15); v.play().catch(() => {}); }, { once: true });
+      pb.appendChild(v);
+    } else if (still) pb.style.backgroundImage = `url("${fileUrl(still)}")`;
+    else { stopPlayingBg(true); return; }
+    pb.classList.toggle('still', !clip);
+    pb.hidden = false; requestAnimationFrame(() => pb.classList.add('on'));
+  }
+  function stopPlayingBg(forget) {
+    const v = pb.querySelector('video');
+    if (forget) { pb.classList.remove('on'); setTimeout(() => { if (!pb.classList.contains('on')) { if (v) { v.pause(); v.removeAttribute('src'); v.load(); } pb.innerHTML = ''; pb.style.backgroundImage = ''; pb.hidden = true; pbFor = null; } }, 800); }
+    else if (v) v.pause();
+  }
+  document.addEventListener('deck-away', (ev) => { if (ev.detail) stopPlayingBg(false); else setTimeout(playingBg, 600); });
+  setInterval(() => { if (!S.playing && pbFor) stopPlayingBg(true); }, 5000);
+
+  function apply() { living(); safe(); widget(); screenTune(); }
+  return { apply, playingBg, living, safe, calibrate, bump, preview, remember, anchorOf, today, poke, screenHtml, screenUse, screenTips };
 })();
