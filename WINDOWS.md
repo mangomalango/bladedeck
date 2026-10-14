@@ -7,6 +7,51 @@ you found.
 
 Read `HANDOFF.md` too. It has the history and how work is shared between assistants.
 
+## Read this first: context from the Linux session (2026-10-14)
+
+You don't have the conversation this came from. This section is the part of it that matters
+here.
+
+### Working with the owner
+- The owner tests by using Bladedeck, not by reading code, and writes short, quick messages,
+  often with typos. Read for intent. When a request could mean two different jobs, ask one short
+  question. Otherwise just do it.
+- Finish the job: build, check it works, and say plainly what was and wasn't tested. Explain in
+  plain words, without jargon.
+- "Update the GitHub" means commit and push. Here, push `windows-fixes`; the Linux session
+  merges it.
+- Always tell the owner what is committed but not pushed, and what is installed versus only
+  built.
+- Ask before anything outward-facing or hard to undo: releases, firewall changes, changing repo
+  visibility, deleting files.
+
+### Safety habits that came from real accidents
+- A test copy once really launched a game from the owner's controller, because the Gamepad API
+  reads the controller even when the window is in the background. Never leave a test copy
+  running unattended, and never press anything in it that starts games or uses power actions.
+- Back up `%APPDATA%\bladedeck` before running Bladedeck against the real library. Edits made to
+  `library.json` while Bladedeck is open get overwritten by its next save.
+- Steam's desktop controller layout can sleep the PC from a button: hold Menu on Steam
+  Deck-style controllers, press Share on Xbox ones. `steaminput.js` turns that off (Steam must be
+  closed). Turn it off on this PC too before playing with controllers.
+
+### Where things stand
+- Newest release: v0.2.1. `master` has more since then, none of it released yet:
+  - Moonlight streaming (`moonlight.js`)
+  - online clips and music (`onlinemedia.js`)
+  - the Steam sleep fix and controller filter (`steaminput.js`, `renderer/players.js`)
+  - Windows hardening: spawn error handlers and `errors.log`
+- Not yet tried live on Linux either: a Moonlight stream, and the menu side of online clips and
+  music. If they misbehave here, check whether they also do on Linux before calling it a Windows
+  bug.
+- The owner's Moonlight host is a PC called **micromango** (apps: Desktop, Steam Big Picture).
+  The owner may want Windows to be the streaming host (Sunshine) later; nothing is built for
+  that yet.
+- The repo is public. Don't commit secrets, keys or personal files.
+- The project tracker is a Claude Doc ("Bladedeck — Project Tracker",
+  https://claude.ai/artifact/Lj2M3qDfVMYsYPn9DgePAR). Read it if your session can open it. If
+  it can't, this file and `HANDOFF.md` are enough.
+
 ## Ground rules
 
 - **Work on a branch:** `git switch -c windows-fixes`, commit as you go, push that branch. Don't
