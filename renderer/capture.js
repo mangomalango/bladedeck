@@ -75,7 +75,7 @@ const Capture = (() => {
   async function saveReplay() {
     tellGame();
     await refresh();
-    if (!st.available) { note('Saving the last moments needs GPU Screen Recorder. Install it in Settings, Recording.', true); return; }
+    if (!st.available) { note(`Saving the last moments needs ${navigator.userAgent.includes('Windows') ? 'ffmpeg' : 'GPU Screen Recorder'}. Install it in Settings, Recording.`, true); return; }
     if (!(st.running && st.mode === 'replay')) {
       if (cfg().replay > 0) { await api.captureReplay({ replay: cfg().replay, mic: cfg().mic, fps: cfg().fps }); note('The replay was not running; it is now, so the next moment can be saved.'); }
       else note('The replay is off. Turn it on in Settings, Recording.', true);
@@ -151,7 +151,8 @@ const Capture = (() => {
     const all = await api.captureList();
     const list = onlyGame ? all.filter((c) => c.game === onlyGame) : all;
     const mb = (n) => `${(n / 1048576).toFixed(n > 1e8 ? 0 : 1)} MB`;
-    const playable = (c) => c.ext === 'webm';
+    // Electron plays WebM and MP4 (AV1 or H.264) itself; other containers go to the video player.
+    const playable = (c) => c.ext === 'webm' || c.ext === 'mp4';
     let i = 0;
     const draw = (root) => {
       const c = list[i];
@@ -189,12 +190,15 @@ const Capture = (() => {
   async function settingsOpen(root) {
     await refresh();
     const el = $('.cap-status', root);
-    if (st.available) el.innerHTML = 'GPU Screen Recorder is installed: recording uses the graphics card, so games keep their speed.';
-    else if (navigator.userAgent.includes('Windows')) el.innerHTML = 'On Windows Bladedeck records with its own encoder (no replay). Xbox Game Bar (Win+Alt+R) also records.';
+    const win = navigator.userAgent.includes('Windows');
+    if (st.available && win) el.innerHTML = 'ffmpeg is installed: recording and the replay use the graphics card and include the game\'s sound.';
+    else if (st.available) el.innerHTML = 'GPU Screen Recorder is installed: recording uses the graphics card, so games keep their speed.';
+    else if (win) el.innerHTML = 'Install ffmpeg for recording on the graphics card and the replay (without it Bladedeck records with its own encoder, no replay). <button type="button" data-x="capinstallwin">Install it</button>';
     else el.innerHTML = 'Install GPU Screen Recorder for smooth recording and the replay (it records on the graphics card). <button type="button" data-x="capinstall">Install it</button>';
     root.addEventListener('click', async (ev) => {
       const x = ev.target.closest('[data-x]')?.dataset.x;
       if (x === 'capinstall') { el.textContent = 'Installing GPU Screen Recorder…'; const r = await api.emuInstall('com.dec05eba.gpu_screen_recorder'); el.textContent = r.ok ? 'Installed. Recording and the replay are ready.' : `It did not install: ${r.error}`; refresh(); }
+      if (x === 'capinstallwin') { el.textContent = 'Installing ffmpeg…'; const r = await api.emuInstallWin({ id: 'Gyan.FFmpeg', hint: 'gyan.ffmpeg', exe: '^ffmpeg\\.exe$' }); el.textContent = r.ok ? 'Installed. Recording and the replay are ready.' : `It did not install: ${r.error}`; refresh(); }
       if (x === 'capgallery') { closeModal(); gallery(); }
       if (x === 'capsetup') {
         await refresh();

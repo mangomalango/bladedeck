@@ -7,8 +7,8 @@
      SIGUSR1   save the replay buffer      SIGRTMIN  start/stop a full recording
      SIGINT    stop (the buffer is dropped)
    On Wayland it asks once which screen to record and remembers (restore-portal-session).
-   Without it (Windows, or not installed) the page records with its own encoder; see capture.js
-   in the renderer. Files are found by watching the folder, then moved into the game's folder. */
+   On Windows ffmpeg does the same job (wincapture.js). Without either, the page records with its
+   own encoder; see capture.js in the renderer. Files are found by watching the folder, then moved into the game's folder. */
 const { app, ipcMain, Notification, shell } = require('electron');
 const { spawn, execFile } = require('child_process');
 const fs = require('fs');
@@ -22,6 +22,9 @@ const VIDEO = /\.(webm|mp4|mkv|mov)$/i;
 
 let send = () => {}, gsr = null, proc = null, mode = null, recording = false, recStart = 0, codec = null, watcher = null;
 let current = { title: '', id: '' };
+// Windows (wincapture.js): the replay's ring of pieces, and a recording running beside it.
+let winRing = null, winRec = null, ringSecs = 30;
+const ringDir = () => path.join(inbox(), '.ring');
 
 function onPath(cmd) {
   for (const dir of (process.env.PATH || '').split(path.delimiter)) { const p = path.join(dir, cmd); try { fs.accessSync(p, fs.constants.X_OK); return p; } catch { /* next */ } }
@@ -31,6 +34,8 @@ const flatpakHas = (id) => [path.join(os.homedir(), '.local/share/flatpak/app', 
 
 // How to run it: the program on the PATH, or the Flathub app's command.
 function find() {
+  // Windows: ffmpeg on the graphics card, with the desktop's sound (wincapture.js).
+  if (process.platform === 'win32') return require('./wincapture').find() ? { win: true } : null;
   if (process.platform !== 'linux') return null;
   const exe = onPath('gpu-screen-recorder');
   if (exe) return { cmd: exe, pre: [] };
@@ -111,6 +116,15 @@ async function startReplayNow(opts) {
   if (proc && mode === 'replay') return status();
   if (proc) stop();
   fs.mkdirSync(inbox(), { recursive: true }); watch();
+  if (gsr.win) {
+    ringSecs = Math.max(5, Math.min(600, +opts.replay || 30));
+    fs.rmSync(ringDir(), { recursive: true, force: true }); fs.mkdirSync(ringDir(), { recursive: true });
+    const h = await require('./wincapture').start({ dir: app.getPath('userData'), out: path.join(ringDir(), 'ring%02d.mkv'), ring: Math.ceil(ringSecs / 5) + 2, fps: opts.fps || 60 });
+    if (!h || proc) { if (h) h.stop(); return status(); }
+    winRing = h; adopt(h.proc, 'replay');
+    send('capture-status', status());
+    return status();
+  }
   const a = await args(opts, Math.max(5, Math.min(600, +opts.replay || 30)));
   if (proc) return status();
   adopt(spawn(gsr.cmd, a, { stdio: 'ignore' }), 'replay');
@@ -128,6 +142,21 @@ function adopt(p, m) {
 async function toggleRecord(opts) {
   gsr = gsr || find(); if (!gsr) return { ...status(), fallback: true };
   watch();
+  if (gsr.win) {
+    // A recording of its own beside the replay; it finishes its file when stopped.
+    if (winRec) { const h = winRec; winRec = null; recording = false; await h.stop(); if (!proc) mode = null; }
+    else {
+      fs.mkdirSync(inbox(), { recursive: true });
+      const h = await require('./wincapture').start({ dir: app.getPath('userData'), out: path.join(inbox(), `Video_${stamp()}.mp4`), fps: opts.fps || 60 });
+      if (h) {
+        winRec = h; recording = true; recStart = Date.now();
+        h.proc.on('exit', () => { if (winRec === h) { winRec = null; recording = false; send('capture-status', status()); } });
+        if (!proc) mode = 'record';
+      }
+    }
+    send('capture-status', status());
+    return status();
+  }
   if (proc && mode === 'replay') {
     // A full recording inside the running replay process.
     sig(34); recording = !recording; if (recording) recStart = Date.now();
@@ -146,11 +175,17 @@ async function toggleRecord(opts) {
 
 function saveReplay() {
   if (!proc || mode !== 'replay') return { ...status(), noReplay: true };
+  if (gsr && gsr.win) { require('./wincapture').saveRing(ringDir(), ringSecs, path.join(inbox(), `Replay_${stamp()}.mp4`)); return status(); }
   sig('SIGUSR1');
   return status();
 }
 
-function stop() { if (proc) { sig('SIGINT'); const p = proc; setTimeout(() => { if (p.exitCode === null && p.signalCode === null) { try { p.kill('SIGKILL'); } catch { /* gone */ } } }, 4000); } proc = null; mode = null; recording = false; }
+function stop() {
+  if (gsr && gsr.win) {
+    if (winRing) winRing.stop(); if (winRec) winRec.stop();
+    winRing = null; winRec = null; proc = null; mode = null; recording = false; return;
+  }
+  if (proc) { sig('SIGINT'); const p = proc; setTimeout(() => { if (p.exitCode === null && p.signalCode === null) { try { p.kill('SIGKILL'); } catch { /* gone */ } } }, 4000); } proc = null; mode = null; recording = false; }
 
 // Every capture, newest first, for the gallery.
 function list() {
