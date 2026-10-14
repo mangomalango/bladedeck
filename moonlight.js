@@ -91,7 +91,7 @@ function parseReg(text) {
   }));
 }
 function readRegHosts() {
-  try { return parseReg(require('child_process').execFileSync('reg', ['query', REG, '/s'], { encoding: 'utf8', windowsHide: true, timeout: 5000 })); } catch { return []; }
+  try { return parseReg(require('child_process').execFileSync('reg', ['query', REG, '/s'], { encoding: 'utf8', windowsHide: true, timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] })); } catch { return []; }
 }
 // Box art on Windows: Qt's cache folder under Local AppData.
 function winArt() {

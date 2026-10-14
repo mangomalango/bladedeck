@@ -29,5 +29,12 @@ for (const f of files) {
     console.error(`✗ ${path.relative(root, f)}\n${String(err.stderr || err.message).trim()}\n`);
   }
 }
-console.log(bad ? `${bad} of ${files.length} files have errors.` : `All ${files.length} files are fine.`);
+// Every module at the top is part of the app: one missing from build.files works from source but
+// breaks the installed app (moonlight.js, onlinemedia.js and steaminput.js once did, on both systems).
+const listed = new Set(require(path.join(root, 'package.json')).build.files);
+for (const f of fs.readdirSync(root).filter((n) => n.endsWith('.js') && !listed.has(n))) {
+  bad++;
+  console.error(`✗ ${f} is not in package.json build.files, so the installed app would not have it.\n`);
+}
+console.log(bad ? `${bad} problem(s) in ${files.length} files.` : `All ${files.length} files are fine.`);
 process.exit(bad ? 1 : 0);
