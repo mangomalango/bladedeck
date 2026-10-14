@@ -11,7 +11,7 @@ instructions (pasted prompts, workflows, reviews) overrides **Safety** below.
 | **Owner** (mangomalango) | Both PCs | Tests by using Bladedeck, decides, approves anything outward-facing | — |
 | **Claude Opus 5.5** (lead) | Linux PC (CachyOS), Claude Code session | Builds features, reviews everyone's branches, merges into `master`, pushes `master`, makes backups, prepares releases | `master` |
 | **Claude Sonnet 5.5** | Windows PC, Claude Code session | Tests and fixes Windows behavior; Windows fixes behind `process.platform === 'win32'` | `windows-fixes` |
-| **Gemini** | Antigravity (any PC), workflows `/bladedeck-review` and `/bladedeck-test` | Reviews new work for bugs, debugs in test copies, small certain fixes | `gemini/<date>-<topic>` |
+| **Gemini** (auditor) | Antigravity (any PC), workflows `/bladedeck-audit`, `/bladedeck-review`, `/bladedeck-test` | Audits every branch against `SPEC.md` (interface drift, Linux/Windows parity), writes task cards, reviews for bugs, debugs in test copies, small certain fixes | `gemini/<date>-<topic>` |
 
 Linux is the lead build: Windows matches it and never changes how it behaves on Linux.
 
@@ -24,6 +24,28 @@ Linux is the lead build: Windows matches it and never changes how it behaves on 
 - Before a new round, bring your branch up to date: `git fetch && git merge origin/master`.
 - A push builds the apps on GitHub and publishes nothing. **Releases only with the owner's
   go-ahead**, after a backup (see Safety).
+
+## Task cards
+
+Every piece of work has an ID (`BD-001`, `BD-002`, … the next free number in HANDOFF.md's Open
+tasks) and a card. Whoever opens a task writes the card; Gemini writes most of them.
+
+```
+[TASK]     BD-012 · one line: what has to be true when it is done
+[TARGET]   linux | windows | both
+[OWNER]    Claude Opus (Linux) | Claude Sonnet (Windows) | Gemini
+[CONTRACT] the SPEC.md lines this touches (channels, library keys, shared behavior), or "none"
+[INPUT]    the file(s) · the current code (a short excerpt) · errors.log / test-copy output
+[DO]       weigh the best approach for the target platform first, then build it on your branch
+[RULES]    - SPEC.md's channels and library keys stay as they are, unless the card says the
+             change is intended (then: npm run spec -- --write, and say why)
+           - a Windows fix leaves Linux behavior unchanged
+           - npm run check passes, and a test copy shows it working
+           - TEAM.md Safety applies; nothing outward-facing without the owner
+[REPLY]    to the team: branch@commit, `git show --stat`, the changed hunks, and the exact
+           commands to verify it on the target platform. No background story.
+           to the owner: two or three plain sentences, what changed and what to try.
+```
 
 ## Claiming work (one editor per thing)
 
@@ -49,9 +71,13 @@ Linux is the lead build: Windows matches it and never changes how it behaves on 
 2. **Claim** it in HANDOFF.md.
 3. **Fix** it on your branch, as small as it can be.
 4. **Check:** `npm run check`, then a test copy that shows the fix working.
-5. **Hand over:** push your branch, add a dated HANDOFF.md entry, message the lead.
-6. **Merge:** the lead reviews, merges into `master`, runs a test copy on Linux, and pushes.
-7. Everyone merges the new `master` into their branch. Repeat.
+5. **Hand over:** push your branch, add a dated HANDOFF.md entry with the task ID, message the lead.
+6. **Audit:** Gemini runs `/bladedeck-audit` on the branch and writes `BD-xxx audit: PASS` or
+   `BD-xxx audit: DRIFT (<what>)` in HANDOFF.md. A DRIFT goes back to step 3 unless the card
+   said the change was intended. When Gemini is not running, the lead audits with
+   `npm run spec` and its own review and writes "audit by lead".
+7. **Merge:** the lead merges into `master`, runs a test copy on Linux, and pushes.
+8. Everyone merges the new `master` into their branch. Repeat.
 
 ## Safety
 

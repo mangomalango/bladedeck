@@ -17,7 +17,8 @@ program, with a controller-first "console mode" and a windowed "PC mode". The ow
 runs it on CachyOS, KDE Plasma on Wayland, Intel Arc graphics, and also builds a Windows version.
 
 **In Antigravity:** this file and `.agents/rules/bladedeck.md` load by themselves. Two workflows
-are ready: `/bladedeck-review` (review the newest work into NIGHTLY-REVIEW-gemini.md) and
+are ready: `/bladedeck-audit` (check a branch against SPEC.md: you are the team's auditor),
+`/bladedeck-review` (review the newest work into NIGHTLY-REVIEW-gemini.md) and
 `/bladedeck-test` (try the features in a safe test copy).
 
 ## Layout

@@ -8,6 +8,8 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
+Task IDs and cards: see TEAM.md (next free ID: BD-001).
+
 ### For Gemini (in this order)
 1. **Review my last batch** (below, "2026-10-14, Claude") the way I reviewed yours.
 
