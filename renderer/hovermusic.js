@@ -1,7 +1,8 @@
 'use strict';
 /* Hover music: stay on a game for 3 seconds and its own music fades in, like a console's home
    screen. Moving on, starting a game or leaving Bladedeck fades it out again. Bladedeck's music
-   and the sea go quiet underneath while it plays. Where the music comes from: gamemusic.js.
+   and the sea go quiet underneath while it plays. Where the music comes from: gamemusic.js, and
+   with none on this PC, the game's theme from online (onlinemedia.js) when that is on.
    Settings, Look and sound turns it off. Uses S, api, fileUrl, Music, Sound and deckFocused. */
 
 const HoverMusic = (() => {
@@ -25,7 +26,9 @@ const HoverMusic = (() => {
     if (!found.has(e.id)) {
       if (asking === e.id) return;
       asking = e.id;
-      found.set(e.id, await api.gameMusic({ id: e.id, type: e.type, appid: e.appid, title: e.title, rom: e.rom, exe: e.exe, cwd: e.cwd, music: e.music }).catch(() => null));
+      let f = await api.gameMusic({ id: e.id, type: e.type, appid: e.appid, title: e.title, rom: e.rom, exe: e.exe, cwd: e.cwd, music: e.music }).catch(() => null);
+      if (!f) f = await api.onlineMedia(e, 'music').catch(() => null);
+      found.set(e.id, f);
       asking = null;
     }
     const f = found.get(e.id);
@@ -54,6 +57,8 @@ const HoverMusic = (() => {
     if (performance.now() - since >= 3000 && playingFor !== e.id) start(e);
   }, 250);
   document.addEventListener('deck-away', (ev) => { if (ev.detail) stop(true); });
+  // Online lookups wait while a game has the screen, so they never take its bandwidth.
+  document.addEventListener('deck-away', (ev) => { api.onlineMediaPause(!!ev.detail); });
 
-  return { stop, forget: (id) => found.delete(id), playing: () => playingFor };
+  return { stop, forget: (id) => found.delete(id), forgetAll: () => found.clear(), playing: () => playingFor };
 })();

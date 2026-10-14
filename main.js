@@ -993,6 +993,7 @@ require('./webdl').register({ getWin: () => win });
 require('./finder').register();
 require('./minecraft').register();
 require('./moonlight').register();
+require('./onlinemedia').register(() => loadLib().settings);
 require('./backup').register({ getWin: () => win, libFile, dataDir });
 require('./discord').register({ settings: () => loadLib().settings });
 require('./adblock').register({ settings: () => loadLib().settings });

@@ -90,12 +90,14 @@ const Atmos = (() => {
     stopPreviews();
     if (!poster || !e || e.run || st().previewLoop === false || document.body.classList.contains('away')) return;
     const clips = (e.media || []).filter((m) => m.kind === 'video' && m.path);
-    if (!clips.length) return;
     const id = e.id;
-    pv = { id, t: setTimeout(() => {
+    pv = { id, t: setTimeout(async () => {
       if (S.sel?.id !== id || !poster.isConnected) return;
+      // None of the player's own: a gameplay clip from online (onlinemedia.js), when that is on.
+      const own = clips.find((c) => c.tag === 'achievement') || clips[(Math.random() * clips.length) | 0];
+      const m = own || await api.onlineMedia(e, 'clip').then((path) => path && { path }).catch(() => null);
+      if (!m || S.sel?.id !== id || !poster.isConnected || document.body.classList.contains('away')) return;
       stopPreviews();
-      const m = clips.find((c) => c.tag === 'achievement') || clips[(Math.random() * clips.length) | 0];
       const v = document.createElement('video');
       v.className = 'pv-loop'; v.muted = true; v.playsInline = true; v.src = fileUrl(m.path);
       let from = 0;

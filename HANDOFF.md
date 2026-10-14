@@ -19,6 +19,16 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Log
 
+- **2026-10-14, Claude:** Online clips and music (`onlinemedia.js`). A game with no clip of
+  its own gets a 30-second 480p gameplay clip for the preview loop, and with no music found by
+  gamemusic.js, up to four minutes of its theme for hover music, both from a YouTube search
+  through yt-dlp ("<game> gameplay no commentary" from 2:00; "<game> OST main theme"; emulated
+  games add the console). Cached in userData/online-media with online-media.json, one download at
+  a time, paused while a game has the screen, oldest-used dropped past the size cap (Settings,
+  Sound: on/off, cap, get for every game, empty). Edit shows what was found with Find another
+  (next search result). Apps and Moonlight entries are skipped. Module tested against YouTube in
+  Node; the menu side is syntax-checked only, not run in the sandbox.
+
 - **2026-10-14, Claude:** Moonlight streaming (`moonlight.js`). System, Gaming software,
   Moonlight streaming (also part of Find everything) reads the PCs Moonlight has paired and each
   one's apps from Moonlight's settings file (Flatpak or native; matched by uuid, so a renamed PC

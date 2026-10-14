@@ -889,6 +889,7 @@ function editEntry(existing, preset = {}) {
       </div>
       <label>Cover image (optional)${row('cover', 'image', e.cover, 'Generated art is used if empty')}</label>
       <label>Music when it is highlighted (optional)${row('music', 'audio', e.music, 'Found by itself when the game has music files')}</label>
+      ${existing ? '<div class="om-box" hidden><p class="label">From online</p><div class="om-list"></div></div>' : ''}
       <div class="checks"><label><input type="checkbox" name="favorite" ${e.favorite ? 'checked' : ''}> Favorite</label><label><input type="checkbox" name="hidden" ${e.hidden ? 'checked' : ''}> Hide from lists</label></div>
       <p class="note">Arguments support {rom}, {romdir} and {title}. For recompiled ports, point Program at the port's executable.</p>`,
     buttons: [
@@ -917,9 +918,30 @@ function editEntry(existing, preset = {}) {
     onOpen: (root) => {
       const sync = () => { const t = val(root, 'type'); $$('[data-for]', root).forEach((d) => { d.style.display = d.dataset.for.split(' ').includes(t) ? (d.style.flexDirection ? 'flex' : '') : 'none'; }); };
       $('[name=type]', root).addEventListener('change', sync); sync();
+      if (existing) onlinePicks(root, existing);
     }
   });
   return m;
+}
+
+// In Edit: the clip and song found online for this game, each with a way to try the next result.
+async function onlinePicks(root, e) {
+  const box = $('.om-box', root); if (!box) return;
+  const info = await api.onlineMediaInfo(e.id).catch(() => ({}));
+  const names = { clip: 'Gameplay clip', music: 'Music' };
+  const kinds = Object.keys(names).filter((k) => info[k]);
+  if (!kinds.length) return;
+  $('.om-list', box).innerHTML = kinds.map((k) => `<div class="row"><span class="dim">${names[k]}: ${esc(info[k].name)}</span><button type="button" data-om="${k}">Find another</button></div>`).join('');
+  box.hidden = false;
+  box.addEventListener('click', async (ev) => {
+    const b = ev.target.closest('[data-om]'); if (!b) return;
+    const k = b.dataset.om; b.disabled = true; b.textContent = 'Looking…';
+    const f = await api.onlineMediaAnother(e, k).catch(() => null);
+    if (k === 'music') { HoverMusic.forget(e.id); HoverMusic.stop(true); }
+    const now = await api.onlineMediaInfo(e.id).catch(() => ({}));
+    if (b.isConnected) { b.disabled = false; b.textContent = 'Find another'; b.previousElementSibling.textContent = `${names[k]}: ${now[k]?.name || 'none found'}`; }
+    toast(f ? 'Found another' : 'Nothing else found; kept the one you had');
+  });
 }
 
 /* ---------------------------------------------------------------- emulators */
@@ -1267,7 +1289,7 @@ function openSettings() {
         <label>Theme<select name="theme">${S.themes.map((t) => `<option value="${t.id}" ${t.id === st.theme ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
         <div class="checks"><label><input type="checkbox" name="fx" ${st.fx !== false ? 'checked' : ''}> Animations</label><label><input type="checkbox" name="intro" ${st.intro !== false ? 'checked' : ''}> Launch intro</label><label><input type="checkbox" name="bootAnim" ${st.bootAnim !== false ? 'checked' : ''}> Boot animation</label><label><input type="checkbox" name="showcase" ${st.showcase !== false ? 'checked' : ''}> Play clips and pictures behind games</label></div>
         <label class="range-row">Clip and picture strength<input type="range" name="showcaseAlpha" min="0.2" max="1" step="0.05" value="${st.showcaseAlpha ?? 0.6}"></label>
-        <div class="checks"><label><input type="checkbox" name="depth" ${st.depth !== false ? 'checked' : ''}> Depth and glass: layered, frosted panels and a lifted focus</label><label><input type="checkbox" name="livingBg" ${st.livingBg !== false ? 'checked' : ''}> Living background: brighter by day, dimmer at night, a hue for each season</label><label><input type="checkbox" name="previewLoop" ${st.previewLoop !== false ? 'checked' : ''}> A highlighted game plays a short loop of your own clip</label><label><input type="checkbox" name="playingBg" ${st.playingBg !== false ? 'checked' : ''}> Back in the menu during a game: that game, blurred, behind the menu (a clip, or a still picture when the PC is busy)</label><label><input type="checkbox" name="widget" ${st.widget !== false ? 'checked' : ''}> Weather and date at the top (opens a calendar)</label></div>
+        <div class="checks"><label><input type="checkbox" name="depth" ${st.depth !== false ? 'checked' : ''}> Depth and glass: layered, frosted panels and a lifted focus</label><label><input type="checkbox" name="livingBg" ${st.livingBg !== false ? 'checked' : ''}> Living background: brighter by day, dimmer at night, a hue for each season</label><label><input type="checkbox" name="previewLoop" ${st.previewLoop !== false ? 'checked' : ''}> A highlighted game plays a short loop of your own clip (or one from online, see Sound)</label><label><input type="checkbox" name="playingBg" ${st.playingBg !== false ? 'checked' : ''}> Back in the menu during a game: that game, blurred, behind the menu (a clip, or a still picture when the PC is busy)</label><label><input type="checkbox" name="widget" ${st.widget !== false ? 'checked' : ''}> Weather and date at the top (opens a calendar)</label></div>
         <h4 class="set-sub">Display tuning</h4>${Atmos.screenHtml()}
         <label class="range-row">TV safe margin (overscan) <b class="safe-v">${st.tvSafe || 0}%</b><input type="range" name="tvSafe" min="0" max="10" step="0.5" value="${st.tvSafe || 0}"></label>
         <p class="note">On a TV, CRT or plasma that cuts off the edges, raise it until the corner marks are fully on screen.</p>
@@ -1281,6 +1303,11 @@ function openSettings() {
         <h4 class="set-sub">Music</h4>
         <label>Music folder (leave empty for your Music folder)${row('musicDir', 'dir', st.musicDir)}</label>
         <div class="checks"><label><input type="checkbox" name="musicDuringGames" ${st.musicDuringGames ? 'checked' : ''}> Keep music playing during games</label></div>
+        <h4 class="set-sub">Clips and music from online</h4>
+        <div class="checks"><label><input type="checkbox" name="onlineMedia" ${st.onlineMedia !== false ? 'checked' : ''}> A game with no clip or music of its own on this PC gets a gameplay clip and its theme from YouTube, kept here</label></div>
+        <label class="range-row">Keep at most <b class="om-cap">${((st.onlineCacheMB ?? 2048) / 1024).toFixed(1)} GB</b><input type="range" name="onlineCacheMB" min="256" max="10240" step="256" value="${st.onlineCacheMB ?? 2048}"></label>
+        <p class="note om-stats">Looking at the cache…</p>
+        <div class="btns"><button type="button" data-x="omAll">Get them for every game now</button><button type="button" data-x="omClear">Empty the cache</button></div>
         <div class="btns"><button type="button" data-x="look">Look and menus…</button></div>
       </section>
       <section class="set-sec" data-sec="games">
@@ -1342,7 +1369,7 @@ function openSettings() {
         ambientVolume: +val(root, 'ambientVolume'), showcaseAlpha: +val(root, 'showcaseAlpha'), wineCommand: val(root, 'wineCommand'),
         gogDirs: val(root, 'gogDirs').split('\n').map((x) => x.trim()).filter(Boolean) });
       const peekWas = st.peekMinimize, dirWas = st.musicDir;
-      Object.assign(st, { musicDir: val(root, 'musicDir'), musicDuringGames: chk(root, 'musicDuringGames'), peekMinimize: chk(root, 'peekMinimize'), romsFullscreen: chk(root, 'romsFullscreen'), showStats: chk(root, 'showStats'), hoverMusic: chk(root, 'hoverMusic'), achClips: chk(root, 'achClips'), askStates: chk(root, 'askStates') });
+      Object.assign(st, { musicDir: val(root, 'musicDir'), musicDuringGames: chk(root, 'musicDuringGames'), peekMinimize: chk(root, 'peekMinimize'), romsFullscreen: chk(root, 'romsFullscreen'), showStats: chk(root, 'showStats'), hoverMusic: chk(root, 'hoverMusic'), onlineMedia: chk(root, 'onlineMedia'), onlineCacheMB: +val(root, 'onlineCacheMB') || 2048, achClips: chk(root, 'achClips'), askStates: chk(root, 'askStates') });
       st.liveAuto = chk(root, 'liveAuto');
       Object.assign(st, { screenType: val(root, 'screenType'), burnGuard: chk(root, 'burnGuard'), crtLook: chk(root, 'crtLook') });
       st.playingBg = chk(root, 'playingBg');
@@ -1361,6 +1388,9 @@ function openSettings() {
     onOpen: (root) => {
       Capture.settingsOpen(root);
       root.addEventListener('change', (ev) => { if (ev.target.name === 'screenType') Atmos.screenTips(root); if (ev.target.name === 'soundPack') root.querySelectorAll('.pack-dir').forEach((x) => { x.hidden = ev.target.value !== 'custom'; }); });
+      const omStats = () => api.onlineMediaStats().then((s) => { const el = $('.om-stats', root); if (el) el.textContent = !s.ytdlp ? 'Needs yt-dlp (on CachyOS: sudo pacman -S yt-dlp).' : `${s.files} file${s.files === 1 ? '' : 's'} kept, ${(s.bytes / 1048576).toFixed(0)} MB${s.queued ? `, ${s.queued} still to get` : ''}. Each game is looked up once; Edit a game to pick a different clip or song.`; });
+      omStats();
+      root.addEventListener('input', (ev) => { if (ev.target.name === 'onlineCacheMB') $('.om-cap', root).textContent = `${(ev.target.value / 1024).toFixed(1)} GB`; });
       root.addEventListener('input', (ev) => { if (ev.target.name === 'tvSafe') { $('.safe-v', root).textContent = `${ev.target.value}%`; Atmos.calibrate(+ev.target.value); } });
       S.modalGone = () => Atmos.safe();
       root.querySelector('.dlg').classList.add('settings');
@@ -1374,6 +1404,14 @@ function openSettings() {
       const go = { emus: manageEmulators, emuget: () => Shop.open('emus'), sources: () => Roms.sources(), mc: () => Minecraft.open(), split: () => SplitScreen.open(), backup: () => Backup.open() }[x];
       if (go) { closeModal(); setTimeout(go, 0); return; }
       if (x === 'screenUse') { Atmos.screenUse(root); return; }
+      if (x === 'omAll') { api.onlineMediaAll(S.lib.entries.filter((e) => !e.hidden)).then((n) => { toast(n ? `Getting clips and music for ${n} games, one at a time` : 'No games to look up'); setTimeout(omStats, 1500); }); return; }
+      if (x === 'omClear') {
+        // A second press empties it; the first only asks (a dialog here would close Settings).
+        const b = ev.target.closest('[data-x]');
+        if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Press again to empty'; setTimeout(() => { b.classList.remove('armed'); b.textContent = 'Empty the cache'; }, 4000); return; }
+        api.onlineMediaClear().then(() => { HoverMusic.forgetAll(); omStats(); toast('Cache emptied'); b.classList.remove('armed'); b.textContent = 'Empty the cache'; });
+        return;
+      }
       if (x === 'packPlay') {
         // Hear the pack picked, before saving it.
         const was = [st.soundPack, st.soundPackDir, st.sounds];
