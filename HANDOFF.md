@@ -19,6 +19,20 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Log
 
+- **2026-10-14, Claude:** Steam Controller put the PC to sleep. Cause: Steam's desktop layout
+  (app 413080, used whenever no game runs, so in Bladedeck too) binds `controller_action
+  host_suspend` to holding Menu on Steam Deck-style controllers and pressing Share on Xbox ones;
+  holding Menu is half of View + Menu. `steaminput.js` finds those bindings (desktop and Big
+  Picture layouts) and, with Steam closed, removes them, keeping a dated .bak beside each file
+  (round-trip of the VDF tested on copies of the owner's files). Settings, Controllers shows it
+  with a button; a one-time toast says so at start. Also: the menu now ignores controllers without
+  the standard layout when one with it exists (a Steam Controller showed up raw and as Steam's
+  Xbox pad, the raw one with its buttons in other places).
+  Windows hardening from a code audit: every detached spawn has an error handler (a missing
+  program no longer throws in main), main logs uncaught errors to userData/errors.log instead of
+  an error box, and the yt-dlp hint names winget on Windows. Running the Windows build under Wine
+  11 did not get past creating the Wine prefix, so nothing ran yet.
+
 - **2026-10-14, Claude:** Online clips and music (`onlinemedia.js`). A game with no clip of
   its own gets a 30-second 480p gameplay clip for the preview loop, and with no music found by
   gamemusic.js, up to four minutes of its theme for hover music, both from a YouTube search

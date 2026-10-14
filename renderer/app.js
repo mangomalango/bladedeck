@@ -1388,7 +1388,7 @@ function openSettings() {
     onOpen: (root) => {
       Capture.settingsOpen(root);
       root.addEventListener('change', (ev) => { if (ev.target.name === 'screenType') Atmos.screenTips(root); if (ev.target.name === 'soundPack') root.querySelectorAll('.pack-dir').forEach((x) => { x.hidden = ev.target.value !== 'custom'; }); });
-      const omStats = () => api.onlineMediaStats().then((s) => { const el = $('.om-stats', root); if (el) el.textContent = !s.ytdlp ? 'Needs yt-dlp (on CachyOS: sudo pacman -S yt-dlp).' : `${s.files} file${s.files === 1 ? '' : 's'} kept, ${(s.bytes / 1048576).toFixed(0)} MB${s.queued ? `, ${s.queued} still to get` : ''}. Each game is looked up once; Edit a game to pick a different clip or song.`; });
+      const omStats = () => api.onlineMediaStats().then((s) => { const el = $('.om-stats', root); if (el) el.textContent = !s.ytdlp ? `Needs yt-dlp (${s.install}).` : `${s.files} file${s.files === 1 ? '' : 's'} kept, ${(s.bytes / 1048576).toFixed(0)} MB${s.queued ? `, ${s.queued} still to get` : ''}. Each game is looked up once; Edit a game to pick a different clip or song.`; });
       omStats();
       root.addEventListener('input', (ev) => { if (ev.target.name === 'onlineCacheMB') $('.om-cap', root).textContent = `${(ev.target.value / 1024).toFixed(1)} GB`; });
       root.addEventListener('input', (ev) => { if (ev.target.name === 'tvSafe') { $('.safe-v', root).textContent = `${ev.target.value}%`; Atmos.calibrate(+ev.target.value); } });

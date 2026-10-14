@@ -110,7 +110,8 @@ function stats() {
     if (!rec[k]?.file) continue;
     try { bytes += fs.statSync(rec[k].file).size; files++; } catch { /* gone */ }
   }
-  return { files, bytes, ytdlp: !!ytdlp(), queued: busy.size };
+  const install = process.platform === 'win32' ? 'in a terminal: winget install yt-dlp.yt-dlp' : process.platform === 'darwin' ? 'brew install yt-dlp' : 'on CachyOS or Arch: sudo pacman -S yt-dlp';
+  return { files, bytes, ytdlp: !!ytdlp(), queued: busy.size, install };
 }
 
 function register(getSettings) {

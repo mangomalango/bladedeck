@@ -16,6 +16,11 @@ const Players = (() => {
   const cfg = () => (S.lib.settings.multi = S.lib.settings.multi || { p1: {}, p2: {} });
   const vpOf = (g) => { const m = /Vendor: (\w+) Product: (\w+)/.exec(g?.id || ''); return m ? `${m[1]}:${m[2]}`.toLowerCase() : ''; };
   const all = () => [...(navigator.getGamepads?.() || [])].filter(Boolean);
+  /* The menu reads buttons by their standard places (A is 0, View 8, Menu 9). A controller the
+     browser has no layout for reports them in another order, and with Steam running a Steam
+     Controller shows up twice: raw (no layout) and as Steam's Xbox-style pad. So when any
+     controller has the standard layout, the ones without it are left out. */
+  const usable = (l) => { const std = l.filter((g) => g.mapping === 'standard'); return std.length ? std : l; };
 
   /* -------------------------------------------------------------- which controller is mine */
   function find(slot) {
@@ -27,11 +32,11 @@ const Players = (() => {
   // The controllers this window listens to.
   function pads() {
     if (claimingSlot) return []; // pressing A to claim a controller is not a menu press
-    if (!active) return all();
+    if (!active) return usable(all());
     const mine = find(me);
     if (mine) return [mine];
     // Player 1 without a claimed controller: any one that is not Player 2's.
-    return me === 1 ? all().filter((g) => !find(2) || g.index !== find(2).index) : [];
+    return me === 1 ? usable(all()).filter((g) => !find(2) || g.index !== find(2).index) : [];
   }
   // Whether this window's menu is the one being used (not a game in front of it).
   // A player whose games have all closed is back in their menu, however the game went away.
@@ -190,6 +195,7 @@ const Players = (() => {
           <div class="pl-t"><b>${esc(p.name)}</b><span>${esc(p.kind)} · ${esc(p.conn)}${p.battery ? ` · 🔋 ${p.battery.pct}%${p.battery.charging ? ' charging' : ''}` : ''}${who(p) ? ` · <em>${who(p)}</em>` : ''}</span></div>
         </div>`).join('') : '<p class="note">No controller is connected. Plug one in with a cable, pair it over Bluetooth in System Settings, or plug in its wireless dongle.</p>'}</div>
       <div class="pl-acts"><button type="button" data-pl="claim1">Player 1: press a button…</button><button type="button" data-pl="claim2">Player 2: press a button…</button><button type="button" data-pl="rumble">Test rumble</button><button type="button" data-pl="refresh">Refresh</button></div>
+      <div class="steam-sleep"></div>
       <h4 class="set-sub">Rumble</h4>
       <label class="range-row">Rumble strength <b class="rs-v">${st.rumbleStrength ?? 100}%</b><input type="range" name="rumbleStrength" min="0" max="100" step="12.5" value="${st.rumbleStrength ?? 100}"></label>
       <p class="note">Bladedeck's own rumble follows it on every controller. A DualSense also rumbles this hard in games (and its adaptive triggers push this hard), wired or Bluetooth.</p>
@@ -212,6 +218,17 @@ const Players = (() => {
         <label><input type="checkbox" name="padMic" ${st.padMic ? 'checked' : ''}> Voice commands listen through the controller's microphone (a Stadia controller's too)</label></div>`
         : ds.present ? '<p class="note">Your DualSense is connected over Bluetooth: buttons, touchpad and rumble work (rumble strength too). Its speaker, headphone jack and microphone need a <b>USB cable</b> on Linux.</p>'
         : '<p class="note">No DualSense is connected. Its speaker, headphone jack and microphone work over a <b>USB cable</b>; over Bluetooth or a dongle Linux gives it buttons and rumble, but no sound.</p>'}`;
+    drawSteamSleep(box);
+  }
+  // Steam's own layouts can put the PC to sleep from a button (steaminput.js in main).
+  async function drawSteamSleep(box) {
+    const el = $('.steam-sleep', box); if (!el) return;
+    const l = await api.steamSleepScan().catch(() => []);
+    if (!l.length) { el.innerHTML = ''; return; }
+    el.innerHTML = `<h4 class="set-sub">Steam puts the PC to sleep from a button</h4>
+      <p class="note">${l.map((x) => `<b>${esc(x.press[0].toUpperCase() + x.press.slice(1))} ${esc(x.button)}</b> on a ${esc(x.layout)} controller (Steam's ${esc(x.app)} layout)`).join('<br>')}.
+      Steam does this whenever no game is running, so in Bladedeck too, and holding Menu is half of View + Menu. Turning it off keeps a copy of each file. Steam has to be closed first.</p>
+      <div class="pl-acts"><button type="button" data-pl="steamsleep">Turn off sleep from the controller</button></div>`;
   }
   async function wireControllers(box) {
     await drawControllers(box);
@@ -230,6 +247,13 @@ const Players = (() => {
         if (!(await Sound.test(which))) toast('Pick where the controller\'s sound goes first.', 'err');
       } else if (a === 'rumble') { for (const g of all()) rumble(g.index, 400); if (!all().length) toast('No controller is connected.', 'err'); }
       else if (a === 'refresh') drawControllers(box);
+      else if (a === 'steamsleep') {
+        const r = await api.steamSleepFix();
+        if (r.steamRunning) toast('Close Steam first (Steam menu, Exit), then press this again.', 'err');
+        else if (!r.ok) toast(r.error || 'That did not work.', 'err');
+        else { toast(r.left ? 'Some were left; Steam may have put them back.' : 'Done. The controller no longer puts the PC to sleep.', r.left ? 'err' : 'fun'); S.lib.settings.steamSleepSeen = true; save(); }
+        drawSteamSleep(box);
+      }
     });
     // Changes are heard and felt straight away, not only after Save.
     const vols = () => ({ speaker: +($('[name=dsSpeakerVol]', box)?.value ?? 80), headphones: +($('[name=dsJackVol]', box)?.value ?? 80) });
@@ -309,6 +333,16 @@ const Players = (() => {
   }
 
   if (me === 2) { document.body.classList.add('p2', 'multi'); setTimeout(conn, 1500); }
+  // Once: tell the player if Steam's layout can put the PC to sleep from the controller.
+  if (me === 1) setTimeout(async () => {
+    if (!S.lib || S.lib.settings.steamSleepSeen) return;
+    const l = await api.steamSleepScan().catch(() => []);
+    if (!l.length) return;
+    S.lib.settings.steamSleepSeen = true; save();
+    const x = l.find((y) => y.button === 'Menu') || l[0];
+    toast(`Steam puts this PC to sleep when you ${x.press} ${x.button} on the controller. Settings, Controllers can turn that off.`, 'err');
+  }, 9000);
+
   return { me, pads, inMenu, launchOpts, launched, ended, owns, applyPad, shake, toggleMenu, bump, applySounds, on: () => active, isP2: () => me === 2,
     wireControllers, readControllers, wireMulti, readMulti, claiming: () => !!claimingSlot };
 })();

@@ -142,7 +142,7 @@ async function packGet(id) {
   const v = l.find((x) => x.files.some((f) => /\.mrpack$/i.test(f.filename)));
   if (!v) throw new Error('That pack has nothing Prism can import.');
   const f = v.files.find((x) => /\.mrpack$/i.test(x.filename));
-  spawn(p.exe, [...p.pre, '--import', f.url], { detached: true, stdio: 'ignore' }).unref();
+  const c = spawn(p.exe, [...p.pre, '--import', f.url], { detached: true, stdio: 'ignore' }); c.on('error', () => {}); c.unref();
   return { version: v.version_number };
 }
 
@@ -155,8 +155,8 @@ function register() {
   ipcMain.handle('mc-pack-get', wrap((_e, o) => packGet(o?.id)));
   ipcMain.handle('mc-open', (_e, what) => {
     const p = prism();
-    if (what === 'prism' && p) { spawn(p.exe, p.pre, { detached: true, stdio: 'ignore' }).unref(); return true; }
-    if (what === 'curseforge') { const c = curseforge(); if (!c) return false; try { fs.chmodSync(c, 0o755); } catch { /* fine */ } spawn(c, [], { detached: true, stdio: 'ignore' }).unref(); return true; }
+    if (what === 'prism' && p) { const c = spawn(p.exe, p.pre, { detached: true, stdio: 'ignore' }); c.on('error', () => {}); c.unref(); return true; }
+    if (what === 'curseforge') { const c = curseforge(); if (!c) return false; try { fs.chmodSync(c, 0o755); } catch { /* fine */ } const k = spawn(c, [], { detached: true, stdio: 'ignore' }); k.on('error', () => {}); k.unref(); return true; }
     if (what === 'folder' && p) { shell.openPath(path.join(p.data, 'instances')); return true; }
     return false;
   });

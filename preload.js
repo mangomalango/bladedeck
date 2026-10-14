@@ -164,6 +164,8 @@ contextBridge.exposeInMainWorld('bladedeck', {
   onlineMediaAll: (entries) => ipcRenderer.invoke('online-media-all', entries),
   onlineMediaPause: (on) => ipcRenderer.invoke('online-media-pause', on),
   onlineMediaClear: () => ipcRenderer.invoke('online-media-clear'),
+  steamSleepScan: () => ipcRenderer.invoke('steam-sleep-scan'),
+  steamSleepFix: () => ipcRenderer.invoke('steam-sleep-fix'),
   saveStates: (e) => ipcRenderer.invoke('save-states', e),
   rdAccount: () => ipcRenderer.invoke('rd-account'),
   rdList: () => ipcRenderer.invoke('rd-list'),

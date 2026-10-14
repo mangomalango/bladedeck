@@ -224,6 +224,16 @@ if (!gotLock) app.quit();
 else {
   app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
   app.whenReady().then(() => { ensureUserFiles(); createWindow(); setTimeout(prewarmSteam, 3000); });
+  /* A helper program that is missing (more likely on Windows) or a bug in a background job must
+     not stop Bladedeck with an error box: it goes to errors.log in Bladedeck's folder instead,
+     which is the file to send when something misbehaves. */
+  const logError = (kind) => (err) => {
+    const line = `${new Date().toISOString()} ${kind} ${process.platform} ${app.getVersion()}: ${(err && err.stack) || err}\n`;
+    console.error(line.trim());
+    try { const f = path.join(app.getPath('userData'), 'errors.log'); if (fs.existsSync(f) && fs.statSync(f).size > 1 << 20) fs.renameSync(f, f + '.old'); fs.appendFileSync(f, line); } catch { /* nowhere to write */ }
+  };
+  process.on('uncaughtException', logError('error'));
+  process.on('unhandledRejection', logError('rejection'));
   app.on('window-all-closed', () => app.quit());
 }
 
@@ -303,13 +313,13 @@ function prewarmSteam() {
       const exe = onPath('steam');
       const flat = !exe && flatpakHas('com.valvesoftware.Steam');
       if (!exe && !flat) return;
-      try { spawn(exe || onPath('flatpak') || '/usr/bin/flatpak', exe ? ['-silent'] : ['run', 'com.valvesoftware.Steam', '-silent'], { detached: true, stdio: 'ignore' }).unref(); } catch { /* no Steam */ }
+      try { const c = spawn(exe || onPath('flatpak') || '/usr/bin/flatpak', exe ? ['-silent'] : ['run', 'com.valvesoftware.Steam', '-silent'], { detached: true, stdio: 'ignore' }); c.on('error', () => {}); c.unref(); } catch { /* no Steam */ }
     });
   } else if (process.platform === 'win32') {
     require('child_process').execFile('tasklist', ['/FI', 'IMAGENAME eq steam.exe', '/NH'], (err, out) => {
       if (err || /steam\.exe/i.test(String(out))) return;
       const pf = [process.env['ProgramFiles(x86)'], process.env.ProgramFiles].filter(Boolean).map((d) => path.join(d, 'Steam', 'steam.exe')).find((p) => fs.existsSync(p));
-      if (pf) try { spawn(pf, ['-silent'], { detached: true, stdio: 'ignore' }).unref(); } catch { /* no Steam */ }
+      if (pf) try { const c = spawn(pf, ['-silent'], { detached: true, stdio: 'ignore' }); c.on('error', () => {}); c.unref(); } catch { /* no Steam */ }
     });
   }
 }
@@ -770,7 +780,7 @@ ipcMain.handle('split-launch', (_e, { entry, steamPath, mode = 'exec', args = ''
   // A game with a handler starts from PartyDeck's own screen, where the handler is picked.
   if (mode === 'handler') {
     const t1 = Date.now();
-    let c; try { c = spawn(pd, [...(kde ? ['--kwin'] : []), '--fullscreen'], { stdio: 'ignore' }); } catch (err) { return { ok: false, error: String(err.message || err) }; }
+    let c; try { c = spawn(pd, [...(kde ? ['--kwin'] : []), '--fullscreen'], { stdio: 'ignore' }); c.on('error', () => {}); } catch (err) { return { ok: false, error: String(err.message || err) }; }
     c.on('exit', () => { if (win && !win.isDestroyed()) win.webContents.send('launch-ended', { id: entry.id, seconds: Math.round((Date.now() - t1) / 1000) }); });
     return { ok: true, pid: c.pid };
   }
@@ -779,7 +789,7 @@ ipcMain.handle('split-launch', (_e, { entry, steamPath, mode = 'exec', args = ''
   const t0 = Date.now();
   let child;
   const extra = String(args || '').trim().slice(0, 300);
-  try { child = spawn(pd, ['--exec', exe, ...(extra ? ['--args', extra] : []), ...(kde ? ['--kwin'] : []), '--fullscreen'], { cwd: path.dirname(exe), stdio: 'ignore' }); }
+  try { child = spawn(pd, ['--exec', exe, ...(extra ? ['--args', extra] : []), ...(kde ? ['--kwin'] : []), '--fullscreen'], { cwd: path.dirname(exe), stdio: 'ignore' }); child.on('error', () => {}); }
   catch (err) { return { ok: false, error: String(err.message || err) }; }
   child.on('exit', () => { if (win && !win.isDestroyed()) win.webContents.send('launch-ended', { id: entry.id, seconds: Math.round((Date.now() - t0) / 1000) }); });
   return { ok: true, pid: child.pid, exe };
@@ -883,7 +893,7 @@ function runner(a) {
 function startFirst(list, extra = []) {
   for (const a of list || []) {
     const r = runner(a); if (!r) continue;
-    try { spawn(r[0], [...r[1], ...extra], { detached: true, stdio: 'ignore' }).unref(); return true; } catch { /* try the next one */ }
+    try { const c = spawn(r[0], [...r[1], ...extra], { detached: true, stdio: 'ignore' }); c.on('error', () => {}); c.unref(); return true; } catch { /* try the next one */ }
   }
   return false;
 }
@@ -994,6 +1004,7 @@ require('./finder').register();
 require('./minecraft').register();
 require('./moonlight').register();
 require('./onlinemedia').register(() => loadLib().settings);
+require('./steaminput').register();
 require('./backup').register({ getWin: () => win, libFile, dataDir });
 require('./discord').register({ settings: () => loadLib().settings });
 require('./adblock').register({ settings: () => loadLib().settings });
