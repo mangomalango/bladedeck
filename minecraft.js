@@ -20,15 +20,35 @@ const UA = { 'User-Agent': 'Bladedeck/0.1 (game launcher)' };
 const h = os.homedir();
 
 function onPath(cmd) {
-  for (const dir of (process.env.PATH || '').split(path.delimiter)) { const p = path.join(dir, cmd); try { fs.accessSync(p, fs.constants.X_OK); return p; } catch { /* next */ } }
+  for (const dir of (process.env.PATH || '').split(path.delimiter)) {
+    const p = path.join(dir, cmd);
+    try {
+      if (process.platform === 'win32') {
+        if (fs.existsSync(p)) return p;
+        if (!/\.exe$/i.test(cmd) && fs.existsSync(p + '.exe')) return p + '.exe';
+      } else {
+        fs.accessSync(p, fs.constants.X_OK);
+        return p;
+      }
+    } catch { /* next */ }
+  }
   return null;
 }
 const flatpakHas = (id) => [path.join(h, '.local/share/flatpak/app', id), '/var/lib/flatpak/app/' + id].some((p) => fs.existsSync(p));
 // How to run Prism, and where it keeps its instances.
 function prism() {
   if (process.platform === 'win32') {
-    const exe = [path.join(process.env.LOCALAPPDATA || '', 'Programs', 'PrismLauncher', 'prismlauncher.exe'), path.join(process.env.ProgramFiles || '', 'PrismLauncher', 'prismlauncher.exe')].find((p) => p && fs.existsSync(p));
-    return exe ? { exe, pre: [], data: path.join(process.env.APPDATA || '', 'PrismLauncher') } : null;
+    const exe = [
+      path.join(process.env.LOCALAPPDATA || '', 'Programs', 'PrismLauncher', 'prismlauncher.exe'),
+      path.join(process.env.ProgramFiles || '', 'PrismLauncher', 'prismlauncher.exe'),
+      path.join(process.env['ProgramFiles(x86)'] || '', 'PrismLauncher', 'prismlauncher.exe'),
+      onPath('prismlauncher.exe'),
+      onPath('prismlauncher')
+    ].find((p) => p && fs.existsSync(p));
+    if (!exe) return null;
+    const portableData = path.join(path.dirname(exe), 'instances');
+    const data = fs.existsSync(portableData) ? path.dirname(exe) : path.join(process.env.APPDATA || path.join(h, 'AppData', 'Roaming'), 'PrismLauncher');
+    return { exe, pre: [], data };
   }
   const exe = onPath('prismlauncher');
   if (exe) return { exe, pre: [], data: path.join(h, '.local/share/PrismLauncher') };
@@ -37,7 +57,16 @@ function prism() {
 }
 // The CurseForge app: its AppImage in the usual places (or in Downloads, just downloaded).
 function curseforge() {
-  if (process.platform === 'win32') { const p = path.join(process.env.LOCALAPPDATA || '', 'Programs', 'CurseForge Windows', 'CurseForge.exe'); return fs.existsSync(p) ? p : null; }
+  if (process.platform === 'win32') {
+    const candidates = [
+      path.join(process.env.LOCALAPPDATA || '', 'Programs', 'CurseForge Windows', 'CurseForge.exe'),
+      path.join(process.env.LOCALAPPDATA || '', 'Programs', 'CurseForge', 'CurseForge.exe'),
+      path.join(process.env.ProgramFiles || '', 'CurseForge', 'CurseForge.exe'),
+      path.join(process.env['ProgramFiles(x86)'] || '', 'CurseForge', 'CurseForge.exe'),
+      onPath('CurseForge.exe')
+    ];
+    return candidates.find((p) => p && fs.existsSync(p)) || null;
+  }
   for (const d of [path.join(h, 'Games', 'Apps'), path.join(h, 'Applications'), path.join(h, 'AppImages'), path.join(h, 'Downloads')]) {
     try { const f = fs.readdirSync(d).find((n) => /^curseforge.*\.appimage$/i.test(n)); if (f) return path.join(d, f); } catch { /* no folder */ }
   }

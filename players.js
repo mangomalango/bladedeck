@@ -32,6 +32,7 @@ function kindOf(v, p, name) {
 }
 // Every joystick: from /proc/bus/input/devices, with sysfs for its battery.
 function pads() {
+  if (process.platform !== 'linux') return [];
   const txt = read('/proc/bus/input/devices'); if (!txt) return [];
   const out = [];
   for (const block of txt.split(/\n\s*\n/)) {
@@ -53,7 +54,7 @@ function pads() {
 }
 // A battery whose device sits under the controller's own device in sysfs.
 function battery(sys) {
-  if (!sys) return null;
+  if (!sys || process.platform !== 'linux') return null;
   let devDir = ''; try { devDir = fs.realpathSync(path.join('/sys', sys, '..', '..')); } catch { return null; }
   if (!devDir) return null;
   let names = []; try { names = fs.readdirSync('/sys/class/power_supply'); } catch { return null; }
@@ -71,6 +72,7 @@ function battery(sys) {
    (the input group can) until one sends a button press, for up to 15 seconds. */
 let claiming = null;
 function claim() {
+  if (process.platform !== 'linux') return Promise.resolve(null);
   if (claiming) return claiming;
   const list = pads();
   claiming = new Promise((resolve) => {
@@ -107,6 +109,7 @@ const OUT_NAMES = { speaker: 'bladedeck_pad_speaker', jack: 'bladedeck_pad_jack'
 const PATH = { jack: 0, both: 2, speaker: 3 };
 // The DualSense's raw device: USB (bus 0003) or Bluetooth (0005), DualSense or Edge.
 function dsHid() {
+  if (process.platform !== 'linux') return null;
   let names = []; try { names = fs.readdirSync('/sys/class/hidraw'); } catch { return null; }
   for (const n of names) {
     const ue = read(`/sys/class/hidraw/${n}/device/uevent`);
@@ -125,6 +128,7 @@ let btSeq = 0;
 /* One output report with only the parts asked for marked valid; everything else (lights, rumble
    the game is playing) is left as it is. o: { path, speaker, headphones (0-100), rumble (12-100) } */
 function dsWrite(o = {}) {
+  if (process.platform !== 'linux') return { ok: false, error: 'DualSense features work on Linux.' };
   const h = dsHid(); if (!h) return { ok: false, error: 'No DualSense is connected.' };
   const c = Buffer.alloc(47);
   if (o.path != null && !h.bt) { c[0] |= 0x80; c[7] = (PATH[o.path] ?? 0) << 4; }
@@ -143,21 +147,25 @@ function dsWrite(o = {}) {
 }
 // The controller's 4-channel output (its "Direct" setup on systems with its sound profile).
 async function dsSink() {
+  if (process.platform !== 'linux') return null;
   const j = await run('pactl', ['-f', 'json', 'list', 'sinks']); if (!j) return null;
   let l; try { l = JSON.parse(j); } catch { return null; }
   return l.find((s) => !s.name.startsWith('bladedeck_') && (/dualsense|sony.*wireless_controller/i.test(s.name) || /054c/i.test(s.properties?.['device.vendor.id'] || '')) && (s.channel_map || '').includes('rear')) || null;
 }
 async function dsCard() {
+  if (process.platform !== 'linux') return null;
   const j = await run('pactl', ['-f', 'json', 'list', 'cards']); if (!j) return null;
   let l; try { l = JSON.parse(j); } catch { return null; }
   return l.find((c) => /dualsense|sony/i.test(c.name) || /054c/i.test(c.properties?.['device.vendor.id'] || '')) || null;
 }
 async function loaded() {
+  if (process.platform !== 'linux') return [];
   const out = await run('pactl', ['list', 'short', 'modules']) || '';
   return out.split('\n').filter((l) => /sink_name=bladedeck_pad_/.test(l)).map((l) => ({ id: l.split('\t')[0], which: /bladedeck_pad_speaker/.test(l) ? 'speaker' : 'jack' }));
 }
 let dsMode = '';
 async function dsStatus() {
+  if (process.platform !== 'linux') return { present: false };
   const card = await dsCard(), h = dsHid();
   if (!card && !h) return { present: false };
   const mods = await loaded();
@@ -166,6 +174,7 @@ async function dsStatus() {
 /* mode: '' (Bladedeck leaves the controller's sound alone), 'jack', 'speaker' or 'both'. Each
    output Bladedeck makes is a mono sound output pointing at the channel that reaches it. */
 async function dsOutputs(mode, vol = {}) {
+  if (process.platform !== 'linux') return { ok: false, error: 'DualSense sound is supported on Linux.' };
   if (mode === true) mode = 'both'; if (mode === false) mode = '';
   for (const m of await loaded()) await run('pactl', ['unload-module', m.id]);
   dsMode = mode || '';
@@ -196,8 +205,10 @@ let p2 = null, deps = null;
 async function displays() {
   const ds = screen.getAllDisplays(), prim = screen.getPrimaryDisplay().id;
   let ks = [];
-  const j = await run('kscreen-doctor', ['-j']);
-  try { ks = (JSON.parse(j || '{}').outputs || []).filter((o) => o.enabled && o.connected); } catch { ks = []; }
+  if (process.platform === 'linux') {
+    const j = await run('kscreen-doctor', ['-j']);
+    try { ks = (JSON.parse(j || '{}').outputs || []).filter((o) => o.enabled && o.connected); } catch { ks = []; }
+  }
   return ds.map((d, i) => {
     const k = ks.find((o) => o.pos && Math.abs(o.pos.x - d.bounds.x) < 4 && Math.abs(o.pos.y - d.bounds.y) < 4);
     const name = k?.name || '';
@@ -207,12 +218,14 @@ async function displays() {
 /* Screens that show the same picture (mirrored) count as one. Multi-screen can set them side by
    side (extended) and put them back the way they were when it is turned off. */
 let unmirrored = null;
-async function kscreen() { try { return (JSON.parse((await run('kscreen-doctor', ['-j'])) || '{}').outputs || []).filter((o) => o.enabled && o.connected); } catch { return []; } }
+async function kscreen() { if (process.platform !== 'linux') return []; try { return (JSON.parse((await run('kscreen-doctor', ['-j'])) || '{}').outputs || []).filter((o) => o.enabled && o.connected); } catch { return []; } }
 async function mirrored() {
+  if (process.platform !== 'linux') return [];
   const ks = await kscreen();
   return ks.filter((o) => o.replicationSource && o.replicationSource !== 0).map((o) => ({ name: o.name, source: (ks.find((x) => x.id === o.replicationSource) || {}).name || '' }));
 }
 async function extend(on) {
+  if (process.platform !== 'linux') return { ok: false, error: 'Display management is supported on Linux (KDE Plasma).' };
   const ok = (r) => r !== null;
   if (on) {
     const ks = await kscreen(), m = await mirrored(); if (!m.length) return { ok: true };
@@ -292,6 +305,7 @@ async function screenOf(w) {
    on the player's output is moved there. */
 const pins = new Map();
 async function pinTick(key) {
+  if (process.platform !== 'linux') return;
   const pin = pins.get(key); if (!pin) return;
   const j = await run('pactl', ['-f', 'json', 'list', 'sink-inputs']), sj = await run('pactl', ['-f', 'json', 'list', 'sinks']);
   let ins = [], sinks = []; try { ins = JSON.parse(j || '[]'); sinks = JSON.parse(sj || '[]'); } catch { return; }
@@ -341,10 +355,12 @@ function register(d) {
 function stop() {
   closeP2();
   for (const p of pins.values()) clearInterval(p.t); pins.clear();
-  try {
-    const out = require('child_process').execFileSync('pactl', ['list', 'short', 'modules'], { encoding: 'utf8', timeout: 3000 });
-    for (const l of out.split('\n')) if (/sink_name=bladedeck_pad_/.test(l)) require('child_process').execFileSync('pactl', ['unload-module', l.split('\t')[0]], { timeout: 3000 });
-  } catch { /* no pactl */ }
+  if (process.platform === 'linux') {
+    try {
+      const out = require('child_process').execFileSync('pactl', ['list', 'short', 'modules'], { encoding: 'utf8', timeout: 3000 });
+      for (const l of out.split('\n')) if (/sink_name=bladedeck_pad_/.test(l)) require('child_process').execFileSync('pactl', ['unload-module', l.split('\t')[0]], { timeout: 3000 });
+    } catch { /* no pactl */ }
+  }
 }
 
 module.exports = { register, wrapForPlayer, pads, stop, p2: () => p2 };

@@ -1,75 +1,85 @@
 # Bladedeck
 
-One launcher for Steam, emulators, recompiled ports and any program. Two modes:
+One launcher for Steam, emulators, native ports and any program. Two modes:
 
-- **Console mode**: fullscreen, controller-driven, glossy vertical blades over animated ribbons.
-- **PC mode**: windowed library manager with a sidebar, cover grid, search, sorting and a details drawer.
+- **Console mode**: fullscreen, controller-first, vertical blades over animated ribbons.
+- **PC mode**: windowed library manager with a sidebar, cover grid, search and details drawer.
+
+Switch between modes at any time with **View** (controller) or **F10** (keyboard).
 
 ## Run it
 
 Needs Node 18+.
 
-```
+```bash
 npm install
 npm start
 ```
 
-Package an installer with `npm run dist`.
+Build an installer with `npm run dist`.
 
 ## Controls
 
-| Action | Keyboard | Controller |
+| Action | Controller | Keyboard |
 | --- | --- | --- |
-| Move between blades | Left / Right | D-pad or stick, LB / RB |
-| Move in a list | Up / Down | D-pad or stick |
-| Launch | Enter | A |
-| Back to the Home blade | Esc | B |
-| Favorite | F | X |
-| Edit | E | Y |
-| Jump to System blade | S | Start |
-| Switch Console / PC mode | F10 | Back / View |
+| Move between blades | D-pad or stick, LB / RB | Left / Right, Page Up / Down |
+| Move in a list or grid | D-pad or stick | Up / Down / Left / Right |
+| Launch | A | Enter |
+| Back to Home blade | B | Esc |
+| Favorite | X | F |
+| Edit | Y | E |
+| Jump to System blade | Start | S |
+| Switch Console / PC mode | View | F10 |
+| Quick menu (music, alerts, clips) | Hold RT and pull | C |
+| Guide flap (walkthroughs, tips) | Hold LT and pull | G |
+| Walkthrough window | View + Y | Ctrl+Alt+Y |
+| Quick Resume | Hold View | Q |
+| Record gameplay | View + X | Ctrl+Alt+R |
+| Save last 30s replay | View + RB | Ctrl+Alt+S |
+| Sound card | Guide / Home button | V |
 
-PC mode: arrows move through the grid, double-click launches, `/` or Ctrl+F searches.
+## The System Menu
 
-## Adding things
+The System blade organizes tools and settings into seven clean groups:
 
-- **Steam**: System blade, Scan Steam. Reads your Steam libraries and launches through `steam://rungameid/`.
-- **Emulators**: System blade, Emulators, Add. Pick a preset (Dolphin, PCSX2, DuckStation, RPCS3, PPSSPP, Cemu, Ryujinx, Xemu, Xenia, mGBA, melonDS, RetroArch), choose the emulator's program, add game folders, and every game is listed automatically. Launch arguments use `{rom}`, `{romdir}` and `{title}`. Emulator flags change between versions, so check the emulator's own command line help if a game does not start.
-- **Any program**: drag an .exe, .lnk, .bat or AppImage onto the window, or use Add a game. Type "Native port" is for recompiled games such as N64 or PS1 recomps: point it at the port's executable.
-- **Covers**: Steam covers are picked up from Steam's local cache. For anything else, set a cover image in Edit. With no image, a generated cover is used.
+- **Games and library**: Find everything (Steam, GOG, Heroic), add games, open ROM files, free games on Epic/GOG/itch.io, scan library, find missing box art, and Browse your sources.
+- **Gaming software**: Manage and install emulators, Minecraft via Prism Launcher, CurseForge/Modrinth modpacks, store launchers, and suggested extras (Tailscale, Discord).
+- **Play together**: Split-screen play with PartyDeck, multi-screen gaming, controller assignments and rumble, and Nearby players on your network.
+- **Capture**: Recorded videos, saved gameplay clips, manual recording, and live game view settings.
+- **This PC**: Hardware stats, screen brightness, Wi-Fi, sound card volume and outputs, Quick Resume manager, notifications, phone companion app, file transfers, and voice commands.
+- **Personalize**: Theme selection, Wallpaper Engine and video backgrounds, look and menu fonts, background music, the aquarium, and your player profile with goals and journal.
+- **Help**: Step-by-step interactive tour, button controls reference, guide flap, and floating walkthrough window.
 
-Bladedeck launches what you already built. It does not run recompilation toolchains itself.
+Root actions at the bottom provide **Settings** (8 organized pages), **Backup and restore**, **Switch to PC mode**, and **Exit Bladedeck**.
+
+## Key Features
+
+### Browse your sources
+Search for games and software directly from your sources. The Internet Archive is built in; you can also add your favorite websites in Sources. Bladedeck navigates the sites, displays catalog cards, and lets you install games with one press: archives are unpacked into `~/Games/ROMs/Downloaded` and join your library automatically.
+
+### Minecraft
+Plays Minecraft: Java Edition through Prism Launcher. Java Minecraft lacks native controller support, so Bladedeck downloads and installs the Controlify mod (matched to your version and Fabric/Quilt/NeoForge loader) with one click—giving you full controller navigation, vibration, and an on-screen keyboard. You can also search Modrinth modpacks and import them straight to Prism.
+
+### Multi-screen
+Two players, two screens, two games running side by side. Player 1 stays on the main display while Player 2 gets their own fullscreen Bladedeck on the second display. Each player's game receives only their assigned controller, routes sound to their own audio output (TV, headphones, or controller speaker), and runs simultaneously.
+
+### Companion phone app
+Control Bladedeck from your phone across your local network or Tailscale. Browse your library, launch games, use an on-screen touchpad and keyboard, transfer files, and receive synced game timers and alarms.
+
+### Backup and restore
+Bladedeck automatically backs up your entire configuration (library, emulators, sources, blades, custom CSS, themes, and artwork) every day it is used and every half hour while making changes. Backups live in `~/Bladedeck/Backups` so they survive app reinstalls. You can restore any backup with one click or export a single `.bladedeck` backup file for another PC.
+
+## Adding Games
+
+- **Steam**: System, Games and library, Scan Steam library.
+- **Emulators**: System, Gaming software, Emulators, Add. Choose a preset or custom command with `{rom}`, `{romdir}`, and `{title}` placeholders.
+- **Any program**: Drag an `.exe`, `.lnk`, `.bat`, or `.AppImage` into the window, or use Add a game.
+- **Watched folders**: Drop files into `~/Games` or `~/Downloads`; ROMs, AppImages, and unpacked archives join your library automatically.
 
 ## Customizing
 
-Your data lives in the app's user data folder (Settings has shortcuts):
+Your settings and personal files live in the app's user data directory (`~/.config/bladedeck` on Linux, `%APPDATA%\bladedeck` on Windows):
 
-- `library.json`: all settings, emulators and entries. Plain JSON, safe to back up or edit.
-- `themes/*.json`: your own themes. A file with the same `id` as a built-in replaces it.
-- `custom.css`: loaded after the theme, wins over everything.
-
-### Blades
-
-Blades are defined in Settings as JSON. Each one is a filter:
-
-```json
-[
-  { "name": "Home",  "filter": { "home": true } },
-  { "name": "Favorites", "filter": { "favorite": true } },
-  { "name": "PlayStation 2", "filter": { "system": "PlayStation 2" } },
-  { "name": "Ports", "color": "#ff7a1a", "filter": { "types": ["recomp"] } },
-  { "name": "System", "special": "system" }
-]
-```
-
-Filter keys: `types` (steam, exe, recomp, rom, app), `system`, `emulator` (emulator id), `favorite`, `recent` (number), `home`. `color` tints that blade's highlight.
-
-### Themes
-
-Copy `themes/pearl.json`, change the `id` and `name`, edit the `vars`, and drop it in your `themes` folder. Every colour, radius and the font are variables. `ribbon` controls the animated background: `colors`, `alpha`, `blend` (`source-over` or `lighter`), `width`, `count`, `speed`. An optional `css` string in the theme adds extra rules.
-
-## Notes
-
-- Minimize-while-playing restores the launcher when a tracked program exits. Steam games are started through Steam, so they are not tracked and no playtime is recorded for them.
-- If a program that hands off to another process exits within a few seconds, the launcher stays minimized so it does not cover the game.
-- ROM scans go six folders deep and skip nothing, so choose file types carefully (for example `cue` rather than both `cue` and `bin`).
+- `library.json`: All settings, emulators, and library entries.
+- `themes/*.json`: Custom themes. Variables control colors, radius, fonts, and ribbon background animations.
+- `custom.css`: Custom stylesheet loaded on top of every theme.

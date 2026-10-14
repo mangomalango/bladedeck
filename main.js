@@ -226,7 +226,7 @@ ipcMain.handle('load', () => ({
 }));
 
 // Only the main menu writes the library: Player 2's menu (multi-screen) reads it.
-ipcMain.handle('save', (_e, lib) => { if (win && _e.sender !== win.webContents) return false; writeJson(libFile(), lib); require('./backup').changed(); return true; });
+ipcMain.handle('save', (_e, lib) => { if (win && _e.sender !== win.webContents) return false; if (require('./backup').restoring?.()) return false; writeJson(libFile(), lib); require('./backup').changed(); return true; });
 
 // These act on the window that asked (Player 2's menu has its own).
 const own = (e) => BrowserWindow.fromWebContents(e.sender);

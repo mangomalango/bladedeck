@@ -24,8 +24,12 @@ const KEEP = 40;
 const stamp = () => new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 function copyDir(a, b) { if (fs.existsSync(a)) fs.cpSync(a, b, { recursive: true }); }
 
+let restoring = false;
+
 function make(note = '', auto = false) {
-  const d = deps.dataDir(), id = `${stamp()}${auto ? '-auto' : ''}`, to = path.join(root(), id);
+  const d = deps.dataDir();
+  let id = `${stamp()}${auto ? '-auto' : ''}`, to = path.join(root(), id);
+  for (let i = 2; fs.existsSync(to); i++) { id = `${stamp()}${auto ? '-auto' : ''}-${i}`; to = path.join(root(), id); }
   fs.mkdirSync(to, { recursive: true });
   for (const f of FILES) { const p = path.join(d, f); if (fs.existsSync(p)) fs.copyFileSync(p, path.join(to, f)); }
   for (const x of DIRS) copyDir(path.join(d, x), path.join(to, x));
@@ -49,9 +53,13 @@ function restoreFrom(dir) {
   const d = deps.dataDir();
   if (!fs.existsSync(path.join(dir, 'library.json'))) throw new Error('That backup has no library in it.');
   JSON.parse(fs.readFileSync(path.join(dir, 'library.json'), 'utf8')); // readable, or nothing changes
-  make('Before restoring', false);
-  for (const f of FILES) { const p = path.join(dir, f); if (fs.existsSync(p)) fs.copyFileSync(p, path.join(d, f)); }
-  for (const x of DIRS) { const p = path.join(dir, x); if (fs.existsSync(p)) { fs.rmSync(path.join(d, x), { recursive: true, force: true }); copyDir(p, path.join(d, x)); } }
+  restoring = true;
+  // A restore that fails halfway lets saving work again (the backup made first has what was there).
+  try {
+    make('Before restoring', false);
+    for (const f of FILES) { const p = path.join(dir, f); if (fs.existsSync(p)) fs.copyFileSync(p, path.join(d, f)); }
+    for (const x of DIRS) { const p = path.join(dir, x); if (fs.existsSync(p)) { fs.rmSync(path.join(d, x), { recursive: true, force: true }); copyDir(p, path.join(d, x)); } }
+  } catch (err) { restoring = false; throw err; }
   setTimeout(() => { app.relaunch(); app.exit(0); }, 600);
   return true;
 }
@@ -108,4 +116,4 @@ function register(d) {
   ipcMain.handle('backup-folder', () => { fs.mkdirSync(root(), { recursive: true }); shell.openPath(root()); return true; });
 }
 
-module.exports = { register, changed };
+module.exports = { register, changed, restoring: () => restoring };

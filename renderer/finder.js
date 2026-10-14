@@ -22,6 +22,7 @@ const WebDl = (() => {
   window.bladedeck.onWebDlStart?.((d) => toast(`Downloading ${d.name}${d.from ? ` from ${d.from}` : ''}.`));
   window.bladedeck.onWebDlDone?.((d) => {
     if (d.unpacked) { toast(`${d.title || d.name} is unpacked and joining your library.`, 'fun'); Watch.catchUp?.(); return; }
+    if (d.note) { toast(`${d.name}: ${d.note}`, 'err'); return; }
     toast(`${d.name} finished downloading${d.state === 'unpacking' ? ', unpacking…' : '.'}`, 'fun');
   });
   window.bladedeck.webDlList?.().then((l) => { list = l || []; draw(); }).catch(() => {});
@@ -71,6 +72,7 @@ const Finder = (() => {
   /* -------------------------------------------------------------- the panel */
   function mount(p) {
     panel = p;
+    if (!src) src = allSources().find((x) => x.id === st().finderSource) || IA;
     p.body.innerHTML = `<div class="fd">
       <div class="fd-top"><input class="fd-q" type="search" placeholder="Search" aria-label="Search"><button type="button" class="fd-go" data-fd="go">Search</button></div>
       <nav class="fd-src"></nav>

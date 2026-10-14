@@ -25,7 +25,7 @@ function uniq(dir, name) {
   while (fs.existsSync(f)) f = path.join(dir, `${base} (${i++})${ext}`);
   return f;
 }
-const pub = (r) => ({ id: r.id, name: r.name, file: r.file, dir: path.dirname(r.file), total: r.total, got: r.got, state: r.state, paused: r.paused, speed: r.speed, from: r.from, at: r.at, unpacked: r.unpacked || '', title: r.title || '' });
+const pub = (r) => ({ id: r.id, name: r.name, file: r.file, dir: path.dirname(r.file), total: r.total, got: r.got, state: r.state, paused: r.paused, speed: r.speed, from: r.from, at: r.at, unpacked: r.unpacked || '', title: r.title || '', note: r.note || '' });
 let last = 0, pending = false;
 function tell(now) {
   if (!now && Date.now() - last < 250) { if (!pending) { pending = true; setTimeout(() => { pending = false; tell(true); }, 260); } return; }
@@ -38,26 +38,32 @@ function unpack(rec) {
   const dest = uniq(dir, clean(path.basename(rec.file).replace(ARCHIVE, '')));
   rec.state = 'unpacking'; tell(true);
   fs.mkdirSync(dest, { recursive: true });
-  execFile('7z', ['x', '-y', `-o${dest}`, rec.file], { timeout: 3600000, maxBuffer: 1 << 24 }, async (err) => {
-    if (err) { rec.state = 'completed'; rec.note = 'Could not unpack it; the archive is kept.'; try { fs.rmdirSync(dest); } catch { /* not empty */ } tell(true); return; }
+  const finish = async (err) => {
+    if (err) { rec.state = 'completed'; rec.note = 'Could not unpack it; the archive is kept.'; try { fs.rmdirSync(dest); } catch { /* not empty */ } tell(true); send('web-dl-done', pub(rec)); return; }
     rec.unpacked = dest; rec.state = 'completed';
     try { await shell.trashItem(rec.file); } catch { /* keep it */ }
     tell(true);
     send('web-dl-done', pub(rec));
+  };
+  const z7 = process.platform === 'win32' ? [path.join(process.env.ProgramFiles || 'C:\\Program Files', '7-Zip', '7z.exe'), '7z.exe'].find((p) => { try { fs.accessSync(p); return true; } catch { return false; } }) || '7z' : '7z';
+  execFile(z7, ['x', '-y', `-o${dest}`, rec.file], { timeout: 3600000, maxBuffer: 1 << 24 }, (err) => {
+    if (err && /\.zip$/i.test(rec.file)) execFile('tar', ['-xf', rec.file, '-C', dest], { timeout: 3600000 }, (tErr) => finish(tErr));
+    else finish(err);
   });
 }
 
 function attach(ses) {
   if (ses.__bladedeckDl) return; ses.__bladedeckDl = true;
   ses.on('will-download', (_e, item, wc) => {
-    const chain = [item.getURL(), ...(item.getURLChain?.() || [])];
+    const pageUrl = wc?.getURL?.() || '';
+    const chain = [item.getURL(), ...(item.getURLChain?.() || []), ...(pageUrl ? [pageUrl] : [])];
     const want = chain.map((u) => expect.get(u)).find(Boolean);
     chain.forEach((u) => expect.delete(u));
     const dir = want?.dir || app.getPath('downloads');
     try { fs.mkdirSync(dir, { recursive: true }); } catch { /* the save fails and says so */ }
     const file = uniq(dir, clean(item.getFilename()));
     item.setSavePath(file);
-    let from = ''; try { from = new URL(wc?.getURL?.() || item.getURL()).hostname.replace(/^www\./, ''); } catch { /* none */ }
+    let from = ''; try { from = new URL(pageUrl || item.getURL()).hostname.replace(/^www\./, ''); } catch { /* none */ }
     const rec = { id: Math.random().toString(36).slice(2, 10), name: path.basename(file), file, total: item.getTotalBytes(), got: 0, state: 'progressing', paused: false, speed: 0, from, at: Date.now(), unpack: !!want?.unpack, title: want?.title || '' };
     items.set(rec.id, { rec, item });
     let t0 = Date.now(), g0 = 0;
@@ -73,7 +79,7 @@ function attach(ses) {
       items.set(rec.id, { rec, item: null });
       if (state === 'completed') {
         if (Notification.isSupported()) new Notification({ title: 'Download finished', body: `${rec.name}${rec.from ? ` · ${rec.from}` : ''}`, silent: true }).show();
-        if (rec.unpack && ARCHIVE.test(rec.file)) { send('web-dl-done', pub(rec)); unpack(rec); return; }
+        if (rec.unpack && ARCHIVE.test(rec.file)) { rec.state = 'unpacking'; send('web-dl-done', pub(rec)); unpack(rec); return; }
         send('web-dl-done', pub(rec));
       }
       tell(true);
