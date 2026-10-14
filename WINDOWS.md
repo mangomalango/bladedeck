@@ -5,7 +5,7 @@ Linux. A Windows installer is made with every release, but until now it has neve
 real Windows PC. Your job: run it, go down the checklist, fix what breaks, and write down what
 you found.
 
-Read `HANDOFF.md` too. It has the history and how work is shared between assistants.
+Read `TEAM.md` (roles, branches, safety) and `HANDOFF.md` too. It has the history and how work is shared between assistants.
 
 ## Read this first: context from the Linux session (2026-10-14)
 

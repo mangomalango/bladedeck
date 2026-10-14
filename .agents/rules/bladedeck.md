@@ -1,6 +1,6 @@
 # Bladedeck: rules for Gemini in Antigravity
 
-- Read `GEMINI.md` (the project briefing) and the top of `HANDOFF.md` before anything else.
+- Read `TEAM.md` (how the team works: your role, your branch, safety), then `GEMINI.md` (the project briefing) and the top of `HANDOFF.md` before anything else.
   Claude works on this repository too; HANDOFF.md is how you two coordinate. Mark a task
   "in progress: Gemini" there before you start it, and add a dated log entry when you finish.
 - Linux (CachyOS) is the lead build. Windows fixes go behind `process.platform === 'win32'`.

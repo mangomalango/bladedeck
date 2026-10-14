@@ -1,5 +1,8 @@
 # Handoff between Claude and Gemini
 
+**Read `TEAM.md` first**: who does what (Claude Opus on Linux leads, Claude Sonnet on Windows,
+Gemini in Antigravity), branches, safety, and the owner's test list.
+
 Read this first. Newest entries at the top of the log. Mark a task "in progress: <name>" before
 starting it, and move it to the log when done. One assistant edits code at a time.
 

@@ -1,5 +1,7 @@
 # Bladedeck: briefing for AI assistants
 
+**Start with `TEAM.md`**: roles, branches, the debug loop and the safety rules.
+
 **Names:** the owner sometimes calls this project "Steamblade" (its first name, and the name of the
 console-mode idea). Steamblade and Bladedeck are the same project: this repository.
 
