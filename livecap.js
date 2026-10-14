@@ -62,14 +62,21 @@ def started(res):
     fd = sc.OpenPipeWireRemote(state['session'], dbus.Dictionary({}, signature='sv')).take()
     node = int(streams[0][0])
     w, fps = int(opt.get('width', 640)), int(opt.get('fps', 15))
-    pipe = Gst.parse_launch('pipewiresrc name=src do-timestamp=true ! videoconvert ! videoscale ! videorate ! video/x-raw,format=BGRA,width=%d,pixel-aspect-ratio=1/1,framerate=%d/1 ! appsink name=sink emit-signals=true max-buffers=1 drop=true sync=false' % (w, fps))
+    # No videorate and no frame rate in the caps: KDE's screen share refuses a fixed rate ("error set
+    # output format: -22"). Frames are copied out of graphics memory (always-copy) and thinned out below.
+    pipe = Gst.parse_launch('pipewiresrc name=src do-timestamp=true always-copy=true ! videoconvert ! videoscale ! video/x-raw,format=BGRA,width=%d,pixel-aspect-ratio=1/1 ! appsink name=sink emit-signals=true max-buffers=1 drop=true sync=false' % w)
     src = pipe.get_by_name('src')
     src.set_property('fd', fd)
-    for k, v in (('target-object', str(node)), ('path', str(node)), ('keepalive-time', 500)):
+    for k, v in (('target-object', str(node)), ('path', str(node)), ('keepalive-time', 500), ('always-copy', True)):
         try: src.set_property(k, v)
         except Exception: pass
+    gap = 1.0 / max(1, fps); state['last'] = 0.0
     def frame(sink):
-        s = sink.emit('pull-sample'); b = s.get_buffer(); st = s.get_caps().get_structure(0)
+        s = sink.emit('pull-sample')
+        now = GLib.get_monotonic_time() / 1e6
+        if now - state['last'] < gap: return Gst.FlowReturn.OK
+        state['last'] = now
+        b = s.get_buffer(); st = s.get_caps().get_structure(0)
         ok, mi = b.map(Gst.MapFlags.READ)
         if ok:
             try:

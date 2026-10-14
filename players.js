@@ -190,7 +190,7 @@ async function dsOutputs(mode, vol = {}) {
   if (mode === true) mode = 'both'; if (mode === false) mode = '';
   for (const m of await loaded()) await run('pactl', ['unload-module', m.id]);
   dsMode = mode || '';
-  if (!mode) { dsWrite({ path: 'jack' }); return { ok: true }; }
+  if (!mode) { clearInterval(padPin); dsWrite({ path: 'jack' }); return { ok: true }; }
   let sink = await dsSink();
   if (!sink) {
     const card = await dsCard();
@@ -207,8 +207,24 @@ async function dsOutputs(mode, vol = {}) {
       `channels=${stereo ? 2 : 1}`, `master_channel_map=${map}`, `channel_map=${stereo ? 'front-left,front-right' : 'mono'}`, 'remix=no']);
     if (!r) return { ok: false, error: `The ${label.toLowerCase()} could not be set up.` };
   }
+  await pinPadOutputs();
   const w = dsWrite({ path: mode, speaker: vol.speaker ?? 80, headphones: vol.headphones ?? 80 });
+  clearInterval(padPin); padPin = setInterval(() => { if (dsMode) pinPadOutputs(); }, 10000);
   return w.ok ? { ok: true } : { ok: false, error: w.error };
+}
+/* PipeWire does not always connect a new output to the device it was made for: it can fall back
+   to the default output (the laptop speakers), so "Controller speaker" played on the laptop. Each
+   controller output's stream is moved onto the controller itself, and checked again every 10
+   seconds, since reconnecting the controller makes its sound device anew. */
+let padPin = 0;
+async function pinPadOutputs() {
+  const sink = await dsSink(); if (!sink) return;
+  const j = await run('pactl', ['-f', 'json', 'list', 'sink-inputs']); if (!j) return;
+  let l; try { l = JSON.parse(j); } catch { return; }
+  for (const i of l) {
+    if (!String(i.properties?.['node.name'] || '').startsWith('output.bladedeck_pad_') || i.sink === sink.index) continue;
+    await run('pactl', ['move-sink-input', String(i.index), sink.name]);
+  }
 }
 
 /* -------------------------------------------------------------- multi-screen */
@@ -375,7 +391,7 @@ function register(d) {
 // (Synchronous: it runs while Bladedeck quits.)
 function stop() {
   closeP2();
-  for (const p of pins.values()) clearInterval(p.t); pins.clear();
+  for (const p of pins.values()) clearInterval(p.t); pins.clear(); clearInterval(padPin);
   if (process.platform === 'linux') {
     try {
       const out = require('child_process').execFileSync('pactl', ['list', 'short', 'modules'], { encoding: 'utf8', timeout: 3000 });
