@@ -1404,7 +1404,9 @@ body.np-on #console, body.run-on #console { left: calc(360px + var(--sx)); } bod
 #safe-marks b { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,.75); color: #fff; padding: 10px 18px; border-radius: 999px; font-weight: 500; }
 
 /* Living background: the day's light and the season's hue on the background layers only. */
-#bg, #scene, #wall, #showcase { filter: var(--tod-filter, none); transition: filter 30s linear; }
+/* The time-of-day tint: as a CSS filter only on the still wallpaper. On the moving layers it made the
+   graphics card re-tint the whole screen every frame; the ribbon tints itself on its small canvas. */
+#wall { filter: var(--tod-filter, none); transition: filter 30s linear; }
 
 /* Depth staging: background, glass panels, content tiles and the status bar on layers of their own. */
 body.depth #top { background: linear-gradient(180deg, color-mix(in srgb, var(--panel-solid) 55%, transparent), color-mix(in srgb, var(--panel-solid) 18%, transparent)); backdrop-filter: blur(12px) saturate(1.2); border-bottom: 1px solid color-mix(in srgb, var(--glass-edge) 45%, transparent); box-shadow: 0 6px 22px color-mix(in srgb, var(--shadow) 60%, transparent); }

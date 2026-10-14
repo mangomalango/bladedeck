@@ -129,6 +129,7 @@ function startBg() {
     const n = R.count ?? 5, alpha = R.alpha ?? 0.3, speed = (R.speed ?? 0.3) * (still ? 0 : 1);
     const thick = (R.width || 100) / 2;
     x.clearRect(0, 0, w, h);
+    x.filter = document.documentElement.style.getPropertyValue('--tod-filter') || 'none';
     x.globalCompositeOperation = R.blend || 'source-over';
     for (let i = 0; i < n; i++) {
       const col = cols[i % cols.length];
@@ -152,7 +153,8 @@ function startBg() {
       return;
     }
     requestAnimationFrame(frame);
-    if (ts - last < 33) return; // a game has the screen: no drawing
+    // 20 frames a second (it moves slowly), 10 once nobody has touched anything for a minute.
+    if (ts - last < (Date.now() - menuInputAt > 60000 ? 100 : 50)) return;
     drawn = S.theme?.id; last = ts; draw(ts / 1000);
   }
   function ensureLoop() {
@@ -1487,7 +1489,10 @@ function openSettings() {
 /* ---------------------------------------------------------------- input (keyboard + gamepad share one dispatcher) */
 function activate() { if (S.sel) launch(S.sel); }
 
-function handle(a) { Atmos.poke(); handleInput(a); hints(); if (a === 'up' || a === 'down' || a === 'left' || a === 'right') Players.bump(); }
+// When the player last did anything (the background slows down after a quiet minute).
+let menuInputAt = Date.now();
+for (const t of ['keydown', 'pointerdown', 'pointermove', 'wheel']) addEventListener(t, () => { menuInputAt = Date.now(); }, { passive: true, capture: true });
+function handle(a) { menuInputAt = Date.now(); Atmos.poke(); handleInput(a); hints(); if (a === 'up' || a === 'down' || a === 'left' || a === 'right') Players.bump(); }
 /* The hint bar says what the buttons do where you are, so Y reads "Close…" in the Running list
    and the dock rather than "Edit". */
 let hintsDefault = null, hintsNow = '';
