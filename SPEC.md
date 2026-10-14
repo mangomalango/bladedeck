@@ -39,8 +39,12 @@ Linux leads; Windows matches it or says plainly that it cannot (WINDOWS.md's tab
 - Launching any game type returns to the menu when the game closes, and counts playtime.
 - Downloads land in the chosen folder, archives extract with 7-Zip, and games from Browse join
   the library. Files only sees Bladedeck's folder and folders the player allowed.
-- Nearby, phone pairing and file sending speak the same protocol (UDP 47617, TCP 47618-47627):
+- Nearby, phone pairing and file sending speak the same protocol (UDP 47617, TCP 47618-47628):
   a Linux Bladedeck and a Windows one must see each other and send files both ways.
+- ROM sync (romsync.js): pairing over Nearby (`sync-ask` / `sync-yes` / `sync-no` /
+  `sync-please` messages), files over HTTP on TCP 47628 with the pair's secret in `x-bd-sync`.
+  Same rules on both: single-file ROMs and cue/m3u sets only; the home drive keeps
+  max(20 GB, 10%) free; other drives get `<drive>/Bladedeck ROMs`.
 - Online lookups (clips, music, game info) send only a game's title or Steam id.
 
 ## 4. Test copies
@@ -219,6 +223,12 @@ that list in main.js.
 | `gameMusic(e)` | `game-music` | call | gamemusic.js |
 | `onlineMedia(e, kind)` | `online-media` | call | onlinemedia.js |
 | `gameInfo(e)` | `game-info` | call | gameinfo.js |
+| `romsyncState()` | `romsync-state` | call | romsync.js |
+| `romsyncPair(id)` | `romsync-pair` | call | romsync.js |
+| `romsyncAnswer(id, yes)` | `romsync-answer` | call | romsync.js |
+| `romsyncSync(id)` | `romsync-sync` | call | romsync.js |
+| `romsyncSet(id, o)` | `romsync-set` | call | romsync.js |
+| `onRomsync(cb)` | `romsync-event` | event | main process sends it |
 | `onlineMediaAnother(e, kind)` | `online-media-another` | call | onlinemedia.js |
 | `onlineMediaInfo(id)` | `online-media-info` | call | onlinemedia.js |
 | `onlineMediaStats()` | `online-media-stats` | call | onlinemedia.js |

@@ -1698,3 +1698,13 @@ body.hdmi-on > #top, body.hdmi-on > #hints { opacity: 0; pointer-events: none; }
 .bt-dev > i { font-style: normal; font-size: 22px; }
 .bt-dev > div { flex: 1; display: flex; flex-direction: column; }
 .bt-dev span { font-size: .85em; opacity: .7; }
+
+/* ---------------------------------------------------------------- ROM sync */
+.rs-p { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; margin-bottom: 8px; border-radius: 12px; background: rgba(255,255,255,.06); }
+.rs-p > div:first-child { display: grid; gap: 2px; min-width: 0; }
+.rs-p small { color: var(--ink-dim); }
+.rs-b { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.rs-d { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rs-d td { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.08); overflow-wrap: anywhere; }
+.rs-d .warn { color: #ffb36b; }
+.rs-live { min-height: 1.2em; color: var(--accent-hi); }

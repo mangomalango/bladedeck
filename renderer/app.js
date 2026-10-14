@@ -303,6 +303,7 @@ function systemGroups() {
       { id: 'sys-gog', title: 'Scan GOG games', sub: 'Find GOG installs and Heroic games', glyph: 'G', run: () => scanGog() },
       { id: 'sys-moon', title: 'Moonlight streaming', sub: 'Play games streamed from your other PCs', glyph: '☾', run: () => moonlightMenu() },
       { id: 'sys-art', title: 'Find missing art', sub: 'Covers and backgrounds from Steam and SteamGridDB', glyph: '🖼', run: () => Art.fillAll() },
+      { id: 'sys-romsync', title: 'ROM sync', sub: 'Your PCs share the ROMs each is missing, keeping room on their drives', glyph: '🔄', run: () => RomSync.open() },
       { id: 'sys-dl', title: 'Downloads', sub: 'What is downloading, where it goes, extract', glyph: '⬇', run: () => WebDl.open() }] },
     { id: 'grp-soft', title: 'Gaming software', sub: 'Emulators, launchers, Minecraft and extras', glyph: '◉', children: [
       { id: 'sys-emu', title: 'Emulators', sub: 'Add, edit and scan game folders', glyph: '◉', run: manageEmulators },

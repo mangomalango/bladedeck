@@ -56,8 +56,9 @@ async function cdp(expr) {
   const args = [path.join(__dirname, 'testcopy.js'), '--dir', dir, '--port', String(PORT), '--seconds', '600', ...(process.argv.includes('--empty') ? [] : ['--real'])];
   const tc = spawn(process.execPath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
   let log = ''; tc.stdout.on('data', (d) => { log += d; }); tc.stderr.on('data', (d) => { log += d; });
+  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => { tc.kill('SIGTERM'); process.exit(1); });
   let up = false;
-  for (let i = 0; i < 60 && !up; i++) { await wait(1000); try { up = (await cdp('typeof allSystemActions === "function" && !!S.lib')) === true; } catch { /* starting */ } }
+  for (let i = 0; i < 60 && !up; i++) { await wait(1000); if (/is taken/.test(log)) break; try { up = (await cdp('typeof allSystemActions === "function" && !!S.lib')) === true; } catch { /* starting */ } }
   if (!up) { console.error('The test copy did not come up.\n' + log); tc.kill(); process.exit(1); }
   await wait(4000);
   await cdp(PAGE);

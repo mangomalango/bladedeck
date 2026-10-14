@@ -30,7 +30,9 @@ const probe = require('net').createServer().once('error', () => { console.log(`P
 probe.listen(+port, '127.0.0.1', () => probe.close(start));
 function start() {
 console.log(`Test copy in ${dir}, DevTools on ${port}, quits in ${seconds}s.`);
-const p = spawn(electron, ['.', '--mute-audio', `--remote-debugging-port=${port}`], { cwd: root, stdio: 'inherit', env: { ...process.env, BLADEDECK_TEST: dir } });
+const p = spawn(electron, ['.', '--mute-audio', `--remote-debugging-port=${port}`], { cwd: root, stdio: 'inherit', env: { ...process.env, BLADEDECK_TEST: dir, BLADEDECK_TEST_SECONDS: String(seconds), BLADEDECK_TEST_PARENT: String(process.pid) } });
+// Stopped from outside (Ctrl+C, a timeout): the copy goes too. It also checks for this process itself.
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => { p.kill('SIGKILL'); process.exit(1); });
 const t = setTimeout(() => { console.log('Time is up: closing the test copy.'); p.kill(); setTimeout(() => p.kill('SIGKILL'), 3000).unref(); }, seconds * 1000);
 p.on('exit', () => { clearTimeout(t); console.log(`Test copy closed. Its files: ${dir}`); });
 }

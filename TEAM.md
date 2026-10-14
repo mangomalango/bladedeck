@@ -111,7 +111,7 @@ These need hands, hardware or a decision. Keep this list current; tick and date 
 
 - [ ] Restart the Linux Bladedeck once (a test copy broke its window tracking on 2026-10-14).
 - [ ] Linux firewall for Nearby (needs your password, home network only):
-      `sudo ufw allow proto udp from 192.168.0.0/16 to any port 47617 && sudo ufw allow proto tcp from 192.168.0.0/16 to any port 47618:47627`
+      `sudo ufw allow proto udp from 192.168.0.0/16 to any port 47617 && sudo ufw allow proto tcp from 192.168.0.0/16 to any port 47618:47628`
 - [ ] Nearby both ways: each PC sees the other; send a file each way and press Accept.
 - [ ] Windows firewall: Bladedeck is allowed on all ports, Private and Public. Keep it, or limit
       it to Private? (Your call.)

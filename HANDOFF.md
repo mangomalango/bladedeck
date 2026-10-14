@@ -8,7 +8,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-Task IDs and cards: see TEAM.md (next free ID: BD-005).
+Task IDs and cards: see TEAM.md (next free ID: BD-008).
 
 - **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
   .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
@@ -32,6 +32,15 @@ Task IDs and cards: see TEAM.md (next free ID: BD-005).
   a dotted folder gets a junk "extension" (it never matches a list, so it is harmless).
 - **BD-003** · both · Gemini · Audit master `53c2aac..dfe66ea` (Nearby hint, clip scoring, game
   info, Downloads, archive.js, test-copy mode, ROM tidy, SPEC check) with `/bladedeck-audit`.
+- **BD-005** · windows · Claude (Windows) · Bring the newest Linux build to Windows: merge master,
+  `npm run check`, `npm run sweep` (a test copy walks every System item, blade, game, Settings tab
+  and PC window and prints errors). Fix Windows-only breakage behind win32; report the sweep's output.
+- **BD-006** · windows · Claude (Windows) · ROM sync on Windows: `require('./romsync').plan()` lists
+  the drives from PowerShell (C:\ as home, other fixed and USB drives), `pick()` honours the
+  keep-free rule. Windows Firewall must let TCP 47628 in (Private only; ask the owner before any
+  rule change). Contract: SPEC §3 ROM sync.
+- **BD-007** · both · owner + both Claudes · A real ROM sync Linux <-> Windows once both firewalls
+  allow it: pair from ROM sync (System, Games and library), Sync now, the games join the library.
 - **BD-004** · both · owner + Claude (Linux) · Nearby both ways once the Linux firewall line is run:
   each PC lists the other, a file goes each way with Accept. Contract: SPEC §3 Nearby.
 

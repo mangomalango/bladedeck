@@ -15,10 +15,17 @@ const Net = require('./net');
 const TEST = process.env.BLADEDECK_TEST || '';
 if (TEST) {
   app.setPath('userData', path.resolve(TEST));
-  const BLOCK = /^(launch|split-launch|sys-power|sys-brightness|sys-wifi-connect|sys-wifi-off|bt-(connect|pair|power|scan)|sound-(set|player-sink|follow)|ms-(open|close|extend|place-main|pin-sound|menu)|ds-set|pads-claim|win-act|focus-pid|proc-freeze|peek-\w+|steamlink-(sync|restart)|steam-sleep-fix|companion-(enable|ring|alarms)|lan-(set|offer|send|accept)|net-(hello|poke)|dns-(system|app)|emu-install|emu-install-win|emu-gh-install|moonlight-open|mc-open|dock-open|webapp-open|capture-(record|replay|game|stop)|live-start|presence|discord-set|keep-on-top|open-link|fs-open|fs-reveal|bios-open|capture-open|extras-update|backup-restore|backup-import|xfer-to-phone|quit)$/;
+  const BLOCK = /^(launch|split-launch|sys-power|sys-brightness|sys-wifi-connect|sys-wifi-off|bt-(connect|pair|power|scan)|sound-(set|player-sink|follow)|ms-(open|close|extend|place-main|pin-sound|menu)|ds-set|pads-claim|win-act|focus-pid|proc-freeze|peek-\w+|steamlink-(sync|restart)|steam-sleep-fix|companion-(enable|ring|alarms)|lan-(set|offer|send|accept)|romsync-(pair|answer|sync)|net-(hello|poke)|dns-(system|app)|emu-install|emu-install-win|emu-gh-install|moonlight-open|mc-open|dock-open|webapp-open|capture-(record|replay|game|stop)|live-start|presence|discord-set|keep-on-top|open-link|fs-open|fs-reveal|bios-open|capture-open|extras-update|backup-restore|backup-import|xfer-to-phone|quit)$/;
   const handle = ipcMain.handle.bind(ipcMain);
   ipcMain.handle = (ch, fn) => handle(ch, BLOCK.test(ch) ? () => { console.log(`[test copy] blocked ${ch}`); return null; } : fn);
   ipcMain.on('bd-test', (e) => { e.returnValue = true; });
+  // It quits by itself: at its time limit, or as soon as whatever started it is gone, so a test
+  // copy can never be left running (one was once, at full speed, for half an hour).
+  const until = Date.now() + (+process.env.BLADEDECK_TEST_SECONDS || 600) * 1000, parent = +process.env.BLADEDECK_TEST_PARENT || 0;
+  setInterval(() => {
+    let alive = true; if (parent) { try { process.kill(parent, 0); } catch { alive = false; } }
+    if (Date.now() > until || !alive) { console.log('[test copy] closing by itself'); app.exit(0); }
+  }, 2000).unref();
 } else ipcMain.on('bd-test', (e) => { e.returnValue = false; });
 
 // ---------------------------------------------------------------- defaults
@@ -1056,6 +1063,7 @@ require('./minecraft').register();
 require('./moonlight').register();
 require('./onlinemedia').register(() => loadLib().settings);
 require('./gameinfo').register(() => loadLib().settings);
+require('./romsync').register({ getWin: () => win, loadLib });
 require('./steaminput').register();
 require('./bluetooth').register();
 require('./steamlink').register({ command, loadLib });
