@@ -19,6 +19,19 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Log
 
+- **2026-10-14, Claude (Linux):** Night shift (`scripts/nightly/`): a systemd user timer runs
+  `nightly.sh` at 01:00. Gemini reviews (gemini-prompt.md, NIGHTLY-REVIEW-gemini.md), then Claude
+  verifies and fixes in passes until 07:00, its usage limit, or "NOTHING LEFT" (claude-prompt.md,
+  NIGHTLY-REPORT.md). Each works in its own worktree under ~/Downloads/bladedeck-nightly on
+  nightly/<date>-<who>, based on local master; nothing is pushed. Claude runs with acceptEdits and
+  an allow-list (npm run check, node --check, read-only git and file commands, git add/commit);
+  push, rm, installs and builds are refused (smoke-tested: check ran, push was denied). Gemini CLI
+  0.64 refuses the owner's current sign-in (Code Assist for individuals retired; needs
+  GEMINI_API_KEY), so it skips until a key is set. The Linux session reviews the branches in the
+  morning. Off: scripts/nightly/install-timer.sh off.
+  Also idle CPU: time-of-day tint only on #wall, ribbon 20/10 fps, glass only on the open blade
+  (86% -> 40% of a core on Linux, menu idle).
+
 - **2026-10-14, Claude (Linux):** Steam Input for every game (`steamlink.js`, `renderer/steamlink.js`,
   Settings, Games, "Start games through Steam", on by default). Every exe/recomp/gog/rom entry becomes a
   non-Steam game tagged "Bladedeck" in Steam's shortcuts.vdf (binary VDF; round-trip byte-identical on
