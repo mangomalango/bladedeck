@@ -44,7 +44,7 @@ run_gemini() {
   ( cd "$dir" && timeout 3h gemini --skip-trust --approval-mode auto_edit -p "$(cat "$HERE/gemini-prompt.md")" ) > "$LOG/gemini.txt" 2>&1
   say "Gemini finished (exit $?)"; limited "$LOG/gemini.txt" && say "Gemini hit its usage limit"
   # Google retired Code Assist for individuals in this CLI; it then needs GEMINI_API_KEY.
-  grep -q -E "IneligibleTierError|no longer supported" "$LOG/gemini.txt" && say "Gemini's sign-in is no longer accepted by the CLI: set GEMINI_API_KEY (Google AI Studio) to bring it back"
+  grep -q -E "IneligibleTierError|no longer supported" "$LOG/gemini.txt" && say "Gemini's sign-in is no longer accepted by the CLI: set GEMINI_API_KEY (Google AI Studio), or open the repository in Antigravity and run /bladedeck-review (.agents/workflows)"
   ( cd "$dir" && git add -A -- . ':!node_modules' && git commit -q -m "Night shift ($DAY): Gemini review" ) && say "Gemini's work committed on nightly/$DAY-gemini"
 }
 

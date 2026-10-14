@@ -26,7 +26,7 @@ function same(a, b) {
   const x = words(a), y = words(b); if (!x.length || !y.length) return false;
   const hit = x.filter((w) => y.includes(w)).length;
   const nums = (l) => l.filter((w) => /^(\d+|ii|iii|iv|v|vi)$/.test(w)).join(' ');
-  return hit / x.length >= 0.75 && hit / y.length >= 0.5 && nums(x) === nums(y);
+  return hit / x.length >= 0.75 && hit / y.length >= 0.6 && nums(x) === nums(y);
 }
 async function json(url) {
   const r = await net.fetch(url, { headers: { 'User-Agent': 'Bladedeck (https://github.com/mangomalango/bladedeck)' } });

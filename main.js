@@ -532,6 +532,7 @@ ipcMain.handle('scan-steam', (_e, custom) => {
   return { games };
 });
 
+const WINE_DIR = /^(drive_c|dosdevices|compatdata|shadercache|pfx|AppData|node_modules)$/i;
 ipcMain.handle('scan-roms', (_e, { exts, dirs }) => {
   const want = new Set(exts.map((x) => x.toLowerCase()));
   const found = [];
@@ -541,7 +542,8 @@ ipcMain.handle('scan-roms', (_e, { exts, dirs }) => {
     try { items = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
     for (const it of items) {
       const fp = path.join(dir, it.name);
-      if (it.isDirectory()) walk(fp, depth + 1);
+      // Wine and Proton prefixes hold a Windows install's caches, never games for an emulator.
+      if (it.isDirectory()) { if (!WINE_DIR.test(it.name) && !it.name.startsWith('.')) walk(fp, depth + 1); }
       else if (want.has(path.extname(it.name).slice(1).toLowerCase())) found.push(fp);
     }
   };

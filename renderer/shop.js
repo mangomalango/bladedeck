@@ -369,7 +369,32 @@ const Watch = (() => {
   const INSTALLER = /setup|install|unins|redist|vc_redist|dxsetup|update|patch|crack/i;
   const madeDirs = new Set();
 
+  /* Consoles whose game is a folder with a fixed file in it (Xbox 360 default.xex, PS3 EBOOT.BIN
+     under PS3_GAME/USRDIR): the folder names the game, without release tags like .EUR.X360-ZTM. */
+  const FIXED = /^(default\.(xex|xbe)|eboot\.bin)$/i;
+  const up = (p) => p.replace(/[\\/][^\\/]*$/, '');
+  const scene = (n) => n.replace(/[._]+/g, ' ').replace(/-[A-Za-z0-9]+$/, '').replace(/\b(EUR|USA|PAL|NTSC|JPN|JP|US|EU|X360|XBOX ?360|XBOX|PS3|MULTi\d*|REPACK|PROPER|iNTERNAL|DLC|RF|XBLA|JTAG|RGH|GOD)\b/gi, ' ').replace(/\s+/g, ' ').trim();
+  function romTitle(file, em) {
+    if (!em.onlyNames && !FIXED.test(baseName(file))) return cleanTitle(file);
+    let d = up(file); while (/^(USRDIR|PS3_GAME)$/i.test(baseName(d))) d = up(d);
+    return cleanTitle(scene(baseName(d)) || baseName(d));
+  }
+  // Libraries from before these rules: junk from Wine prefixes that was never played goes, and
+  // games named "default" take their folder's name. Once.
+  function tidy() {
+    const st = S.lib.settings; if (st.romTidy >= 1) return;
+    const before = S.lib.entries.length; let renamed = 0;
+    S.lib.entries = S.lib.entries.filter((e) => !(e.type === 'rom' && e.rom && (junk(e.rom) || /NoDeps\.bin$|\.dxvk\.bin$/i.test(e.rom)) && !e.playtime));
+    for (const e of S.lib.entries) if (e.type === 'rom' && e.rom && FIXED.test(baseName(e.rom)) && e.title.toLowerCase() === cleanTitle(e.rom).toLowerCase()) {
+      const em = S.lib.emulators.find((x) => x.id === e.emulatorId) || {}; e.title = romTitle(e.rom, em); renamed++;
+    }
+    st.romTidy = 1; save();
+    const gone = before - S.lib.entries.length;
+    if (gone || renamed) { refresh(); toast(`Tidied your library: ${[gone && `${gone} files that were not games removed`, renamed && `${renamed} games named after their folder`].filter(Boolean).join(', ')}.`); }
+  }
+
   async function start() {
+    tidy();
     defaults = await api.watchDefaults();
     if (!S.lib.settings.watch) S.lib.settings.watch = { on: true, dirs: defaults.slice() };
     apply();
@@ -378,9 +403,13 @@ const Watch = (() => {
   function apply() { api.watchSet(cfg().on ? cfg().dirs : []); }
   const watchesDownloads = () => cfg().on && cfg().dirs.includes(defaults[1]);
 
+  // Caches inside a Wine or Proton prefix are never games (a .bin there is not a PS3 game).
+  const junk = (f) => /[\\/](drive_c|compatdata|shadercache|pfx)[\\/]/i.test(f);
+  // A PS3 game's .bin is its EBOOT.BIN; any other .bin belongs to other consoles or to nothing.
+  const ps3 = (em) => /playstation 3|\bps3\b|rpcs3/i.test(`${em.system} ${em.name}`);
+  const fits = (file, em) => { const ext = (file.match(/\.([^./]+)$/) || [, ''])[1].toLowerCase(); return !junk(file) && extList(em).includes(ext) && (!em.onlyNames || em.onlyNames.includes(baseName(file).toLowerCase())) && !(ext === 'bin' && ps3(em) && !/^eboot\.bin$/i.test(baseName(file))); };
   function emulatorFor(file) {
-    const ext = (file.match(/\.([^./]+)$/) || [, ''])[1].toLowerCase();
-    const can = S.lib.emulators.filter((em) => extList(em).includes(ext) && (!em.onlyNames || em.onlyNames.includes(baseName(file).toLowerCase())));
+    const can = S.lib.emulators.filter((em) => fits(file, em));
     if (can.length < 2) return can[0];
     const low = file.toLowerCase();
     return can.find((em) => (em.system || '').split(/\s*\/\s*/).some((sys) => sys && low.includes(sys.toLowerCase()))) || can[0];
@@ -388,7 +417,7 @@ const Watch = (() => {
   function addRom(file, quiet) {
     if (S.lib.entries.some((e) => e.rom === file)) return null;
     const em = emulatorFor(file); if (!em) return null;
-    const e = { id: uid(), type: 'rom', title: em.onlyNames ? cleanTitle(file.replace(/[\\/][^\\/]*$/, '')) : cleanTitle(file), rom: file, emulatorId: em.id, system: em.system || em.name, added: Date.now(), playtime: 0 };
+    const e = { id: uid(), type: 'rom', title: romTitle(file, em), rom: file, emulatorId: em.id, system: em.system || em.name, added: Date.now(), playtime: 0 };
     S.lib.entries.push(e); save();
     if (!quiet) { refresh(e.id); toast(`Added ${e.title} for ${em.name}.`, 'fun'); }
     Art.fillOne(e);
@@ -453,5 +482,5 @@ const Watch = (() => {
     apply();
   }
 
-  return { start, apply, catchUp, watchesDownloads, settingsHtml, readSettings };
+  return { start, apply, catchUp, watchesDownloads, settingsHtml, readSettings, fits, romTitle };
 })();
