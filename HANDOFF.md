@@ -76,7 +76,8 @@ Task IDs and cards: see TEAM.md (next free ID: BD-010).
 - **2026-10-14, installed:** Windows runs 0.2.3-dev = master ce9f9e1 (Help with add-ons, Network &
   sharing, ROM sync, tour chapters, readable Settings), installed by Claude (Windows) after a backup
   in Downloads\bladedeck-backups\2026-10-14-before-0.2.3-dev; sweep clean, errors.log empty. Linux
-  still runs the installed 0.2.2 AppImage (waiting for the owner to close Bladedeck). No release.
+  runs 0.2.3-dev = master e609d1c too (built with npm run dist, start-tested in test mode, old
+  app and config backed up in ~/Downloads/bladedeck-backups/2026-10-14-before-linux-0.2.3-dev). No release.
 
 - **2026-10-14, Claude (Linux, lead):** Owner's asks: network privacy, Help, tutorial, readable Settings.
   Network & sharing (`netshare.js`, `renderer/netshare.js`, a Settings tab): Nearby, and ROM sync
