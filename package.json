@@ -10,6 +10,7 @@
     "rollback": "node scripts/rollback.js",
     "check": "node scripts/check.js && node scripts/spec.js",
     "spec": "node scripts/spec.js",
+    "sweep": "node scripts/sweep.js",
     "test-copy": "node scripts/testcopy.js"
   },
   "devDependencies": {
