@@ -25,7 +25,12 @@ fs.writeFileSync(path.join(dir, 'library.json'), JSON.stringify(lib));
 
 const electron = require(path.join(root, 'node_modules', 'electron'));
 const port = arg('--port', '9333'), seconds = +arg('--seconds', '180');
+// One test copy at a time on a port: two would answer each other's checks with old code.
+const probe = require('net').createServer().once('error', () => { console.log(`Port ${port} is taken: another test copy is still running. Wait for it, or use --port.`); process.exit(1); });
+probe.listen(+port, '127.0.0.1', () => probe.close(start));
+function start() {
 console.log(`Test copy in ${dir}, DevTools on ${port}, quits in ${seconds}s.`);
 const p = spawn(electron, ['.', '--mute-audio', `--remote-debugging-port=${port}`], { cwd: root, stdio: 'inherit', env: { ...process.env, BLADEDECK_TEST: dir } });
 const t = setTimeout(() => { console.log('Time is up: closing the test copy.'); p.kill(); setTimeout(() => p.kill('SIGKILL'), 3000).unref(); }, seconds * 1000);
 p.on('exit', () => { clearTimeout(t); console.log(`Test copy closed. Its files: ${dir}`); });
+}

@@ -303,7 +303,7 @@ function systemGroups() {
       { id: 'sys-gog', title: 'Scan GOG games', sub: 'Find GOG installs and Heroic games', glyph: 'G', run: () => scanGog() },
       { id: 'sys-moon', title: 'Moonlight streaming', sub: 'Play games streamed from your other PCs', glyph: '☾', run: () => moonlightMenu() },
       { id: 'sys-art', title: 'Find missing art', sub: 'Covers and backgrounds from Steam and SteamGridDB', glyph: '🖼', run: () => Art.fillAll() },
-      { id: 'sys-dl', title: 'Downloads', sub: 'What is downloading, and what finished', glyph: '⬇', run: () => Notify.open() }] },
+      { id: 'sys-dl', title: 'Downloads', sub: 'What is downloading, where it goes, extract', glyph: '⬇', run: () => WebDl.open() }] },
     { id: 'grp-soft', title: 'Gaming software', sub: 'Emulators, launchers, Minecraft and extras', glyph: '◉', children: [
       { id: 'sys-emu', title: 'Emulators', sub: 'Add, edit and scan game folders', glyph: '◉', run: manageEmulators },
       { id: 'sys-hdmi', title: 'Console (capture card)', sub: 'Play an Xbox, PlayStation or any console through an HDMI capture card', glyph: '📼', run: () => Hdmi.open() },
@@ -1171,13 +1171,13 @@ async function scanRoms(em) {
   if (!exts.length || !em.romDirs?.length) { toast(`Set game folders and file types for ${em.name} first.`, 'err'); return; }
   toast(`Scanning ${em.name} folders`);
   let files = await api.scanRoms({ exts, dirs: em.romDirs });
-  // PS4 games are folders: only their eboot.bin counts.
-  if (em.onlyNames) files = files.filter((f) => em.onlyNames.includes(baseName(f).toLowerCase()));
+  // Only files that are this emulator's games (PS4 and PS3: their eboot.bin), no caches from Wine prefixes either.
+  files = files.filter((f) => Watch.fits(f, em));
   const have = new Set(S.lib.entries.filter((e) => e.type === 'rom').map((e) => e.rom));
   let added = 0;
   for (const f of files) {
     if (have.has(f)) continue;
-    S.lib.entries.push({ id: uid(), type: 'rom', title: em.onlyNames ? cleanTitle(f.replace(/[\\/][^\\/]*$/, '')) : cleanTitle(f), rom: f, emulatorId: em.id, system: em.system || em.name, added: Date.now(), playtime: 0 });
+    S.lib.entries.push({ id: uid(), type: 'rom', title: Watch.romTitle(f, em), rom: f, emulatorId: em.id, system: em.system || em.name, added: Date.now(), playtime: 0 });
     added++;
   }
   save(); refresh();
@@ -1190,7 +1190,7 @@ function handleDrop(paths) {
   for (const p of paths) {
     const ext = (p.match(/\.([^./\\]+)$/) || [, ''])[1].toLowerCase();
     const em = S.lib.emulators.find((x) => extList(x).includes(ext));
-    if (em) made.push({ id: uid(), type: 'rom', title: cleanTitle(p), rom: p, emulatorId: em.id, system: em.system || em.name, added: Date.now(), playtime: 0 });
+    if (em) made.push({ id: uid(), type: 'rom', title: Watch.romTitle(p, em), rom: p, emulatorId: em.id, system: em.system || em.name, added: Date.now(), playtime: 0 });
     else if (prog.includes(ext) || !ext) made.push({ id: uid(), type: 'exe', title: cleanTitle(p), exe: p, added: Date.now(), playtime: 0 });
   }
   if (!made.length) { toast('That file type is not a program or a known emulator game.', 'err'); return; }
