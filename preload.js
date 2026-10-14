@@ -1,5 +1,8 @@
 'use strict';
-const { contextBridge, ipcRenderer, webUtils } = require('electron');
+const { contextBridge, ipcRenderer, webUtils, webFrame } = require('electron');
+
+// A test copy (main.js TEST) never sees the owner's controller: it reads it even in the background.
+if (ipcRenderer.sendSync('bd-test')) webFrame.executeJavaScript('navigator.getGamepads = () => []; window.__bdTest = true;');
 
 contextBridge.exposeInMainWorld('bladedeck', {
   load: () => ipcRenderer.invoke('load'),
