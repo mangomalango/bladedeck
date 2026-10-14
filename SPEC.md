@@ -224,6 +224,7 @@ that list in main.js.
 | `onlineMedia(e, kind)` | `online-media` | call | onlinemedia.js |
 | `gameInfo(e)` | `game-info` | call | gameinfo.js |
 | `netshareStatus()` | `netshare-status` | call | netshare.js |
+| `netshareRules()` | `netshare-rules` | call | netshare.js |
 | `netshareFirewall(pub)` | `netshare-firewall` | call | netshare.js |
 | `netshareApply()` | `netshare-apply` | call | netshare.js |
 | `romsyncState()` | `romsync-state` | call | romsync.js |

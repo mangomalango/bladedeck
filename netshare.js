@@ -15,9 +15,26 @@ const LAN = require('./lan');
 let settings = () => ({}), cur = null, last = null;
 const ps = (cmd, cb, timeout = 20000) => execFile('powershell.exe', ['-NoProfile', '-Command', cmd], { timeout, windowsHide: true }, cb);
 
-// The network this PC is on now: its name and, on Windows, Private or Public.
-function look() {
+/* The network this PC is on now: its name, on Windows Private or Public, and its router's
+   hardware address. Names alone are not enough: Windows calls every wired network "Network" and
+   Linux "Wired connection 1", so a café's would pass for home. A home network is remembered as
+   name@router, and a bare name only counts when it is not one of those generic ones. */
+const GENERIC = /^(network( \d+)?|unidentified network|ethernet( \d+)?|wired connection \d+|)$/i;
+const idOf = (n) => (n.router ? `${n.name}@${n.router}` : n.name);
+function router() {
   return new Promise((res) => {
+    if (process.platform === 'win32') {
+      ps("$g = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Sort-Object RouteMetric | Select-Object -First 1).NextHop; if ($g) { (Get-NetNeighbor -IPAddress $g -ErrorAction SilentlyContinue | Select-Object -First 1).LinkLayerAddress }", (err, out) => res(String(out || '').trim().toLowerCase().replace(/-/g, ':')));
+      return;
+    }
+    execFile('ip', ['route', 'show', 'default'], { timeout: 5000 }, (err, out) => {
+      const gw = (String(out || '').match(/via (\S+)/) || [])[1]; if (!gw) return res('');
+      execFile('ip', ['neigh', 'show', gw], { timeout: 5000 }, (e2, o2) => res(((String(o2 || '').match(/lladdr (\S+)/) || [])[1] || '').toLowerCase()));
+    });
+  });
+}
+function look() {
+  const named = new Promise((res) => {
     if (process.platform === 'win32') {
       ps("Get-NetConnectionProfile | Where-Object { $_.InterfaceAlias -notmatch 'vEthernet|Tailscale|Loopback' } | Select-Object Name,NetworkCategory | ConvertTo-Json", (err, out) => {
         let l = []; try { l = [].concat(JSON.parse(out || '[]')); } catch { /* none */ }
@@ -31,20 +48,25 @@ function look() {
       res(n ? { name: n[0], category: '' } : null);
     });
   });
+  return Promise.all([named, router().catch(() => '')]).then(([n, r]) => (n ? { ...n, router: /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/.test(r) && r !== '00:00:00:00:00:00' ? r : '', generic: GENERIC.test(n.name) } : null)).then((n) => (n ? { ...n, id: idOf(n) } : null));
 }
+const isHome = (n, homes) => !!n && (homes.includes(n.id) || (!n.generic && homes.includes(n.name)));
 // Home, or sharing everywhere: Nearby may run. Unknown (no network tool, nothing marked yet) is home.
 function allowed() {
   const st = settings();
   if (st.publicNetworks === true || !cur || !Array.isArray(st.homeNets)) return true;
   if (cur.category === 'Private' || cur.category === 'DomainAuthenticated') return true;
-  return st.homeNets.includes(cur.name);
+  return isHome(cur, st.homeNets);
+}
+function summary() {
+  const home = !!cur && (cur.category === 'Private' || cur.category === 'DomainAuthenticated' || isHome(cur, settings().homeNets || []));
+  return { network: cur, home, sharing: allowed() };
 }
 async function refresh() {
   cur = await look().catch(() => null);
   const ok = allowed();
   if (ok !== last) { last = ok; LAN.apply?.(); }
-  const home = !!cur && (cur.category === 'Private' || cur.category === 'DomainAuthenticated' || (settings().homeNets || []).includes(cur.name));
-  return { network: cur, home, sharing: ok };
+  return summary();
 }
 
 // Windows Firewall: Bladedeck's inbound rules and the network kinds they cover.
@@ -68,11 +90,9 @@ function register({ getSettings }) {
   LAN.setGate?.(allowed);
   refresh();
   setInterval(refresh, 30000).unref?.();
-  ipcMain.handle('netshare-status', async () => {
-    const r = await refresh();
-    const fw = process.platform === 'win32' ? { kind: 'windows', rules: await winRules() } : { kind: 'linux', ufw: LAN.firewall?.() || null };
-    return { ...r, platform: process.platform, firewall: fw };
-  });
+  // Quick: what is known now (looked up every 30 s); the firewall, slow on Windows, on its own.
+  ipcMain.handle('netshare-status', async () => ({ ...(cur ? summary() : await refresh()), platform: process.platform }));
+  ipcMain.handle('netshare-rules', async () => (process.platform === 'win32' ? { kind: 'windows', rules: await winRules() } : { kind: 'linux', ufw: LAN.firewall?.() || null }));
   ipcMain.handle('netshare-firewall', async (_e, pub) => (process.platform === 'win32' ? { ok: await winSet(!!pub), rules: await winRules() } : { ok: false }));
   ipcMain.handle('netshare-apply', () => refresh());
 }

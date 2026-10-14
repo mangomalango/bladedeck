@@ -171,6 +171,7 @@ contextBridge.exposeInMainWorld('bladedeck', {
   onlineMedia: (e, kind) => ipcRenderer.invoke('online-media', e, kind),
   gameInfo: (e) => ipcRenderer.invoke('game-info', e),
   netshareStatus: () => ipcRenderer.invoke('netshare-status'),
+  netshareRules: () => ipcRenderer.invoke('netshare-rules'),
   netshareFirewall: (pub) => ipcRenderer.invoke('netshare-firewall', pub),
   netshareApply: () => ipcRenderer.invoke('netshare-apply'),
   romsyncState: () => ipcRenderer.invoke('romsync-state'),

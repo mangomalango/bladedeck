@@ -21,14 +21,17 @@ const NetShare = (() => {
     const now = $('.ns-now', root), fw = $('.ns-fw', root); if (!now) return;
     const r = await api.netshareStatus().catch(() => null);
     if (!now.isConnected) return;
-    const homes = st().homeNets || [];
-    const n = r?.network;
+    const homes = st().homeNets || [], label = (h) => String(h).replace(/@[0-9a-f:]{17}$/, '');
+    const n = r?.network, mine = n && (homes.includes(n.id) || (!n.generic && homes.includes(n.name)));
     now.innerHTML = !n ? '<div class="ns-card"><b>📶 No network found</b><small>Nearby starts when this PC is on a network.</small></div>'
       : `<div class="ns-card ${r.home ? 'ok' : 'warn'}"><b>📶 ${esc(n.name || 'This network')}${n.category ? ` <span class="ns-tag">${esc(n.category === 'DomainAuthenticated' ? 'Work' : n.category)}</span>` : ''}</b>
         <small>${r.home ? 'Your home network: Bladedeck shows itself here.' : r.sharing ? 'Not a home network, but you share on public networks too.' : 'Not your home network, so Bladedeck stays hidden here.'}</small>
-        <div class="btns">${!r.home && n.name ? '<button type="button" data-ns="home">This is my home network</button>' : ''}${homes.includes(n.name) ? '<button type="button" data-ns="unhome">Not my home network</button>' : ''}</div></div>`
-        + (homes.filter((h) => h !== n.name).length ? `<p class="note">Other home networks: ${homes.filter((h) => h !== n.name).map((h) => `${esc(h)} <button type="button" class="ns-x" data-ns="forget" data-n="${esc(h)}" aria-label="Forget ${esc(h)}">✕</button>`).join(' · ')}</p>` : '');
-    const f = r?.firewall;
+        ${n.generic && !n.router ? '<small>Its name is one every wired network has, and its router could not be read, so it cannot be told apart from others with that name.</small>' : ''}
+        <div class="btns">${!r.home && n.name ? '<button type="button" data-ns="home">This is my home network</button>' : ''}${mine ? '<button type="button" data-ns="unhome">Not my home network</button>' : ''}</div></div>`
+        + (homes.filter((h) => h !== n.id && h !== n.name).length ? `<p class="note">Other home networks: ${homes.filter((h) => h !== n.id && h !== n.name).map((h) => `${esc(label(h))} <button type="button" class="ns-x" data-ns="forget" data-n="${esc(h)}" aria-label="Forget ${esc(label(h))}">✕</button>`).join(' · ')}</p>` : '');
+    // The firewall answers slowly on Windows: it fills in when it comes.
+    const f = await api.netshareRules().catch(() => null);
+    if (!fw.isConnected) return;
     if (f?.kind === 'windows') {
       const pub = f.rules.some((x) => x.public), priv = f.rules.some((x) => x.private);
       fw.innerHTML = `<div class="ns-card"><b>🛡 Windows Firewall lets Bladedeck in on: ${f.rules.length ? [priv && 'home (Private)', pub && 'public'].filter(Boolean).join(' and ') || 'no networks' : 'no rule yet (Windows asks the first time)'}</b>
@@ -46,8 +49,9 @@ const NetShare = (() => {
     if (a === 'phone') { closeModal(); setTimeout(() => Companion.open(), 0); return; }
     if (a === 'xfer') { closeModal(); setTimeout(() => Transfer.open(), 0); return; }
     if (a === 'home' || a === 'unhome' || a === 'forget') {
-      const r = await api.netshareStatus().catch(() => null), name = a === 'forget' ? b.dataset.n : r?.network?.name;
-      s.homeNets = (s.homeNets || []).filter((h) => h !== name); if (a === 'home' && name) s.homeNets.push(name);
+      const r = await api.netshareStatus().catch(() => null), n = r?.network;
+      const drop = a === 'forget' ? [b.dataset.n] : n ? [n.id, n.name] : [];
+      s.homeNets = (s.homeNets || []).filter((h) => !drop.includes(h)); if (a === 'home' && n?.id) s.homeNets.push(n.id);
       save(); setTimeout(() => api.netshareApply(), 400); fill(root); return;
     }
     if (a === 'fw') {
@@ -62,7 +66,7 @@ const NetShare = (() => {
     if (Array.isArray(st().homeNets)) return;
     const r = await api.netshareStatus().catch(() => null);
     if (Array.isArray(st().homeNets)) return;
-    st().homeNets = r?.network?.name ? [r.network.name] : [];
+    st().homeNets = r?.network?.id ? [r.network.id] : [];
     save(); setTimeout(() => api.netshareApply(), 500);
   }
   return { settingsHtml, fill, read, click, init };
