@@ -179,7 +179,7 @@ function createWindow() {
         // Without KWin, list windows another way (Windows, or Linux on X11 with wmctrl).
         require('./winlist').start({ dir: dataDir(), mode: m, onList: (l) => { if (win && !win.isDestroyed()) win.webContents.send('peek', { kind: 'windows', caption: JSON.stringify(l), pid: 0, cls: '' }); } });
       });
-    if (process.platform === 'win32') require('./winpad').start(dataDir(), () => peekToggle(), (kind = 'pip') => { if (win) win.webContents.send('peek', { kind, caption: '', pid: 0, cls: '' }); });
+    if (process.platform === 'win32') require('./winpad').start(dataDir(), () => { if (loadLib().settings.viewStartPeek === true) peekToggle(); }, (kind = 'pip') => { if (win) win.webContents.send('peek', { kind, caption: '', pid: 0, cls: '' }); });
   });
   // Player 2's menu (multi-screen) goes with the main one.
   win.on('closed', () => { win = null; require('./players').stop(); });
@@ -585,7 +585,16 @@ function readDownloads() {
     const vdf = fs.readFileSync(path.join(root, 'steamapps', 'libraryfolders.vdf'), 'utf8');
     for (const m of vdf.matchAll(/"path"\s+"([^"]+)"/g)) libs.add(m[1].replace(/\\\\/g, '\\'));
   } catch { /* single library */ }
-  const out = [];
+  const out = [], installed = new Set();
+  for (const lib of libs) {
+    const apps = path.join(lib, 'steamapps');
+    let files;
+    try { files = fs.readdirSync(apps); } catch { continue; }
+    // A game copied to another library leaves a half-done manifest behind; installed anywhere wins.
+    for (const f of files) {
+      try { const t = fs.readFileSync(path.join(apps, f), 'utf8'); const fl = +((t.match(/"StateFlags"\s+"(\d+)"/) || [])[1] || 0); if (/^appmanifest_\d+\.acf$/.test(f) && (fl & 4) && !(fl & (2 | 256 | 512 | 1024))) installed.add(f); } catch { /* manifest mid-write */ }
+    }
+  }
   for (const lib of libs) {
     const apps = path.join(lib, 'steamapps');
     let files;

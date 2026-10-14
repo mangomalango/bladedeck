@@ -45,6 +45,9 @@ const hash = (s) => { let h = 2166136261; for (const c of String(s)) { h ^= c.ch
 const initials = (t) => { const w = String(t).replace(/[^\p{L}\p{N} ]/gu, '').trim().split(/\s+/); return ((w[0]?.[0] || '?') + (w[1]?.[0] || '')).toUpperCase(); };
 const extList = (em) => String(em?.exts || '').split(',').map((x) => x.trim().replace(/^\./, '').toLowerCase()).filter(Boolean);
 const baseName = (p) => String(p).split(/[\\/]/).pop();
+// View + Start pulling Bladedeck in front of a game: off on Windows unless turned on, since the
+// focus switch crashes some games there.
+const viewStartPeek = () => S.lib?.settings?.viewStartPeek ?? !/Windows/.test(navigator.userAgent);
 // A game by id: the library's, or one played straight from a file without adding it (Roms).
 const entryById = (id) => S.lib.entries.find((x) => x.id === id) || (S.oneOff || []).find((x) => x.id === id) || null;
 const cleanTitle = (p) => {
@@ -476,6 +479,8 @@ function uncoverSteam(p) { if (p && p.covered) { p.covered = false; api.keepOnTo
 let steamGuard = null;
 const launcherWin = (cls) => steamWin(cls) || /^heroic$/i.test(cls || '');
 function guardSteam() { steamGuard = { since: Date.now(), hidden: new Map() }; }
+// Only the library window and the "launching" pop-up are safe to hide; any other caption is a question.
+const launcherAsks = (cap) => !/^(steam|steam big picture mode|heroic games launcher|heroic|launching\b.*|starting\b.*|preparing\b.*|updating\b.*)$/i.test(String(cap || '').trim());
 function revealSteam() {
   const g = steamGuard; steamGuard = null;
   if (g) for (const id of g.hidden.keys()) api.winAct(id, 'show');
@@ -486,6 +491,9 @@ api.onPeek((ev) => {
   let l; try { l = JSON.parse(ev.caption) || []; } catch { return; }
   for (const w of l) {
     if (!launcherWin(w.cls) || w.min) continue;
+    // A Steam window that asks something (Cloud sync failed, a conflict, an update) is shown at
+    // once; hiding it left the game waiting for an answer nobody could see.
+    if (launcherAsks(w.caption)) { revealSteam(); uncoverSteam(S.playing); api.winAct(w.id, 'show'); toast(`Steam needs you: ${w.caption}`); return; }
     // New Steam windows, and ones Steam brings to the front, go away while the game starts.
     if (!steamGuard.hidden.has(w.id) || w.active) {
       steamGuard.hidden.set(w.id, w.caption);
@@ -498,7 +506,7 @@ api.onPeek((ev) => {
 addEventListener('blur', () => setTimeout(() => {
   if (!S.playing?.covered || document.hasFocus()) return;
   const active = Dock.windows().find((w) => w.active);
-  if (active && launcherWin(active.cls) && steamGuard) { api.winAct(active.id, 'min'); steamGuard.hidden.set(active.id, active.caption); api.deckFocus(); return; }
+  if (active && launcherWin(active.cls) && steamGuard && !launcherAsks(active.caption)) { api.winAct(active.id, 'min'); steamGuard.hidden.set(active.id, active.caption); api.deckFocus(); return; }
   uncoverSteam(S.playing);
 }, 400));
 /* Sound follows the game's screen: moving a game (or emulator) to the TV switches the sound to
@@ -1314,7 +1322,7 @@ function openSettings() {
       <section class="set-sec" data-sec="games">
         <nav class="set-jump">${[['g-run', 'Launching'], ['g-emu', 'Emulators'], ['g-fast', 'Faster starts'], ['g-where', 'Steam, GOG and Windows games'], ['g-watch', 'Watched folders']].map(([id, n]) => `<button type="button" data-jump="${id}">${n}</button>`).join('')}</nav>
         <h4 class="set-sub" id="g-run">Launching</h4>
-        <div class="checks"><label><input type="checkbox" name="hideOnLaunch" ${st.hideOnLaunch ? 'checked' : ''}> Minimize Bladedeck while a game runs</label><label><input type="checkbox" name="autoFreeze" ${st.autoFreeze ? 'checked' : ''}> Pause games when I switch away</label><label><input type="checkbox" name="quietWhilePlaying" ${st.quietWhilePlaying ? 'checked' : ''}> Silence desktop pop-ups while playing</label><label><input type="checkbox" name="peekMinimize" ${st.peekMinimize ? 'checked' : ''}> Minimize the game when peeking with Ctrl+M</label><label><input type="checkbox" name="achClips" ${st.achClips !== false ? 'checked' : ''}> Keep a clip of every achievement you unlock (30 seconds before to 5 after), shown behind the game</label></div>
+        <div class="checks"><label><input type="checkbox" name="hideOnLaunch" ${st.hideOnLaunch ? 'checked' : ''}> Minimize Bladedeck while a game runs</label><label><input type="checkbox" name="autoFreeze" ${st.autoFreeze ? 'checked' : ''}> Pause games when I switch away</label><label><input type="checkbox" name="quietWhilePlaying" ${st.quietWhilePlaying ? 'checked' : ''}> Silence desktop pop-ups while playing</label><label><input type="checkbox" name="peekMinimize" ${st.peekMinimize ? 'checked' : ''}> Minimize the game when peeking with Ctrl+M</label><label><input type="checkbox" name="viewStartPeek" ${viewStartPeek() ? 'checked' : ''}> View + Start in a game brings up Bladedeck (off on Windows by default: switching away crashes some games)</label><label><input type="checkbox" name="achClips" ${st.achClips !== false ? 'checked' : ''}> Keep a clip of every achievement you unlock (30 seconds before to 5 after), shown behind the game</label></div>
         <h4 class="set-sub" id="g-emu">Emulators</h4>
         <div class="checks"><label><input type="checkbox" name="askStates" ${st.askStates !== false ? 'checked' : ''}> When an emulated game has save states, offer to continue from one</label><label><input type="checkbox" name="romsFullscreen" ${st.romsFullscreen !== false ? 'checked' : ''}> Emulated games always fill the screen (Xenia, PCSX2, Dolphin and the rest)</label></div>
         <div class="btns"><button type="button" data-x="emus">Your emulators…</button><button type="button" data-x="emuget">Install emulators…</button><button type="button" data-x="sources">Sources (ROMs, BIOS, texture packs)…</button><button type="button" data-x="mc">Minecraft…</button></div>
@@ -1370,7 +1378,7 @@ function openSettings() {
         ambientVolume: +val(root, 'ambientVolume'), showcaseAlpha: +val(root, 'showcaseAlpha'), wineCommand: val(root, 'wineCommand'),
         gogDirs: val(root, 'gogDirs').split('\n').map((x) => x.trim()).filter(Boolean) });
       const peekWas = st.peekMinimize, dirWas = st.musicDir;
-      Object.assign(st, { musicDir: val(root, 'musicDir'), musicDuringGames: chk(root, 'musicDuringGames'), peekMinimize: chk(root, 'peekMinimize'), romsFullscreen: chk(root, 'romsFullscreen'), showStats: chk(root, 'showStats'), hoverMusic: chk(root, 'hoverMusic'), onlineMedia: chk(root, 'onlineMedia'), onlineCacheMB: +val(root, 'onlineCacheMB') || 2048, achClips: chk(root, 'achClips'), askStates: chk(root, 'askStates') });
+      Object.assign(st, { musicDir: val(root, 'musicDir'), musicDuringGames: chk(root, 'musicDuringGames'), peekMinimize: chk(root, 'peekMinimize'), viewStartPeek: chk(root, 'viewStartPeek'),romsFullscreen: chk(root, 'romsFullscreen'), showStats: chk(root, 'showStats'), hoverMusic: chk(root, 'hoverMusic'), onlineMedia: chk(root, 'onlineMedia'), onlineCacheMB: +val(root, 'onlineCacheMB') || 2048, achClips: chk(root, 'achClips'), askStates: chk(root, 'askStates') });
       st.liveAuto = chk(root, 'liveAuto');
       Object.assign(st, { screenType: val(root, 'screenType'), burnGuard: chk(root, 'burnGuard'), crtLook: chk(root, 'crtLook') });
       st.playingBg = chk(root, 'playingBg');
@@ -1605,7 +1613,7 @@ function bindInput() {
     const st = { up: b(12) || sd('up'), down: b(13) || sd('down'), left: b(14) || sd('left'), right: b(15) || sd('right'),
       a: b(0), b: b(1), x: b(2), y: b(3), lb: b(4), rb: b(5), lt: b(6), rt: b(7), back: b(8), start: b(9), ach: b(10), music: b(11), vol: b(16) };
     // In multi-screen it is this player's own: pause the game and show their menu, or go back.
-    if (st.back && st.start && !paired) { paired = true; if (Players.on()) Players.toggleMenu(); else api.peekToggle(); }
+    if (st.back && st.start && !paired) { paired = true; if (Players.on()) Players.toggleMenu(); else if (viewStartPeek()) api.peekToggle(); }
     // View + Y: the walkthrough window. View + X: record. View + RB: save the last moments. In games too.
     if (st.back && st.y && !paired) { paired = true; walkthrough(); }
     if (st.back && st.x && !paired) { paired = true; Capture.toggleRecord(); }

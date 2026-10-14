@@ -47,6 +47,7 @@
       "winaudio.js",
       "winpad.js",
       "winlist.js",
+      "wincapture.js",
       "webapp-preload.js",
       "webapps.js",
       "procs.js",
