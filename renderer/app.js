@@ -455,6 +455,10 @@ function slowStart(p, e) {
     uncoverSteam(p); return;
   }
   if (slowBox || S.modal) return;
+  // Something other than Bladedeck or the store is in front: most likely the game itself, with a
+  // window Bladedeck did not recognise. Never pull the player out of it to ask.
+  const front = Dock.windows().find((w) => w.active);
+  if (!deckFocused() && front && !launcherWin(front.cls)) { p.waiting = false; uncoverSteam(p); return; }
   slowBox = true; api.deckFocus();
   const store = e.type === 'steam' ? 'Steam' : e.type === 'gog' && !e.exe ? 'Heroic' : '';
   openModal({
