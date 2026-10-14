@@ -1218,7 +1218,7 @@ function openSettings() {
       <section class="set-sec" data-sec="general">
         <label>Your name<input type="text" name="playerName" value="${esc(st.playerName)}"></label>
         <label>Your town, for the weather<input type="text" name="town" value="${esc(st.town || '')}"></label>
-        <div class="checks"><label><input type="checkbox" name="curatedHome" ${st.curatedHome !== false ? 'checked' : ''}> Home shows a few picks for today under Favorites and Recently played</label><label><input type="checkbox" name="runningList" ${st.runningList !== false ? 'checked' : ''}> Show what's running on the left</label><label><input type="checkbox" name="voice" ${st.voice ? 'checked' : ''}> Voice commands (View + LB, Space or 🎤)</label><label><input type="checkbox" name="showStats" ${st.showStats !== false ? 'checked' : ''}> Show processor, memory and temperature at the top (click it, or press I, for This PC)</label></div>
+        <div class="checks"><label><input type="checkbox" name="curatedHome" ${st.curatedHome !== false ? 'checked' : ''}> Home shows a few picks for today under Favorites and Recently played</label><label><input type="checkbox" name="runningList" ${st.runningList !== false ? 'checked' : ''}> Show what's running on the left</label><label><input type="checkbox" name="voice" ${st.voice ? 'checked' : ''}> Voice commands (View + LB, Space or 🎤)</label><label><input type="checkbox" name="voiceWake" ${st.voiceWake ? 'checked' : ''}> Active keyword: listen for "Hey Blade"</label><label><input type="checkbox" name="showStats" ${st.showStats !== false ? 'checked' : ''}> Show processor, memory and temperature at the top (click it, or press I, for This PC)</label></div>
         <h4 class="set-sub">Guide and quick menu</h4>${Guide.settingsHtml()}
       </section>
       <section class="set-sec" data-sec="look">
@@ -1291,7 +1291,7 @@ function openSettings() {
       try { blades = JSON.parse($('[name=blades]', root).value); if (!Array.isArray(blades) || !blades.length || blades.some((b) => !b.name)) throw new Error('shape'); }
       catch { toast('Blades must be a JSON list where every blade has a name.', 'err'); return false; }
       Object.assign(st, { playerName: val(root, 'playerName') || 'Player 1', steamPath: val(root, 'steamPath'), sounds: chk(root, 'sounds'), hideOnLaunch: chk(root, 'hideOnLaunch'), blades,
-        ambient: chk(root, 'ambient'), fx: chk(root, 'fx'), intro: chk(root, 'intro'), bootAnim: chk(root, 'bootAnim'), runningList: chk(root, 'runningList'), curatedHome: chk(root, 'curatedHome'), lanOn: chk(root, 'lanOn'), voice: chk(root, 'voice'), town: val(root, 'town'), lanShare: chk(root, 'lanShare'), autoFreeze: chk(root, 'autoFreeze'), quietWhilePlaying: chk(root, 'quietWhilePlaying'), showcase: chk(root, 'showcase'),
+        ambient: chk(root, 'ambient'), fx: chk(root, 'fx'), intro: chk(root, 'intro'), bootAnim: chk(root, 'bootAnim'), runningList: chk(root, 'runningList'), curatedHome: chk(root, 'curatedHome'), lanOn: chk(root, 'lanOn'), voice: chk(root, 'voice'), voiceWake: chk(root, 'voiceWake'), town: val(root, 'town'), lanShare: chk(root, 'lanShare'), autoFreeze: chk(root, 'autoFreeze'), quietWhilePlaying: chk(root, 'quietWhilePlaying'), showcase: chk(root, 'showcase'),
         ambientVolume: +val(root, 'ambientVolume'), showcaseAlpha: +val(root, 'showcaseAlpha'), wineCommand: val(root, 'wineCommand'),
         gogDirs: val(root, 'gogDirs').split('\n').map((x) => x.trim()).filter(Boolean) });
       const peekWas = st.peekMinimize, dirWas = st.musicDir;
@@ -1304,7 +1304,7 @@ function openSettings() {
       Boot.setOn(st.bootAnim !== false); Guide.readSettings(root); Watch.readSettings(root); Capture.readSettings(root); Players.readControllers(root); Players.readMulti(root); Running.refresh();
       if (peekWas !== st.peekMinimize) api.peekConfig({ minimize: st.peekMinimize });
       if (dirWas !== st.musicDir) Music.load(true).then(Music.draw);
-      Sound.sync(); Showcase.reset();
+      Sound.sync(); Showcase.reset(); Voice.syncWake?.();
       applyTheme(val(root, 'theme')); $('#who').textContent = st.playerName; Player.header(); S.bi = 0; S.pcNav = 'blade:0'; save();
       if (S.mode === 'console') renderConsole(); else renderPc();
     } }],

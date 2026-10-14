@@ -29,27 +29,139 @@ const Voice = (() => {
     openModal({
       title: 'Voice commands',
       html: `<p>Say things like <b>"open Hades"</b>, <b>"what's the weather"</b>, <b>"set a timer for 10 minutes"</b>, <b>"next song"</b> or <b>"go to the menu"</b>.</p>
-        <p class="note">Your voice is turned into words on this computer by a small speech model (about 30 MB, downloaded once from the sherpa-onnx project on GitHub). Nothing you say is sent anywhere. It only listens after you press the 🎤, View + LB or Ctrl+Alt+V, and stops when you stop talking.</p>
+        <p class="note">Your voice is turned into words on this computer by a small speech model (about 30 MB, downloaded once from the sherpa-onnx project on GitHub). Nothing you say is sent anywhere.</p>
         <label>Your town, for the weather<input type="text" name="vcTown" value="${esc(S.lib.settings.town || '')}" placeholder="for example Austin"></label>
+        <div class="checks"><label><input type="checkbox" name="vcWake" ${S.lib.settings.voiceWake ? 'checked' : ''}> Active keyword: listen for "Hey Blade"</label></div>
+        <p class="note">When on, say "Hey Blade" in the menu to talk hands-free. Stops during games to preserve performance.</p>
         <div class="vc-dl" hidden><i class="nc-bar"><b style="width:0%"></b></i><small>Downloading…</small></div>`,
       buttons: [{ label: 'Not now' }, { label: 'Turn on voice', primary: true, onClick: async (root, btn) => {
-        S.lib.settings.town = $('[name=vcTown]', root).value.trim(); save();
+        S.lib.settings.town = $('[name=vcTown]', root).value.trim();
+        S.lib.settings.voiceWake = !!$('[name=vcWake]', root)?.checked;
+        save();
         btn.disabled = true; $('.vc-dl', root).hidden = false;
         const r = await api.voiceDownload();
         if (!r.ok) { toast(r.error, 'err'); btn.disabled = false; return false; }
         S.lib.settings.voice = true; save();
-        toast('Voice is on. Press 🎤 (or View + LB) and talk.', 'fun');
+        toast('Voice is on. Say "Hey Blade" or press 🎤 (View + LB) and talk.', 'fun');
         api.voiceWarm();
+        syncWake();
         return true;
       } }]
     });
   }
   window.bladedeck.onVoiceProgress((pct) => { const b = $('.vc-dl b'); if (b) { b.style.width = `${pct}%`; $('.vc-dl small').textContent = pct >= 100 ? 'Ready.' : `Downloading… ${pct}%`; } });
 
+  /* -------------------------------------------------------------- wake word */
+  let wakeStream = null, wakeCtx = null, wakeNode = null, wakeActive = false, wakeChecking = false;
+
+  async function startWake() {
+    if (wakeActive || listening || !S.lib?.settings?.voice || !S.lib?.settings?.voiceWake || away()) return;
+    const st = await api.voiceStatus?.().catch(() => ({ ready: false }));
+    if (!st?.ready) return;
+    wakeActive = true;
+    try {
+      let mic;
+      if (S.lib.settings.padMic) {
+        try { mic = (await navigator.mediaDevices.enumerateDevices()).find((d) => d.kind === 'audioinput' && /dualsense|wireless controller|sony/i.test(d.label))?.deviceId; } catch { /* default */ }
+      }
+      wakeStream = await navigator.mediaDevices.getUserMedia({ audio: { ...(mic ? { deviceId: { exact: mic } } : {}), channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      wakeCtx = new AudioContext({ sampleRate: 16000 });
+      const src = wakeCtx.createMediaStreamSource(wakeStream);
+      const hp = wakeCtx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 85; hp.Q.value = 0.7;
+      const lp = wakeCtx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7200; lp.Q.value = 0.7;
+      wakeNode = wakeCtx.createScriptProcessor(2048, 1, 1);
+
+      const preRoll = [];
+      const maxPre = 3;
+      let recording = false, speechChunks = [], quietMs = 0, floor = 0.003, tStart = 0;
+
+      wakeNode.onaudioprocess = (ev) => {
+        if (!wakeActive || listening || away()) { recording = false; speechChunks = []; return; }
+        const d = new Float32Array(ev.inputBuffer.getChannelData(0));
+        let sum = 0; for (let i = 0; i < d.length; i++) sum += d[i] * d[i];
+        const rms = Math.sqrt(sum / d.length);
+
+        if (!recording) {
+          preRoll.push(new Float32Array(d));
+          if (preRoll.length > maxPre) preRoll.shift();
+          if (rms > Math.max(0.006, floor * 3.2)) {
+            recording = true;
+            speechChunks = [...preRoll.map((c) => new Float32Array(c)), new Float32Array(d)];
+            quietMs = 0;
+            tStart = performance.now();
+          } else {
+            floor = Math.min(Math.max(rms, 0.001), floor * 0.999 + rms * 0.001);
+          }
+        } else {
+          speechChunks.push(new Float32Array(d));
+          const dur = performance.now() - tStart;
+          if (rms < Math.max(0.004, floor * 2)) quietMs += d.length / 16; else quietMs = 0;
+          if (quietMs > 600 || dur > 5000) {
+            recording = false;
+            const toProcess = speechChunks;
+            speechChunks = [];
+            if (dur >= 400) checkWakeUtterance(toProcess);
+          }
+        }
+      };
+
+      src.connect(hp).connect(lp).connect(wakeNode);
+      wakeNode.connect(wakeCtx.destination);
+    } catch { stopWake(); }
+  }
+
+  function stopWake() {
+    wakeActive = false;
+    if (wakeNode) { try { wakeNode.disconnect(); } catch { /* ignore */ } wakeNode = null; }
+    if (wakeCtx) { try { wakeCtx.close(); } catch { /* ignore */ } wakeCtx = null; }
+    if (wakeStream) { try { wakeStream.getTracks().forEach((t) => t.stop()); } catch { /* ignore */ } wakeStream = null; }
+  }
+
+  async function checkWakeUtterance(chunks) {
+    if (wakeChecking || listening || away()) return;
+    wakeChecking = true;
+    try {
+      const len = chunks.reduce((n, c) => n + c.length, 0);
+      const all = new Float32Array(len); let o = 0;
+      for (const c of chunks) { all.set(c, o); o += c.length; }
+      let mean = 0; for (let i = 0; i < all.length; i++) mean += all[i];
+      mean /= (all.length || 1);
+      for (let i = 0; i < all.length; i++) all[i] -= mean;
+      let top = 0; for (let i = 0; i < all.length; i++) top = Math.max(top, Math.abs(all[i]));
+      if (top > 0 && top < 0.5) { const g = Math.min(20, 0.7 / top); for (let i = 0; i < all.length; i++) all[i] *= g; }
+
+      const r = await api.voiceHear(all);
+      if (!r?.ok || !r?.text) return;
+      const cleaned = clean(r.text);
+      const match = cleaned.match(/^(hey |ok |okay )?(blade|bladedeck|blade deck)\b\s*(.*)$/);
+      if (match) {
+        Sound.play('pop');
+        const rest = (match[3] || '').trim();
+        if (rest) {
+          say('<i class="vc-dot think"></i><b>…</b>');
+          const out = await run(rest);
+          say(`<span class="vc-q">“${esc(r.text)}”</span><b>${out}</b>`, 4500);
+          notify(`“${r.text}”`, String(out).replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'"));
+        } else {
+          listen();
+        }
+      }
+    } catch { /* ignore */ } finally { wakeChecking = false; }
+  }
+
+  function syncWake() {
+    if (S.lib?.settings?.voice && S.lib?.settings?.voiceWake && !away() && deckFocused()) {
+      startWake();
+    } else {
+      stopWake();
+    }
+  }
+
   /* -------------------------------------------------------------- listening */
   // Records until you stop talking (or 8 seconds), at 16 kHz, then hands the sound over.
   async function listen() {
     if (listening) { stopNow?.(); return; }
+    stopWake();
     const st = await api.voiceStatus();
     if (!st.ready || !S.lib.settings.voice) { setup(); return; }
     listening = true;
@@ -58,7 +170,7 @@ const Voice = (() => {
     let mic;
     if (S.lib.settings.padMic) { try { mic = (await navigator.mediaDevices.enumerateDevices()).find((d) => d.kind === 'audioinput' && /dualsense|wireless controller|sony/i.test(d.label))?.deviceId; } catch { /* default */ } }
     try { stream = await navigator.mediaDevices.getUserMedia({ audio: { ...(mic ? { deviceId: { exact: mic } } : {}), channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
-    catch { listening = false; toast('No microphone was found, or it is turned off.', 'err'); return; }
+    catch { listening = false; toast('No microphone was found, or it is turned off.', 'err'); setTimeout(syncWake, 400); return; }
     api.voiceWarm();
     Sound.play('pop');
     notify('Bladedeck is listening', 'Say a command, like "next song" or "set a timer for 10 minutes".');
@@ -94,7 +206,7 @@ const Voice = (() => {
     listening = false; stopNow = null;
     // Something clearly above the room still counts, even if it never crossed the bar.
     if (!heard && peak > Math.max(0.003, floor * 2)) heard = true;
-    if (!heard) { say('<b>Didn\'t hear anything.</b>', 2200); notify('Voice', 'Didn\'t hear anything. Check the microphone in Sound.'); return; }
+    if (!heard) { say('<b>Didn\'t hear anything.</b>', 2200); notify('Voice', 'Didn\'t hear anything. Check the microphone in Sound.'); setTimeout(syncWake, 400); return; }
     say('<i class="vc-dot think"></i><b>…</b>');
     const all = new Float32Array(chunks.reduce((n, c) => n + c.length, 0)); let o = 0; for (const c of chunks) { all.set(c, o); o += c.length; }
     // Clean DC offset before amplification so the baseline is centered for the acoustic model.
@@ -106,11 +218,12 @@ const Voice = (() => {
     let top = 0; for (let i = 0; i < all.length; i++) top = Math.max(top, Math.abs(all[i]));
     if (top > 0 && top < 0.5) { const g = Math.min(20, 0.7 / top); for (let i = 0; i < all.length; i++) all[i] *= g; }
     const r = await api.voiceHear(all);
-    if (!r.ok) { say(`<b>${esc(r.error || 'Voice did not work.')}</b>`, 3500); return; }
-    if (!r.text) { say('<b>Didn\'t catch that.</b>', 2500); notify('Voice', 'Didn\'t catch that.'); return; }
+    if (!r.ok) { say(`<b>${esc(r.error || 'Voice did not work.')}</b>`, 3500); setTimeout(syncWake, 400); return; }
+    if (!r.text) { say('<b>Didn\'t catch that.</b>', 2500); notify('Voice', 'Didn\'t catch that.'); setTimeout(syncWake, 400); return; }
     const out = await run(r.text);
     say(`<span class="vc-q">“${esc(r.text)}”</span><b>${out}</b>`, 4500);
     notify(`“${r.text}”`, String(out).replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'"));
+    setTimeout(syncWake, 400);
   }
 
   /* -------------------------------------------------------------- understanding */
@@ -195,8 +308,12 @@ const Voice = (() => {
   const span = (ms) => { const h = Math.floor(ms / 3600e3), m = Math.round(ms % 3600e3 / 60e3), s = Math.round(ms / 1000); return ms < 60e3 ? `${s} seconds` : `${h ? `${h} hour${h > 1 ? 's' : ''} ` : ''}${m ? `${m} minute${m > 1 ? 's' : ''}` : ''}`.trim(); };
 
   async function run(raw) {
-    const t = clean(raw).replace(/^(hey |ok |okay )?(bladedeck|blade deck)\s*/, '').replace(/^(please |can you |could you )/, '').replace(/ please$/, '');
+    const cleaned = clean(raw);
+    const t = cleaned.replace(/^(hey |ok |okay )?(bladedeck|blade deck|blade)\s*/, '').replace(/^(please |can you |could you )/, '').replace(/ please$/, '');
     let m;
+    if (!t && /^(hey |ok |okay )?(blade|bladedeck|blade deck)$/.test(cleaned)) {
+      return 'I\'m listening. Say “open Hades”, “weather”, “timer for 5 minutes” or “next song”.';
+    }
     if (Alarms.ringing() && /^(stop|ok|okay|dismiss|turn it off|snooze)/.test(t)) { /snooze/.test(t) ? Alarms.snooze() : Alarms.stop(); return /snooze/.test(t) ? 'Snoozed for 5 minutes.' : 'Stopped.'; }
     if (/(cancel|stop|clear|delete|turn off)( the| my| all)? (timer|alarm)s?/.test(t)) { const n = Alarms.clear(/alarm/.test(t) ? 'alarm' : 'timer'); return n ? `Cancelled ${n === 1 ? 'it' : `all ${n}`}.` : 'There was nothing to cancel.'; }
     if (/timer/.test(t) || /^(remind me in|in \d)/.test(t)) {
@@ -220,7 +337,7 @@ const Voice = (() => {
     if (/^(pause|stop)( the)?( music| song)?$/.test(t)) { if (Music.playing()) Music.toggle(); return 'Paused.'; }
     if (/^(play|resume|start)( the| some| my)? (music|songs?)$|^resume$/.test(t)) { if (!Music.playing()) Music.toggle(); return 'Playing.'; }
     if (/^(go |take me )?(back )?(to )?(the )?(menu|home|main menu|bladedeck|dashboard)$/.test(t)) {
-      if (away) api.peekToggle(); else { closeModal(); if (S.mode === 'console') setBlade(0); }
+      if (away()) api.peekToggle(); else { closeModal(); if (S.mode === 'console') setBlade(0); }
       return 'Here you go.';
     }
     if ((m = t.match(/^(open|launch|start|play|run|load|go to|show( me)?) (.+)$/))) return open(m[3].replace(/^(the|my) /, '').replace(/ (app|game)$/, ''));
@@ -228,7 +345,14 @@ const Voice = (() => {
   }
 
   window.bladedeck.onPeek((ev) => { if (ev.kind === 'voice') listen(); });
-  return { listen, setup, run, alike };
+  document.addEventListener('deck-away', (ev) => {
+    if (ev.detail) stopWake();
+    else setTimeout(syncWake, 500);
+  });
+  window.addEventListener('focus', () => syncWake());
+  window.addEventListener('blur', () => stopWake());
+  setTimeout(() => syncWake(), 3000);
+  return { listen, setup, run, alike, syncWake, startWake, stopWake };
 })();
 
 /* Weather: a small card for your town (Open-Meteo, no account). */

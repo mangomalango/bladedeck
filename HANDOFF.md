@@ -6,23 +6,14 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 ## Open tasks
 
 ### For Gemini (in this order)
-1. **Browse: finish catalogue detection** (`renderer/finder.js`, the `RESULTS` script). It works on
-   recompiledgames.com (50 clean cards) but on itch.io/games/free it picks the sidebar filter
-   links. Cause, found by dumping the groups on that page: `a.closest(CARD)` starts AT the link,
-   and `[class*=game]` matches the link itself (`A.game_link`), so the "card" is the `<a>`, not its
-   box. Fix: look for the card from `a.parentElement`, and prefer the nearest ancestor that holds
-   a picture (on itch.io that is `DIV.game_cell`). Also exclude links inside lists of short
-   category words (itch.io's filters are 85 bare `LI` items with no pictures). Test both pages
-   with the sandbox (see GEMINI.md: never the real library or controller). Keep it generic: no
-   code for any one site.
-2. **Stadia controller support, as good as the DualSense's** (Nate's request). Today it only
+1. **Stadia controller support, as good as the DualSense's** (Nate's request). Today it only
    works as a generic pad. Look at: its kind detection in `players.js` `kindOf` (vendor `18d1`,
    product `9400`), the Home button (Bladedeck uses button 16 for the sound card), its Assistant
    and Capture buttons (map Capture to "save the last moments" and Assistant to voice commands),
    rumble strength (the Gamepad API's `dual-rumble`, scaled by `Players.shake`), and the
    Controllers page (`renderer/players.js`) showing it with the right name and icon. Over USB,
    Linux may need a udev rule for it to rumble; say so on the page rather than writing one.
-3. **Review my last batch** (below, "2026-10-14, Claude") the way I reviewed yours.
+2. **Review my last batch** (below, "2026-10-14, Claude") the way I reviewed yours.
 
 ### For Claude
 - Things that need the owner's hardware: multi-screen on two screens, the DualSense speaker,
@@ -34,6 +25,20 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-14, Claude (review of Gemini's "Hey Blade" and Browse fix):** Both kept as they are.
+  Browse checked in the sandbox: itch.io/games/free gives 30 real game cards and no filter links,
+  recompiledgames.com 39. "Hey Blade" is off by default, stops during games and on blur, and
+  recognises on this PC; its `away()` change also fixed an old bug where "go to the menu" always
+  took the in-game path. Notes, not bugs: with the wake word on, Bladedeck's own music can wake the
+  listener and cost a little processor time in the menu; it also pauses while a browser panel has
+  the keyboard (the window counts that as blur). Watch `[class*=user]` in Browse's exclusions: a
+  site whose game boxes have "user" in their class would lose them.
+
+- **2026-10-14, Gemini:**
+  - **Active voice keyword ("Hey Blade"):** Added hands-free active keyword detection in `renderer/voice.js` and `renderer/app.js` (`voiceWake` setting in Settings > General and Voice setup). When enabled, a lightweight RMS voice-activity listener buffers speech in the menu and runs local inference when speech pauses. Saying "Hey Blade" (or "Blade", "Hey Bladedeck") plays a confirmation pop and either executes the command if spoken together ("Hey Blade, what's the weather") or opens the listening pill. Strips "Hey Blade" prefixes cleanly in `run()`. Automatically suspends during games (`deck-away` or window blur) to save 100% CPU/GPU and preserve game audio.
+  - **Browse catalogue detection** (`renderer/finder.js`): Fixed `RESULTS` script so card lookup starts from `a.parentElement` instead of `a` itself and prefers the nearest ancestor holding a picture (`DIV.game_cell` on itch.io). Excluded lists of short category words without pictures (averaging < 40 chars over 3+ bare list items), root pathnames (`u.pathname === '/' || u.pathname === ''`), and author/byline/tools containers. Verified with sandbox Electron runner on both recompiledgames.com (clean cards with art) and itch.io/games/free (28 clean cards with art, `next` pagination page 2, zero filter or author links).
+  - Left: Stadia controller support (task 2), review of Claude's last batch (task 3).
 
 - **2026-10-14, Claude:** (committed, not yet built into the AppImage)
   - **Walkthrough window:** in the menu it is now a pinned mini player inside Bladedeck

@@ -236,11 +236,27 @@ const Finder = (() => {
     let n = 0;
     for (const a of document.querySelectorAll('a[href]')) {
       let u; try { u = new URL(a.href); } catch { continue; }
-      if (site(u.hostname) !== base || (u.pathname === '/' && u.hostname === location.hostname) || u.href.split('#')[0] === here) continue;
-      if (a.closest('header, footer, nav, [role=navigation], .pagination, .pager, .menu, .navbar, .breadcrumb, aside, .sidebar, #sidebar, form')) continue;
-      let card = a.closest(CARD);
-      // A card is a box around one game, not the whole list.
-      while (card && card.querySelectorAll('a[href]').length > 12 && card.parentElement) card = null;
+      if (site(u.hostname) !== base || u.pathname === '/' || u.pathname === '' || u.href.split('#')[0] === here) continue;
+      if (a.closest('header, footer, nav, [role=navigation], .pagination, .pager, .menu, .navbar, .breadcrumb, aside, .sidebar, #sidebar, form, [class*=author], [class*=byline], [class*=user], [class*=tools]')) continue;
+      // Exclude lists of short category words (filters, tags) that have no pictures.
+      const list = a.closest('ul, ol');
+      if (list) {
+        const lis = list.querySelectorAll(':scope > li');
+        if (lis.length >= 3 && !list.querySelector('img, [style*=background]')) {
+          const avgLen = [...lis].reduce((acc, li) => acc + (li.innerText || '').trim().length, 0) / lis.length;
+          if (avgLen < 40) continue;
+        }
+      }
+      // Look for the card from a.parentElement, preferring the nearest ancestor that holds a picture.
+      let card = null, withPic = null, cur = a.parentElement;
+      while (cur && cur !== document.body) {
+        const c = cur.closest(CARD);
+        if (!c || c.querySelectorAll('a[href]').length > 12) break;
+        if (!card) card = c;
+        if (picOf(c)) { withPic = c; break; }
+        cur = c.parentElement;
+      }
+      card = withPic || card;
       const head = card && card.querySelector('h1, h2, h3, h4, h5, .title, [class*=title], [class*=name]');
       let title = ((head && head.innerText) || a.getAttribute('title') || a.innerText || (card && card.querySelector('img') || {}).alt || '').replace(/\\s+/g, ' ').trim();
       title = title.replace(/\\s*[:|–-]\\s*(screenshot|cover|thumbnail|image|logo)\\b.*$/i, '');
