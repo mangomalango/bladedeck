@@ -19,6 +19,16 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Log
 
+- **2026-10-14, Claude (Windows):** Debug round on master 2c7da57 (merged into windows-fixes).
+  Replay: AMF encodes straight from ddagrab's GPU frames (e860aa0), ffmpeg 89% -> 5% of a core.
+  archive.js: 7z.exe found in Program Files\7-Zip; .zip and .7z made by 7-Zip extract into new
+  folders without overwriting, one-folder archives flattened. `npm run test-copy` (empty library,
+  45 s) starts, blocks presence and extras-update, quits on time, errors.log empty. Firewall: the
+  installed, dist and dev Bladedeck/Electron exes have inbound allow rules for all TCP and UDP
+  ports on Private AND Public (Windows' own prompt made them); Nearby works, but WINDOWS.md wants
+  Private only. Not changed, waiting on the owner. Not tested: the Downloads window, game info
+  lookups and the Files menu in the UI (no scripted UI pass); yt-dlp is not installed.
+
 - **2026-10-14, Claude (Linux):** Owner's list after the Windows run.
   Nearby one-way (Windows saw Linux, Linux never saw Windows, a file sent from Windows never asked):
   ufw on the Linux PC drops everything coming in (DEFAULT_INPUT_POLICY DROP, no rules), so hellos
