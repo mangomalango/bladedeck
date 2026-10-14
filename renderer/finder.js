@@ -10,48 +10,128 @@
    it (Sources, the site's ✎) is used instead when you give one. Bladedeck lists no sites of its own
    beyond the Archive: you bring the places, it makes them easy to use.
    Also here: WebDl, the downloads from every Bladedeck browser view (progress bars in the browser
-   panel and here, a notice when one finishes, and the notification center's list).
+   panel and here, a notice when one finishes, and the notification center's list), and the
+   Downloads window: each download's kind and folder, Extract, and where downloads go.
    Uses S, api, esc, save, toast, Sound, Panels, PadNav, OSK, Watch and $ at call time. */
 
 const WebDl = (() => {
   let list = [];
-  const mb = (n) => (n >= 1073741824 ? `${(n / 1073741824).toFixed(2)} GB` : n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(0, Math.round(n / 1024))} KB`);
+  const mb = (n) => (n >= 1073741824 ? `${(n / 1073741824).toFixed(2)} GB` : n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(n ? 1 : 0, Math.round(n / 1024))} KB`);
   const pct = (d) => (d.total ? Math.min(100, Math.round(100 * d.got / d.total)) : 0);
   const busy = (d) => d.state === 'progressing' || d.state === 'unpacking';
   window.bladedeck.onWebDl?.((l) => { list = l || []; draw(); });
   window.bladedeck.onWebDlStart?.((d) => toast(`Downloading ${d.name}${d.from ? ` from ${d.from}` : ''}.`));
   window.bladedeck.onWebDlDone?.((d) => {
-    if (d.unpacked) { toast(`${d.title || d.name} is unpacked and joining your library.`, 'fun'); Watch.catchUp?.(); return; }
+    if (d.unpacked && d.game) { toast(`${d.title || d.name} is unpacked and joining your library.`, 'fun'); Watch.catchUp?.(); return; }
+    if (d.unpacked) { toast(`${d.name} is extracted into ${d.unpacked.split(/[\\/]/).pop()}.`, 'fun'); return; }
     if (d.note) { toast(`${d.name}: ${d.note}`, 'err'); return; }
     toast(`${d.name} finished downloading${d.state === 'unpacking' ? ', unpacking…' : '.'}`, 'fun');
   });
   window.bladedeck.webDlList?.().then((l) => { list = l || []; draw(); }).catch(() => {});
 
-  // One row: name, bar, how far, and what you can do with it.
-  function row(d) {
-    const state = d.state === 'unpacking' ? 'Unpacking…' : d.state === 'completed' ? (d.unpacked ? 'Installed' : 'Done') : d.state === 'cancelled' ? 'Cancelled' : d.state === 'interrupted' ? 'Stopped' : d.paused ? 'Paused' : d.speed ? `${mb(d.speed)}/s` : 'Starting…';
-    const acts = busy(d) && d.state !== 'unpacking' ? `<button type="button" data-dl="${d.paused ? 'resume' : 'pause'}" data-id="${d.id}">${d.paused ? '▶' : '⏸'}</button><button type="button" data-dl="cancel" data-id="${d.id}" aria-label="Cancel">✕</button>`
-      : d.state === 'completed' ? `<button type="button" data-dl="show" data-id="${d.id}">Show</button><button type="button" data-dl="forget" data-id="${d.id}" aria-label="Clear">✕</button>` : `<button type="button" data-dl="forget" data-id="${d.id}" aria-label="Clear">✕</button>`;
-    return `<div class="wd-row ${esc(d.state)}"><div class="wd-t"><b>${esc(d.name)}</b><small>${esc(state)} · ${mb(d.got)}${d.total ? ` of ${mb(d.total)}` : ''}</small></div>
-      <i class="wd-bar"><b style="width:${d.state === 'completed' ? 100 : pct(d)}%"></b></i><div class="wd-acts">${acts}</div></div>`;
+  const prog = {}; // extract progress from 7-Zip, by download
+  window.bladedeck.onArchiveProgress?.((ev) => { prog[ev.id] = ev.pct; if (list.some((d) => d.id === ev.id)) draw(); });
+  const short = (p) => String(p || '').split(/[\\/]/).filter(Boolean).slice(-2).join('/');
+  const stateOf = (d) => (d.state === 'unpacking' ? `Extracting…${prog[d.id] != null ? ` ${prog[d.id]}%` : ''}` : d.state === 'completed' ? (d.unpacked ? (d.game ? 'Installed' : 'Extracted') : 'Done') : d.state === 'cancelled' ? 'Cancelled' : d.state === 'interrupted' ? 'Stopped' : d.paused ? 'Paused' : d.speed ? `${mb(d.speed)}/s` : 'Starting…');
+  function acts(d, full) {
+    if (busy(d) && d.state !== 'unpacking') return `<button type="button" data-dl="${d.paused ? 'resume' : 'pause'}" data-id="${d.id}">${d.paused ? '▶' : '⏸'}</button><button type="button" data-dl="cancel" data-id="${d.id}" aria-label="Cancel">✕</button>`;
+    if (d.state !== 'completed') return d.state === 'unpacking' ? '' : `<button type="button" data-dl="forget" data-id="${d.id}" aria-label="Clear">✕</button>`;
+    const extract = d.archive && !d.unpacked ? `<button type="button" data-dl="extract" data-id="${d.id}">Extract</button>` : '';
+    return `${full ? `<button type="button" data-dl="open" data-id="${d.id}">Open</button>` : ''}<button type="button" data-dl="show" data-id="${d.id}">Show</button>${extract}<button type="button" data-dl="forget" data-id="${d.id}" aria-label="Clear">✕</button>`;
   }
-  // Every download bar on screen: the browser panels' and Browse's. Finished ones show for a minute.
+  // One row: what it is, its name, where it went, the bar, how far, and what you can do with it.
+  function row(d) {
+    const w = d.what || { icon: '📄', label: 'File' };
+    return `<div class="wd-row ${esc(d.state)}"><div class="wd-t"><b title="${esc(d.name)}">${w.icon} ${esc(d.name)}</b><small>${esc(w.label)} · ${esc(stateOf(d))} · ${mb(d.got)}${d.total ? ` of ${mb(d.total)}` : ''} · to ${esc(short(d.unpacked || d.dir))}</small>${d.note ? `<small class="wd-note">${esc(d.note)}</small>` : ''}</div>
+      <i class="wd-bar"><b style="width:${d.state === 'completed' ? 100 : d.state === 'unpacking' ? prog[d.id] || 0 : pct(d)}%"></b></i><div class="wd-acts">${acts(d, false)}</div></div>`;
+  }
+  // The Downloads window's longer row: the whole folder, where it came from, Open.
+  function bigRow(d) {
+    const w = d.what || { icon: '📄', label: 'File' };
+    return `<div class="dlw-row ${esc(d.state)}"><span class="dlw-ic">${w.icon}</span><div class="dlw-t"><b title="${esc(d.name)}">${esc(d.name)}</b>
+      <small>${esc(w.label)}${d.from ? ` · from ${esc(d.from)}` : ''} · ${esc(stateOf(d))} · ${mb(d.got)}${d.total ? ` of ${mb(d.total)}` : ''}</small>
+      <small class="dlw-where">📁 ${esc(d.unpacked || d.dir)}</small>${d.note ? `<small class="wd-note">${esc(d.note)}</small>` : ''}
+      ${busy(d) ? `<i class="wd-bar"><b style="width:${d.state === 'unpacking' ? prog[d.id] || 0 : pct(d)}%"></b></i>` : ''}</div><div class="wd-acts">${acts(d, true)}</div></div>`;
+  }
+  // Every download bar on screen: the browser panels' and Browse's. Finished ones show for an hour.
   function draw() {
     const now = list.filter((d) => busy(d) || Date.now() - d.at < 3600000).filter((d) => busy(d) || d.state === 'completed' || d.state === 'interrupted').slice(-4);
     for (const bar of document.querySelectorAll('.fw-dl')) {
       bar.hidden = !now.some(busy) && !now.length;
-      bar.innerHTML = now.map(row).join('');
+      bar.innerHTML = now.map(row).join('') + '<button type="button" class="wd-all" data-dl-all>All downloads and where they go ›</button>';
     }
+    const big = document.querySelector('.dlw-list');
+    if (big) big.innerHTML = list.length ? list.slice().reverse().map(bigRow).join('') : '<p class="note">Nothing downloaded yet this time. Downloads from Browse your sources and from Bladedeck\'s browser panels show here.</p>';
+    Dock.downloads?.();
+  }
+
+  /* The Downloads window: every download, and where they go. */
+  let folders = null;
+  async function whereHtml() {
+    folders = await api.webDlFolders();
+    const f = folders;
+    const one = (k, icon, label, path, ok, why) => `<div class="dlw-f"><div><b>${icon} ${label}</b><small>${esc(path)}</small><small class="${ok ? 'ok' : 'warn'}">${ok ? '✓ Files can open it, and Extract works there' : 'Files cannot look here yet. Your own file manager still can (Show).'}</small><small>${why}</small></div>
+      <div class="dlw-fb"><button type="button" data-dlw="pick" data-w="${k}">Change folder…</button>${ok ? '' : `<button type="button" data-dlw="allow" data-w="${k}">Let Files see it</button>`}</div></div>`;
+    return one('dl', '📥', 'Downloads', f.dl, f.dlOk, 'Anything you download in Bladedeck\'s browser.')
+      + one('games', '🎮', 'Games from Browse', f.games, f.gamesOk, 'Install in Browse your sources puts games here; archives are extracted and the game joins your library by itself.')
+      + `<p class="note dlw-7z">${f.z7 ? '🗜️ 7-Zip is installed. Extract finished archives here, or in Files: press Y (or right-click) on any file or folder to extract or compress it.' : `🗜️ 7-Zip is not installed, so archives cannot be extracted or made here. Install it in a terminal: <code>${esc(f.z7Install)}</code>`}</p>`;
+  }
+  async function open() {
+    openModal({
+      title: 'Downloads', wide: true,
+      html: '<div class="dlw"><div class="dlw-list"></div><div class="side-h">Where downloads go</div><div class="dlw-wh"><p class="note">…</p></div></div>',
+      buttons: [{ label: 'Browse your sources', onClick: () => { Finder.open(); } }, { label: 'Close', primary: true }],
+      onOpen: async (root) => {
+        draw();
+        const wh = $('.dlw-wh', root); wh.innerHTML = await whereHtml();
+        root.addEventListener('click', async (ev) => {
+          const b = ev.target.closest('[data-dlw]'); if (!b) return;
+          const which = b.dataset.w;
+          const r = b.dataset.dlw === 'pick' ? await api.webDlPick(which) : await api.webDlAllow(which);
+          if (b.dataset.dlw === 'pick' && r.ok) {
+            const st = S.lib.settings;
+            if (which === 'games') {
+              st.gamesDir = r.path;
+              // The library watches the games folder, so what lands there joins it.
+              const w = (st.watch = st.watch || { on: true, dirs: [] });
+              if (!w.dirs.includes(r.path)) { w.dirs.push(r.path); w.on = true; Watch.apply?.(); }
+            } else st.dlDir = r.path;
+            save(); toast(`${which === 'games' ? 'Games' : 'Downloads'} now go to ${r.path}.`);
+          } else if (r.ok) toast('Files can open that folder now.');
+          else if (r.error) toast(r.error, 'err');
+          wh.innerHTML = await whereHtml();
+        });
+      }
+    });
+  }
+  // Show where it went: in Bladedeck's Files if it may look there, else ask how.
+  async function show(d) {
+    const f = await api.webDlFolders(), ok = d.game ? f.gamesOk : f.dlOk, where = d.unpacked || d.dir;
+    if (ok) { closeModal?.(); Panels.show({ kind: 'files', key: 'files', title: 'Files', icon: '🗂', path: where }); return; }
+    const ask = () => openModal({
+      title: 'Show it where?',
+      html: `<p>Bladedeck's Files cannot look in <b>${esc(d.game ? f.games : f.dl)}</b> yet.</p><p class="note">Your own file manager can always open it. Or let Bladedeck see this one folder: then Files, Extract and Compress work there too. You can take it back in Files.</p>`,
+      buttons: [{ label: 'Open my file manager', onClick: () => { api.webDlAct(d.id, 'reveal'); } }, { label: 'Let Bladedeck see it', primary: true, onClick: async () => {
+        const r = await api.webDlAllow(d.game ? 'games' : 'dl');
+        if (r.error) toast(r.error, 'err');
+        if (r.ok) Panels.show({ kind: 'files', key: 'files', title: 'Files', icon: '🗂', path: where });
+      } }]
+    });
+    if (S.modal) { closeModal(); setTimeout(ask, 0); } else ask();
   }
   document.addEventListener('click', async (ev) => {
+    if (ev.target.closest('[data-dl-all]')) { open(); return; }
     const b = ev.target.closest('[data-dl]'); if (!b) return;
     const d = list.find((x) => x.id === b.dataset.id); if (!d) return;
-    if (b.dataset.dl === 'show') { Panels.show({ kind: 'files', key: 'files', title: 'Files', icon: '🗂', path: d.unpacked || d.dir }); return; }
+    if (b.dataset.dl === 'show') { show(d); return; }
+    if (b.dataset.dl === 'extract' && !(await api.archiveTool()).found) { toast(`Extracting needs 7-Zip. Install it ${(await api.archiveTool()).install}.`, 'err'); return; }
     await api.webDlAct(d.id, b.dataset.dl);
   });
   // For the notification center and the quick menu.
   const downloads = () => list.filter(busy).map((d) => ({ name: d.name, pct: pct(d), from: d.from || 'Browser' }));
-  return { draw, downloads, list: () => list.slice() };
+  // For the dock's Downloads slot: what is happening, in a few words.
+  const summary = () => { const b = list.filter(busy); return b.length ? `${b.length} downloading · ${Math.round(b.reduce((n, d) => n + pct(d), 0) / b.length)}%` : list.length ? `${list.length} this time` : 'Nothing yet'; };
+  return { draw, downloads, open, summary, list: () => list.slice() };
 })();
 
 const Finder = (() => {

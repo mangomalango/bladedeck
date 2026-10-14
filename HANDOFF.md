@@ -19,6 +19,32 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Log
 
+- **2026-10-14, Claude (Linux):** Owner's list after the Windows run.
+  Nearby one-way (Windows saw Linux, Linux never saw Windows, a file sent from Windows never asked):
+  ufw on the Linux PC drops everything coming in (DEFAULT_INPUT_POLICY DROP, no rules), so hellos
+  and offers never arrived. Not a Bladedeck bug; the owner runs the ufw line once (needs sudo).
+  Nearby now says so when ufw is on without our port (`lan.js` firewall(), reads /etc/ufw), and
+  the sender hears "they have not answered" after a minute, or "accepted, sending".
+  Clips and music (`onlinemedia.js`): the 12 search results are sorted before one is taken
+  (score(): the game's name and its sequel number in the title, no trailers, reviews, reactions,
+  remixes or covers, long playthroughs start further in); Find another takes the next down the list.
+  Checked on L4D2 (no longer the first Left 4 Dead), DBZ Sagas, Celeste. Old cached picks stay
+  until Find another or Clear.
+  About a game (`gameinfo.js`, `renderer/gameinfo.js`): kind, story, multiplayer and split screen
+  under the details (console and PC), from Steam's store (genres, feature list) and Wikipedia
+  (info box, Gameplay and Plot sections), cached in game-info.json. Settings toggle "gameInfo".
+  Downloads: rows say what kind of file and which folder; a Downloads window (bar's "All
+  downloads", or the dock) with Open/Show/Extract, both folders changeable (a folder picked there
+  is allowed for Files), "Let Files see it" for one folder (never the whole home), and Show offers
+  the system file manager when Files may not look there. 7-Zip (`archive.js`): Extract here and
+  Compress to .zip/.7z from Files (Y or right-click) and Extract on finished downloads; one-folder
+  archives are not nested twice. Dock: Browse and Downloads presets, added once to docks with room.
+  Tested: npm run check; scoring and lookups against live YouTube/Steam/Wikipedia; 7-Zip on a
+  scratch folder; the source build on a scratch profile (Steam link and Nearby off): game info in
+  both modes, the Downloads window, a real download from a local server and its Extract, Files'
+  menu; errors.log empty. Not tried: Windows (7z.exe path, Show in Explorer), the owner's real
+  library, a controller in these new windows.
+
 - **2026-10-14, Claude (Linux):** Night shift (`scripts/nightly/`): a systemd user timer runs
   `nightly.sh` at 01:00. Gemini reviews (gemini-prompt.md, NIGHTLY-REVIEW-gemini.md), then Claude
   verifies and fixes in passes until 07:00, its usage limit, or "NOTHING LEFT" (claude-prompt.md,

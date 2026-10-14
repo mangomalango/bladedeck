@@ -753,8 +753,9 @@ function updateDetail() {
     <p class="sub">${esc(e.run ? e.sub : TYPES[e.type].label + (e.system ? ' on ' + e.system : ''))}</p>${stats}${e.run ? '' : Player.detailHtml(e)}
     ${e.run ? '' : `<span class="task-pill">${Tasks.count(e)} of ${TASKS.length} tasks. Start for more</span>`}
     ${Ach.fits(e) && (Ach.on() || e.type === 'steam') ? '<p class="stat ach"></p>' : ''}
+    ${GameInfo.box(e)}
     <p class="cta">${e.run ? 'Press A to open' : 'Press A to launch'}</p></div>`;
-  Showcase.show(e); GameTheme.show(e); Ach.fill(e, $('.ach', d)); Atmos.preview(e, $('.poster', d));
+  Showcase.show(e); GameTheme.show(e); Ach.fill(e, $('.ach', d)); GameInfo.fill(e, $('.ginfo', d)); Atmos.preview(e, $('.poster', d));
 }
 // Re-draws the selected game's panel after its tasks or media change, without moving anything.
 function refreshQuiet() {
@@ -836,7 +837,9 @@ function renderDrawer() {
     <div class="dim">${esc(fmtPlay(e.playtime))}${e.lastPlayed ? `, last played ${esc(new Date(e.lastPlayed).toLocaleDateString())}` : ''}</div>
     <div class="dim">${esc(where || '')}</div>
     <div class="dim" style="color:var(--accent);font-size:16px">${Tasks.stars(e)}</div>
+    ${GameInfo.box(e)}
     <div class="btns"><button class="primary" data-act="launch">Launch</button><button data-act="tasks">Tasks</button><button data-act="poke">Poke a friend</button><button data-act="fav">${e.favorite ? 'Unfavorite' : 'Favorite'}</button><button data-act="edit">Edit</button><button data-act="art">Artwork</button>${['steam', 'exe', 'gog', 'recomp'].includes(e.type) ? '<button data-act="split">👥 Split screen</button>' : ''}${e.type === 'rom' ? '<button data-act="mods">🧩 Cheats & mods</button>' : ''}${Ach.fits(e) ? '<button data-act="ach">Achievements</button>' : ''}<button data-act="hide">${e.hidden ? 'Unhide' : 'Hide'}</button></div>`;
+  GameInfo.fill(e, $('.ginfo', d));
 }
 
 function pcSelect(e) {
@@ -1354,6 +1357,7 @@ function openSettings() {
         <div class="checks"><label><input type="checkbox" name="musicDuringGames" ${st.musicDuringGames ? 'checked' : ''}> Keep music playing during games</label></div>
         <h4 class="set-sub">Clips and music from online</h4>
         <div class="checks"><label><input type="checkbox" name="onlineMedia" ${st.onlineMedia !== false ? 'checked' : ''}> A game with no clip or music of its own on this PC gets a gameplay clip and its theme from YouTube, kept here</label></div>
+        <div class="checks"><label><input type="checkbox" name="gameInfo" ${st.gameInfo !== false ? 'checked' : ''}> Show what each game is like (kind, story, multiplayer, split screen), looked up by name on Steam and Wikipedia</label></div>
         <label class="range-row">Keep at most <b class="om-cap">${((st.onlineCacheMB ?? 2048) / 1024).toFixed(1)} GB</b><input type="range" name="onlineCacheMB" min="256" max="10240" step="256" value="${st.onlineCacheMB ?? 2048}"></label>
         <p class="note om-stats">Looking at the cache…</p>
         <div class="btns"><button type="button" data-x="omAll">Get them for every game now</button><button type="button" data-x="omClear">Empty the cache</button></div>
@@ -1419,7 +1423,7 @@ function openSettings() {
         ambientVolume: +val(root, 'ambientVolume'), showcaseAlpha: +val(root, 'showcaseAlpha'), wineCommand: val(root, 'wineCommand'),
         gogDirs: val(root, 'gogDirs').split('\n').map((x) => x.trim()).filter(Boolean) });
       const peekWas = st.peekMinimize, dirWas = st.musicDir;
-      Object.assign(st, { musicDir: val(root, 'musicDir'), musicDuringGames: chk(root, 'musicDuringGames'), peekMinimize: chk(root, 'peekMinimize'), viewStartPeek: chk(root, 'viewStartPeek'),romsFullscreen: chk(root, 'romsFullscreen'), showStats: chk(root, 'showStats'), hoverMusic: chk(root, 'hoverMusic'), onlineMedia: chk(root, 'onlineMedia'), onlineCacheMB: +val(root, 'onlineCacheMB') || 2048, achClips: chk(root, 'achClips'), askStates: chk(root, 'askStates') });
+      Object.assign(st, { musicDir: val(root, 'musicDir'), musicDuringGames: chk(root, 'musicDuringGames'), peekMinimize: chk(root, 'peekMinimize'), viewStartPeek: chk(root, 'viewStartPeek'),romsFullscreen: chk(root, 'romsFullscreen'), showStats: chk(root, 'showStats'), hoverMusic: chk(root, 'hoverMusic'), onlineMedia: chk(root, 'onlineMedia'), gameInfo: chk(root, 'gameInfo'), onlineCacheMB: +val(root, 'onlineCacheMB') || 2048, achClips: chk(root, 'achClips'), askStates: chk(root, 'askStates') });
       st.liveAuto = chk(root, 'liveAuto');
       Object.assign(st, { screenType: val(root, 'screenType'), burnGuard: chk(root, 'burnGuard'), crtLook: chk(root, 'crtLook') });
       st.playingBg = chk(root, 'playingBg');

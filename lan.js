@@ -26,17 +26,21 @@ const nameOk = (n) => { const b = path.basename(String(n || '')).replace(/[\x00-
    (47618-47627, so a firewall can let exactly those through), that hands
    the file over once, only to that Bladedeck's address and only with the secret in the link,
    and closes after 10 minutes either way. */
-function serveOnce(peer, file) {
+function serveOnce(peer, file, onFetch, onSilence) {
   return new Promise((resolve) => {
+    let fetched = false;
     const token = crypto.randomBytes(24).toString('hex'), size = fs.statSync(file).size;
     const srv = http.createServer((req, res) => {
       const from = String(req.socket.remoteAddress || '').replace(/^::ffff:/, '');
       if (from !== peer.addr || req.url !== `/${token}`) { res.writeHead(404); return res.end(); }
+      fetched = true; clearTimeout(quiet); onFetch?.();
       res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': size });
       fs.createReadStream(file).pipe(res);
       res.on('finish', () => { clearTimeout(t); srv.close(); });
     });
     const t = setTimeout(() => srv.close(), 10 * 60000);
+    // A minute with no answer: often their firewall dropped the offer, so they never saw a question.
+    const quiet = setTimeout(() => { if (!fetched) onSilence?.(); }, 60000);
     // The first free port of the ten (several files can be on offer at once).
     let port = SHARE_PORTS[0];
     srv.on('error', (err) => { if (err.code === 'EADDRINUSE' && port < SHARE_PORTS[1]) srv.listen(++port, '0.0.0.0'); else { clearTimeout(t); resolve(null); } });
@@ -106,6 +110,19 @@ function start(id) {
 }
 function stop() { clearInterval(timer); timer = 0; if (sock) { try { sock.close(); } catch { /* closed */ } } sock = null; peers.clear(); tell(); }
 
+/* Is this PC's firewall likely to drop other Bladedecks? Then they see us (our hellos go out) but we
+   never see them, and a file they offer never asks. On Linux, ufw blocks everything coming in
+   unless a rule lets it; its rules file says whether ours is there. Windows asks by itself the
+   first time, and firewalld's default home zone is not checked here. */
+function firewall() {
+  if (process.platform !== 'linux') return null;
+  let conf = ''; try { conf = fs.readFileSync('/etc/ufw/ufw.conf', 'utf8'); } catch { return null; }
+  if (!/^\s*ENABLED\s*=\s*yes/mi.test(conf)) return null;
+  let rules = ''; try { rules = fs.readFileSync('/etc/ufw/user.rules', 'utf8'); } catch { /* not readable: assume no rule */ }
+  if (/47617/.test(rules)) return null;
+  return { name: 'ufw', fix: 'sudo ufw allow proto udp from 192.168.0.0/16 to any port 47617 && sudo ufw allow proto tcp from 192.168.0.0/16 to any port 47618:47627' };
+}
+
 function register({ getWin, dataId }) {
   send = (ch, d) => { const w = getWin(); if (w && !w.isDestroyed()) w.webContents.send(ch, d); };
   ipcMain.handle('lan-set', (_e, info) => {
@@ -114,12 +131,13 @@ function register({ getWin, dataId }) {
     start(dataId());
     return true;
   });
+  ipcMain.handle('lan-firewall', () => firewall());
   ipcMain.handle('lan-peers', () => [...peers.values()].map(({ addr, lastAsk, ...p }) => p));
   ipcMain.handle('lan-offer', async (_e, peerId, file) => {
     const p = peers.get(String(peerId)), f = path.resolve(String(file || ''));
     if (!p || !sock) return { ok: false, error: 'They are not around any more.' };
     if (!(FA.allowed(f) || FA.wasPicked(f)) || !fs.existsSync(f) || !fs.statSync(f).isFile()) return { ok: false, error: 'That file is not available.' };
-    const s = await serveOnce(p, f); if (!s) return { ok: false, error: 'Could not start sending.' };
+    const s = await serveOnce(p, f, () => send('lan-event', { kind: 'sending', to: p.name, name: path.basename(f) }), () => send('lan-event', { kind: 'unanswered', to: p.name, name: path.basename(f) })); if (!s) return { ok: false, error: 'Could not start sending.' };
     sock.send(Buffer.from(JSON.stringify({ bd: 1, kind: 'offer', id: myId, name: me.name, file: { name: path.basename(f), size: s.size }, port: s.port, token: s.token })), PORT, p.addr, () => {});
     return { ok: true };
   });

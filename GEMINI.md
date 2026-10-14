@@ -39,6 +39,9 @@ runs it on CachyOS, KDE Plasma on Wayland, Intel Arc graphics, and also builds a
 - The owner runs `~/AppImages/bladedeck.appimage`. Never overwrite it while Bladedeck is running
   (that crashed it). Ask them to close it, move the old file aside, then copy the new one in.
 - Never edit `library.json` while Bladedeck is running: its next save overwrites your edit.
+- Test with `npm run test-copy` (add `-- --real` for a copy of the owner's library): a scratch
+  userData, no controller, no peek helper, and every outward action refused (main.js TEST).
+  It quits by itself after three minutes; DevTools on port 9333 for scripted checks.
 - Never test with the real library or the real controller. Run a copy with `userData` pointed at a
   scratch folder, the gamepad stubbed (`navigator.getGamepads = () => []`), and every outward
   action (launching, window moves, sound changes, HID writes, kscreen-doctor changes, downloads)
