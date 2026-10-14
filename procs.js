@@ -78,7 +78,11 @@ function exeOf(pid) { try { return fs.readlinkSync(`/proc/${pid}/exe`); } catch 
 
 function save() { try { fs.writeFileSync(file, JSON.stringify([...frozen.entries()])); } catch { /* optional */ } }
 
-const PS_SUSPEND = (pids, on) => `
+/* Windows: the game and every process under it. Never Bladedeck itself, anything above it (it is
+   usually a child of explorer.exe, like Steam and everything started from the Start menu), or
+   Steam and the desktop: freezing explorer.exe would freeze them all. Windows reuses process ids,
+   so a "child" only counts when it started after its parent. */
+const PS_SUSPEND = (pids, on, self = process.pid) => `
 Add-Type -TypeDefinition @'
 using System; using System.Runtime.InteropServices;
 public static class BDProc {
@@ -91,9 +95,21 @@ public static class BDProc {
 '@
 $all = @(${pids.map(Number).filter(Boolean).join(',')})
 $procs = Get-CimInstance Win32_Process
+$byId = @{}; foreach ($p in $procs) { $byId[[int]$p.ProcessId] = $p }
+$keep = 'explorer','steam','steamwebhelper','steamservice','gameoverlayui','dwm','csrss','winlogon','wininit','services','lsass','svchost','sihost','ctfmon','searchhost','startmenuexperiencehost','shellexperiencehost','textinputhost','runtimebroker','bladedeck','powershell','pwsh','conhost','windowsterminal','cmd'
+$own = @{}; $id = ${Number(self)}
+while ($id -and $byId.ContainsKey($id) -and -not $own.ContainsKey($id)) { $own[$id] = 1; $id = [int]$byId[$id].ParentProcessId }
+function Kept($i) { $own.ContainsKey($i) -or ($byId.ContainsKey($i) -and $keep -contains $byId[$i].Name.ToLower().Replace('.exe','')) }
+# A protected start (explorer, Steam, Bladedeck) freezes nothing, not even what runs under it.
+if ($${on ? 'true' : 'false'}) { $all = @($all | Where-Object { -not (Kept $_) }) }
 $more = $true
-while ($more) { $more = $false; foreach ($p in $procs) { if ($all -contains [int]$p.ParentProcessId -and -not ($all -contains [int]$p.ProcessId)) { $all += [int]$p.ProcessId; $more = $true } } }
-foreach ($id in $all) { [BDProc]::Set($id, $${on ? 'true' : 'false'}) }
+while ($more) { $more = $false; foreach ($p in $procs) {
+  $pp = [int]$p.ParentProcessId; $pid2 = [int]$p.ProcessId
+  if ($all -contains $pp -and -not ($all -contains $pid2) -and $byId.ContainsKey($pp) -and $p.CreationDate -ge $byId[$pp].CreationDate) { $all += $pid2; $more = $true } } }
+foreach ($id in $all) {
+  if ($${on ? 'true' : 'false'} -and (Kept $id)) { continue }
+  [BDProc]::Set($id, $${on ? 'true' : 'false'})
+}
 `;
 
 function setWin(pids, on) {
