@@ -9,7 +9,7 @@ const crypto = require('crypto');
 
 const ART_HOSTS = /^(cdn2\.steamgriddb\.com|cdn\.cloudflare\.steamstatic\.com|shared\.(akamai|cloudflare|fastly)\.steamstatic\.com|cdn\.akamai\.steamstatic\.com|steamcdn-a\.akamaihd\.net|media\.retroachievements\.org|thumbnails\.libretro\.com|hh3\.gbdev\.io|img\.itch\.zone|dl\.flathub\.org)$/;
 const SGDB_PATH = /^(search\/autocomplete\/[^/?#]+|(grids|heroes|logos|icons)\/(game|steam)\/\d+)(\?[\w=&,.%-]*)?$/;
-const RA_METHODS = new Set(['GetGameList', 'GetGameInfoAndUserProgress', 'GetUserProfile', 'GetUserRecentlyPlayedGames', 'GetUserSummary']);
+const RA_METHODS = new Set(['GetGameList', 'GetGameInfoAndUserProgress', 'GetUserProfile', 'GetUserRecentlyPlayedGames', 'GetUserSummary', 'GetUserRecentAchievements']);
 
 async function getJson(url, headers = {}) {
   const r = await fetch(url, { headers: { 'User-Agent': 'Bladedeck/0.1', ...headers }, signal: AbortSignal.timeout(15000) });

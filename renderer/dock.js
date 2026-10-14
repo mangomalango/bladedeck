@@ -155,7 +155,8 @@ const Dock = (() => {
     const s = slots()[i]; if (!s) return;
     const ws = windowsOf(i), w = ws.find((x) => x.active) || ws[0];
     Sound.play('tick');
-    if (a === 'min' || a === 'close') { if (w) winAct(w.id, a); return; }
+    if (a === 'min') { if (w) winAct(w.id, a); return; }
+    if (a === 'close') { if (w) Resume.closeApp({ w, e: null, pid: w.pid || 0, title: s.name }); return; }
     if (!w) {
       // Files opens Bladedeck's own file browser panel, unless that is turned off.
       if (s.pick === 'files' && cfg().filesPanel !== false) { Panels.show({ kind: 'files', key: keyOf(s), title: 'Files', icon: s.icon || '🗂' }); return; }
@@ -273,5 +274,5 @@ const Dock = (() => {
 
   // Open (or bring up) a dock app by name, for voice commands.
   const openByName = (name) => { const n = String(name).toLowerCase(); const i = slots().findIndex((s) => s.name.toLowerCase() === n || (s.pick && s.pick === n)); if (i >= 0) act(i, null); return i >= 0; };
-  return { draw, edge, handle, edit, browser, openByName, names: () => slots().map((s) => s.name), windows: () => [...pans, ...webs, ...wins], slotFor: (w) => slots().find((s, i) => windowsOf(i).includes(w)), active: () => focus >= 0 };
+  return { draw, edge, handle, edit, browser, current: () => (focus < 0 ? null : focus === count() - 1 ? { edit: true } : { open: windowsOf(focus).length > 0 }), openByName, names: () => slots().map((s) => s.name), windows: () => [...pans, ...webs, ...wins], slotFor: (w) => slots().find((s, i) => windowsOf(i).includes(w)), active: () => focus >= 0 };
 })();

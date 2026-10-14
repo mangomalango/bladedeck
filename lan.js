@@ -17,12 +17,13 @@ const path = require('path');
 const { ipcMain, net } = require('electron');
 const FA = require('./fsaccess');
 
-const PORT = 47617, EVERY = 6000, GONE = 25000;
+const PORT = 47617, EVERY = 6000, GONE = 25000, SHARE_PORTS = [47618, 47627];
 let sock = null, timer = 0, me = {}, peers = new Map(), send = () => {}, myId = '';
 const offers = new Map(); // files others offered us: oid -> where to fetch
 const nameOk = (n) => { const b = path.basename(String(n || '')).replace(/[\x00-\x1f<>:"/\\|?*]/g, '_').replace(/^\.+/, '').trim().slice(0, 180); return b && !/\.part$/i.test(b) ? b : ''; };
 
-/* Sending a file to one Bladedeck: a tiny web server just for it, on a random port, that hands
+/* Sending a file to one Bladedeck: a tiny web server just for it, on one of ten known ports
+   (47618-47627, so a firewall can let exactly those through), that hands
    the file over once, only to that Bladedeck's address and only with the secret in the link,
    and closes after 10 minutes either way. */
 function serveOnce(peer, file) {
@@ -36,8 +37,11 @@ function serveOnce(peer, file) {
       res.on('finish', () => { clearTimeout(t); srv.close(); });
     });
     const t = setTimeout(() => srv.close(), 10 * 60000);
-    srv.on('error', () => resolve(null));
-    srv.listen(0, '0.0.0.0', () => resolve({ port: srv.address().port, token, size }));
+    // The first free port of the ten (several files can be on offer at once).
+    let port = SHARE_PORTS[0];
+    srv.on('error', (err) => { if (err.code === 'EADDRINUSE' && port < SHARE_PORTS[1]) srv.listen(++port, '0.0.0.0'); else { clearTimeout(t); resolve(null); } });
+    srv.on('listening', () => resolve({ port: srv.address().port, token, size }));
+    srv.listen(port, '0.0.0.0');
   });
 }
 

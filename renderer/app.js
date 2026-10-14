@@ -44,6 +44,8 @@ const hash = (s) => { let h = 2166136261; for (const c of String(s)) { h ^= c.ch
 const initials = (t) => { const w = String(t).replace(/[^\p{L}\p{N} ]/gu, '').trim().split(/\s+/); return ((w[0]?.[0] || '?') + (w[1]?.[0] || '')).toUpperCase(); };
 const extList = (em) => String(em?.exts || '').split(',').map((x) => x.trim().replace(/^\./, '').toLowerCase()).filter(Boolean);
 const baseName = (p) => String(p).split(/[\\/]/).pop();
+// A game by id: the library's, or one played straight from a file without adding it (Roms).
+const entryById = (id) => S.lib.entries.find((x) => x.id === id) || (S.oneOff || []).find((x) => x.id === id) || null;
 const cleanTitle = (p) => {
   const b = baseName(p).replace(/\.[^.]+$/, '');
   const c = b.replace(/\(.*?\)|\[.*?\]/g, '').replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim();
@@ -57,7 +59,8 @@ function fmtPlay(sec) {
 }
 
 let saveTimer;
-function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => api.save(S.lib), 250); }
+// Player 2's menu (multi-screen) never writes the library; Player 1's does.
+function save() { if (Players.isP2()) return; clearTimeout(saveTimer); saveTimer = setTimeout(() => api.save(S.lib), 250); }
 
 // Little blob-faced notifications. While a game has the screen they wait, so nothing pops over it.
 const toastQueue = [];
@@ -151,6 +154,26 @@ function startClock() {
   tick(); setInterval(tick, 15000);
 }
 
+/* The system at a glance, in the top bar: processor, memory and the hottest sensor. Click it (or
+   press I) for This PC. Refreshes every 3 seconds while the menu is on screen, never during a game. */
+const openThisPc = () => Panels.show({ kind: 'system', key: 'system', title: 'This PC', icon: '🖥' });
+function startSysChip() {
+  const chip = $('#sys-chip'); if (!chip || Players.isP2()) return;
+  const gbs = (n) => (n / 1073741824).toFixed(1);
+  const tick = async () => {
+    const on = S.lib.settings.showStats !== false;
+    chip.hidden = !on;
+    if (!on || document.body.classList.contains('away')) return;
+    const m = await api.sysMini().catch(() => null); if (!m) return;
+    chip.querySelector('.sc-cpu').textContent = m.cpu != null ? `CPU ${m.cpu}%` : '';
+    chip.querySelector('.sc-mem').textContent = `RAM ${gbs(m.used)}/${gbs(m.total)} GB`;
+    chip.querySelector('.sc-temp').textContent = m.temp != null ? `${m.temp}°C` : '';
+    chip.classList.toggle('hot', (m.cpu ?? 0) > 85 || (m.temp ?? 0) > 85 || m.used / m.total > 0.9);
+  };
+  chip.addEventListener('click', openThisPc);
+  tick(); setInterval(tick, 3000);
+}
+
 /* ---------------------------------------------------------------- cover art */
 function genCover(title, type) {
   const h1 = hash(title) % 360, h2 = (h1 + 40 + (hash(title + 'x') % 80)) % 360;
@@ -199,6 +222,32 @@ function homePicks(list) {
   return out;
 }
 
+/* Home in sections: what is running, your Favorites, then Recently played, then (with picks on)
+   a few picks for today. Section titles are not stops: the cursor goes from game to game. */
+const header = (id, title) => ({ id: `h-${id}`, header: true, title });
+function homeSections(list) {
+  const games = list.filter((e) => e.type !== 'app' && !e.emuApp);
+  const used = new Set(), out = [];
+  const tags = new Map();
+  const take = (arr, max) => arr.filter((e) => !used.has(e.id)).slice(0, max).map((e) => { used.add(e.id); return e; });
+  const playing = S.playing && games.find((e) => e.id === S.playing.id);
+  if (playing) { out.push(header('now', 'Playing now'), ...take([playing], 1)); tags.set(playing.id, 'Playing now'); }
+  const fav = take(games.filter((e) => e.favorite).sort((a, c) => (c.lastPlayed || 0) - (a.lastPlayed || 0) || byTitle(a, c)), 24);
+  out.push(header('fav', 'Favorites'));
+  if (fav.length) out.push(...fav); else out.push({ id: 'h-fav-none', header: true, note: true, title: 'Press X on any game to put it here' });
+  const rec = take(games.filter((e) => e.lastPlayed).sort((a, c) => c.lastPlayed - a.lastPlayed), 12);
+  if (rec.length) out.push(header('rec', 'Recently played'), ...rec);
+  if (S.lib.settings.curatedHome !== false) {
+    const picks = homePicks(games.filter((e) => !used.has(e.id))).filter((e) => !e.run).slice(0, 4);
+    for (const e of picks) tags.set(e.id, S.homeTags.get(e.id));
+    if (picks.length) { out.push(header('pick', 'Picked for today'), ...picks); picks.forEach((e) => used.add(e.id)); }
+  }
+  S.homeTags = tags;
+  const gi = S.blades.findIndex((b) => b.id === 'games' || (b.filter && !Object.keys(b.filter).length));
+  out.push({ id: 'home-all', title: 'All your games', sub: `${games.length} games, on the Games blade`, glyph: '▦', run: () => { if (gi < 0) return; if (S.mode === 'pc') { S.pcNav = 'blade:' + gi; S.sel = null; renderPc(); } else setBlade(gi); } });
+  return out;
+}
+
 function bladeItems(b) {
   if (b.special === 'system') return systemActions();
   let list = S.lib.entries.filter((e) => !e.hidden);
@@ -208,58 +257,94 @@ function bladeItems(b) {
   if (f.system) list = list.filter((e) => (e.system || '') === f.system);
   if (f.emulator) list = list.filter((e) => e.emulatorId === f.emulator);
   if (f.favorite) list = list.filter((e) => e.favorite);
-  if (f.home) {
-    if (S.lib.settings.curatedHome === false) {
-      S.homeTags = new Map();
-      const fav = list.filter((e) => e.favorite).sort(byTitle);
-      const rec = list.filter((e) => e.lastPlayed && !e.favorite).sort((a, c) => c.lastPlayed - a.lastPlayed).slice(0, 12);
-      return [...fav, ...rec];
-    }
-    return homePicks(list);
-  }
+  if (f.home) return homeSections(list);
   if (f.recent) return list.filter((e) => e.lastPlayed).sort((a, c) => c.lastPlayed - a.lastPlayed).slice(0, +f.recent || 12);
   return list.sort((a, c) => (c.favorite ? 1 : 0) - (a.favorite ? 1 : 0) || (a.system || '').localeCompare(c.system || '') || byTitle(a, c));
 }
 
-function systemActions() {
-  return [
-    { id: 'sys-quick', title: 'Find everything',    sub: 'Steam, GOG, Heroic and store launchers in one go', glyph: '✦', run: findEverything },
-    { id: 'sys-add',   title: 'Add a game or app',  sub: 'Pick a program, Steam ID or game file', glyph: '+', run: () => editEntry() },
-    { id: 'sys-steam', title: 'Scan Steam library', sub: 'Find installed Steam games',            glyph: 'S', run: () => scanSteam() },
-    { id: 'sys-gog',   title: 'Scan GOG games',     sub: 'Find GOG installs and Heroic games',    glyph: 'G', run: () => scanGog() },
-    { id: 'sys-art',   title: 'Find missing art',   sub: 'Covers and backgrounds from Steam and SteamGridDB', glyph: '🖼', run: () => Art.fillAll() },
-    { id: 'sys-store', title: 'Add store launchers', sub: 'Steam, Heroic and Lutris as apps',     glyph: '⇪', run: addLaunchers },
-    { id: 'sys-get',   title: 'Get games',          sub: 'Free games, homebrew and emulators',    glyph: '⬇', run: () => Shop.open() },
-    { id: 'sys-qr',    title: 'Quick Resume',       sub: 'Switch between running games and apps, or freeze them', glyph: '▣', run: () => Resume.open() },
-    { id: 'sys-nc',    title: 'Notifications',      sub: 'Everything Bladedeck told you, and downloads', glyph: '🔔', run: () => Notify.open() },
-    { id: 'sys-pc2',   title: 'This PC',            sub: 'Processor, graphics, memory, battery, Wi-Fi, brightness, power', glyph: '🖥', run: () => Panels.show({ kind: 'system', key: 'system', title: 'This PC', icon: '🖥' }) },
-    { id: 'sys-near',  title: 'Nearby',             sub: `${Nearby.peers().length || 'No'} Bladedecks on your network · invite to play`, glyph: '📡', run: () => Nearby.open() },
-    { id: 'sys-split', title: 'Split screen',       sub: 'Up to 4 players on this screen (PartyDeck)', glyph: '👥', run: () => SplitScreen.open() },
-    { id: 'sys-phone', title: 'Phone app',          sub: 'Control Bladedeck from your phone',     glyph: '📱', run: () => Companion.open() },
-    { id: 'sys-cap',   title: 'Captures',           sub: 'Your recordings and saved clips',       glyph: '🎬', run: () => Capture.gallery() },
-    { id: 'sys-rec',   title: 'Record',             sub: 'Start or stop recording (View + X)',    glyph: '⏺', run: () => Capture.toggleRecord() },
-    { id: 'sys-voice', title: 'Voice commands',     sub: S.lib.settings.voice ? 'Say “open…”, “weather”, “timer for 5 minutes” (View + LB)' : 'Turn on talking to Bladedeck', glyph: '🎤', run: () => (S.lib.settings.voice ? Voice.listen() : Voice.setup()) },
-    { id: 'sys-xfer', title: 'Send files',          sub: 'To your phone, or to a friend nearby', glyph: '📤', run: () => Transfer.open() },
-    { id: 'sys-pip',   title: 'Walkthrough window', sub: 'A small YouTube that floats over your game', glyph: '📺', run: () => walkthrough() },
-    { id: 'sys-vol',   title: 'Sound',              sub: 'Volume, outputs, mic and every app',    glyph: '🔊', run: () => Volume.open() },
-    { id: 'sys-emu',   title: 'Emulators',          sub: 'Add, edit and scan game folders',       glyph: '◉', run: manageEmulators },
-    { id: 'sys-me',    title: 'Your profile',       sub: `Level ${Player.levelOf(S.lib.settings.player?.xp || 0)}${Player.streak() > 1 ? ` · ${Player.streak()}-day streak` : ''} · goals and journal`, glyph: '⭐', run: () => Player.profile() },
-    { id: 'sys-tour',  title: 'Tour',               sub: 'Every feature, one card at a time',     glyph: '🧭', run: () => Tour.open() },
-    { id: 'sys-ctl',   title: 'Controls',           sub: 'Every button and key',                  glyph: '⌨', run: openControls },
-    { id: 'sys-mu',    title: 'Music',              sub: 'Play songs from your music folder',     glyph: '♪', run: () => Music.open() },
-    { id: 'sys-aq',    title: 'Aquarium',           sub: `${(S.lib.settings.aquarium?.flakes ?? 5)} fish flakes to feed your fish`, glyph: '🐟', run: () => Scenes.openTank() },
-    { id: 'sys-fr',    title: 'Friends',            sub: `${(S.lib.settings.friends || []).length || 'No'} friends to poke`, glyph: '👉', run: () => Friends.manage() },
-    { id: 'sys-pc',    title: 'Switch to PC mode',  sub: 'Windowed library manager',              glyph: '▣', run: () => setMode('pc') },
-    { id: 'sys-wall',  title: 'Wallpaper',          sub: 'Wallpaper Engine or your own picture or video behind the menus', glyph: '🏞', run: () => Wallpaper.open() },
-    { id: 'sys-look',  title: 'Look and menus',     sub: 'Font, letters, size and tab icons',     glyph: 'Aa', run: () => Look.open() },
-    { id: 'sys-theme', title: 'Next theme',         sub: S.theme.name,                            glyph: '◐', run: cycleTheme },
-    { id: 'sys-set',   title: 'Settings',           sub: 'Name, blades, sounds, effects',         glyph: '⚙', run: openSettings },
+/* The System blade, in groups: A opens one, B (or "‹ Back") comes out again. Settings, Backup,
+   PC mode and Exit stay at the top, since they are what people look for first. */
+let sysGroup = null;
+function systemGroups() {
+  const sec = [
     ...(Secrets.any() ? [{ id: 'sys-sec', title: 'Secret options', sub: 'Hidden settings you have unlocked', glyph: '✧', run: () => Secrets.openOptions() }] : []),
     ...(Secrets.has('drive') ? [{ id: 'sys-drive', title: 'Take the wheel', sub: 'Drive the Night Drive car', glyph: '🏎', run: () => Drive.start() }] : []),
-    ...(Secrets.has('toolbox') ? [{ id: 'sys-tool', title: "Rivet's Toolbox", sub: 'Secrets you have found', glyph: '⚒', run: () => Secrets.openToolbox() }] : []),
-    { id: 'sys-exit',  title: 'Exit Bladedeck',     sub: 'Close the launcher',                    glyph: '⏻', run: () => api.quit() }
+    ...(Secrets.has('toolbox') ? [{ id: 'sys-tool', title: "Rivet's Toolbox", sub: 'Secrets you have found', glyph: '⚒', run: () => Secrets.openToolbox() }] : [])
+  ];
+  return [
+    { id: 'grp-lib', title: 'Games and library', sub: 'Add, scan, find art, get games, sources', glyph: '▦', children: [
+      { id: 'sys-quick', title: 'Find everything', sub: 'Steam, GOG, Heroic and store launchers in one go', glyph: '✦', run: findEverything },
+      { id: 'sys-add', title: 'Add a game or app', sub: 'Pick a program, Steam ID or game file', glyph: '+', run: () => editEntry() },
+      { id: 'sys-romfile', title: 'Open a game file', sub: 'Play any ROM or disc image right away, full screen', glyph: '💿', run: () => Roms.pickAndPlay() },
+      { id: 'sys-get', title: 'Get games', sub: 'Free games, homebrew and emulators', glyph: '⬇', run: () => Shop.open() },
+      { id: 'sys-browse', title: 'Browse your sources', sub: 'Search your sites, see what they have, install', glyph: '🔎', run: () => Finder.open() },
+      { id: 'sys-sources', title: 'Sources', sub: 'Your places for ROMs, emulators and BIOS files', glyph: '🧭', run: () => Roms.sources() },
+      { id: 'sys-steam', title: 'Scan Steam library', sub: 'Find installed Steam games', glyph: 'S', run: () => scanSteam() },
+      { id: 'sys-gog', title: 'Scan GOG games', sub: 'Find GOG installs and Heroic games', glyph: 'G', run: () => scanGog() },
+      { id: 'sys-art', title: 'Find missing art', sub: 'Covers and backgrounds from Steam and SteamGridDB', glyph: '🖼', run: () => Art.fillAll() },
+      { id: 'sys-dl', title: 'Downloads', sub: 'What is downloading, and what finished', glyph: '⬇', run: () => Notify.open() }] },
+    { id: 'grp-soft', title: 'Gaming software', sub: 'Emulators, launchers, Minecraft and extras', glyph: '◉', children: [
+      { id: 'sys-emu', title: 'Emulators', sub: 'Add, edit and scan game folders', glyph: '◉', run: manageEmulators },
+      { id: 'sys-emuget', title: 'Install emulators', sub: 'One press each, official builds', glyph: '⇩', run: () => Shop.open('emus') },
+      { id: 'sys-mc', title: 'Minecraft', sub: 'Prism Launcher, your instances, controller support', glyph: '⛏', run: () => Minecraft.open() },
+      { id: 'sys-cf', title: 'CurseForge and Modrinth', sub: 'Modpacks, into Prism Launcher', glyph: '🔥', run: () => Minecraft.packs() },
+      { id: 'sys-store', title: 'Add store launchers', sub: 'Steam, Heroic and Lutris as apps', glyph: '⇪', run: addLaunchers },
+      { id: 'sys-extras', title: 'Suggested extras', sub: 'Tailscale, Discord, achievements, save backups, updates', glyph: '✚', run: () => Extras.open() },
+      { id: 'sys-softset', title: 'Gaming software settings', sub: 'Launching, emulators, Steam, Windows games', glyph: '⚙', run: () => openSettingsAt('games') }] },
+    { id: 'grp-play', title: 'Play together', sub: 'Split screen, multi-screen, Nearby, friends', glyph: '👥', children: [
+      { id: 'sys-split', title: 'Split screen', sub: 'Up to 4 players on this screen (PartyDeck)', glyph: '👥', run: () => SplitScreen.open() },
+      { id: 'sys-multi', title: 'Multi-screen', sub: 'Two players, two screens, each their own menu and sound', glyph: '🖥', run: () => openSettingsAt('multi') },
+      { id: 'sys-pads', title: 'Controllers', sub: 'Who is which player, rumble, DualSense sound', glyph: '🎮', run: () => openSettingsAt('pads') },
+      { id: 'sys-near', title: 'Nearby', sub: `${Nearby.peers().length || 'No'} Bladedecks on your network · invite to play`, glyph: '📡', run: () => Nearby.open() },
+      { id: 'sys-fr', title: 'Friends', sub: `${(S.lib.settings.friends || []).length || 'No'} friends to poke`, glyph: '👉', run: () => Friends.manage() }] },
+    { id: 'grp-cap', title: 'Capture', sub: 'Recordings, clips and the live view', glyph: '🎬', children: [
+      { id: 'sys-cap', title: 'Captures', sub: 'Your recordings and saved clips', glyph: '🎬', run: () => Capture.gallery() },
+      { id: 'sys-rec', title: 'Record', sub: 'Start or stop recording (View + X)', glyph: '⏺', run: () => Capture.toggleRecord() },
+      { id: 'sys-recset', title: 'Recording and live view settings', sub: 'Replay length, quality, live view', glyph: '⚙', run: () => openSettingsAt('rec') }] },
+    { id: 'grp-pc', title: 'This PC', sub: 'System, sound, notifications, phone, files', glyph: '🖥', children: [
+      { id: 'sys-pc2', title: 'This PC', sub: 'Processor, graphics, memory, battery, Wi-Fi, brightness, power', glyph: '🖥', run: () => Panels.show({ kind: 'system', key: 'system', title: 'This PC', icon: '🖥' }) },
+      { id: 'sys-vol', title: 'Sound', sub: 'Volume, outputs, mic and every app', glyph: '🔊', run: () => Volume.open() },
+      { id: 'sys-qr', title: 'Quick Resume', sub: 'Switch between running games and apps, or freeze them', glyph: '▣', run: () => Resume.open() },
+      { id: 'sys-nc', title: 'Notifications', sub: 'Everything Bladedeck told you, and downloads', glyph: '🔔', run: () => Notify.open() },
+      { id: 'sys-phone', title: 'Phone app', sub: 'Control Bladedeck from your phone', glyph: '📱', run: () => Companion.open() },
+      { id: 'sys-xfer', title: 'Send files', sub: 'To your phone, or to a friend nearby', glyph: '📤', run: () => Transfer.open() },
+      { id: 'sys-voice', title: 'Voice commands', sub: S.lib.settings.voice ? 'Say “open…”, “weather”, “timer for 5 minutes” (View + LB)' : 'Turn on talking to Bladedeck', glyph: '🎤', run: () => (S.lib.settings.voice ? Voice.listen() : Voice.setup()) }] },
+    { id: 'grp-look', title: 'Personalize', sub: `${S.theme.name} · wallpaper, menus, aquarium, profile`, glyph: '🎨', children: [
+      { id: 'sys-theme', title: 'Next theme', sub: S.theme.name, glyph: '◐', run: cycleTheme },
+      { id: 'sys-wall', title: 'Wallpaper', sub: 'Wallpaper Engine or your own picture or video behind the menus', glyph: '🏞', run: () => Wallpaper.open() },
+      { id: 'sys-look', title: 'Look and menus', sub: 'Font, letters, size and tab icons', glyph: 'Aa', run: () => Look.open() },
+      { id: 'sys-mu', title: 'Music', sub: 'Play songs from your music folder', glyph: '♪', run: () => Music.open() },
+      { id: 'sys-aq', title: 'Aquarium', sub: `${(S.lib.settings.aquarium?.flakes ?? 5)} fish flakes to feed your fish`, glyph: '🐟', run: () => Scenes.openTank() },
+      { id: 'sys-me', title: 'Your profile', sub: `Level ${Player.levelOf(S.lib.settings.player?.xp || 0)}${Player.streak() > 1 ? ` · ${Player.streak()}-day streak` : ''} · goals and journal`, glyph: '⭐', run: () => Player.profile() }, ...sec] },
+    { id: 'grp-help', title: 'Help', sub: 'Tour, controls, guide, walkthroughs', glyph: '🧭', children: [
+      { id: 'sys-tour', title: 'Tour', sub: 'Every feature, one card at a time', glyph: '🧭', run: () => Tour.open() },
+      { id: 'sys-ctl', title: 'Controls', sub: 'Every button and key', glyph: '⌨', run: openControls },
+      { id: 'sys-guide', title: 'Guide', sub: 'Quick questions about a game, or Bladedeck (hold LT and pull)', glyph: '?', run: () => Guide.open('pad') },
+      { id: 'sys-pip', title: 'Walkthrough window', sub: 'A small YouTube that floats over your game', glyph: '📺', run: () => walkthrough() }] },
+    { id: 'sys-set', title: 'Settings', sub: 'Name, look, gaming software, controllers, accounts', glyph: '⚙', run: openSettings },
+    { id: 'sys-backup', title: 'Backup and restore', sub: 'Every choice and place you set, saved and brought back', glyph: '💾', run: () => Backup.open() },
+    { id: 'sys-pc', title: 'Switch to PC mode', sub: 'Windowed library manager', glyph: '▣', run: () => setMode('pc') },
+    { id: 'sys-exit', title: 'Exit Bladedeck', sub: 'Close the launcher', glyph: '⏻', run: () => api.quit() }
   ];
 }
+function systemActions() {
+  const groups = systemGroups();
+  const g = sysGroup && groups.find((x) => x.id === sysGroup);
+  if (g) return [{ id: 'sys-up', title: '‹ Back', sub: 'To the System menu (B)', glyph: '‹', run: () => sysOpen(null) }, ...g.children];
+  sysGroup = null;
+  return groups.map((x) => (x.children ? { ...x, sub: `${x.sub} ›`, run: () => sysOpen(x.id) } : x));
+}
+// Into a group (its first item highlighted), or back out to the group you were in.
+function sysOpen(id) {
+  const was = sysGroup; sysGroup = id;
+  const i = S.blades.findIndex((b) => b.special === 'system');
+  if (i < 0) return;
+  if (id) S.ii[i] = 1;
+  fillBlade(i, id ? null : was);
+  Sound.play(id ? 'blade' : 'back');
+}
+// Every action, wherever it is, for things that look one up by name (voice commands, the phone).
+const allSystemActions = () => systemGroups().flatMap((x) => x.children || [x]);
 
 function subline(e) {
   if (e.sub) return e.sub;
@@ -277,6 +362,13 @@ async function launch(e) {
   // Open the thing first, so the splash ripples the dialog it opens instead of an old picture.
   if (e.run) { Sound.play('blade'); const r = e.run(); FX.ripple(el, { dom: false }); return r; }
   if (launching) return;
+  // An emulated game with save states: continue from one, or start fresh.
+  if (e.type === 'rom' && e.__state === undefined && S.lib.settings.askStates !== false) {
+    const pick = await Roms.chooseState(e);
+    if (pick === false) return;
+    e.__state = pick || '';
+    try { return await launch(e); } finally { delete e.__state; }
+  }
   launching = true;
   const emulator = S.lib.emulators.find((x) => x.id === e.emulatorId);
   if ((S.lib.settings.rippleStyle || 'water') !== 'classic') Water.prepare();
@@ -287,7 +379,10 @@ async function launch(e) {
   // Steam and Heroic show their own "launching" pop-ups; stay on top of them until the game arrives.
   const cover = e.type === 'steam' || (e.type === 'gog' && !e.exe);
   if (cover) { api.keepOnTop(true); guardSteam(); }
-  const pending = api.launch({ entry: e, emulator, settings: S.lib.settings });
+  const player = await Players.launchOpts();
+  if (player && (e.type === 'steam' || (e.type === 'gog' && !e.exe))) toast(`${e.title} starts through ${e.type === 'steam' ? 'Steam' : 'Heroic'}, so it sees every controller.`);
+  const { __state, ...plain } = e;
+  const pending = api.launch({ entry: __state ? { ...plain, stateFile: __state } : plain, emulator, settings: S.lib.settings, player });
   const arrived = FX.tracers(el);
   const r = await pending;
   if (!r.ok) { el?.classList.remove('charging'); FX.fizzle(el); toast(r.error, 'err'); launching = false; if (cover) { api.keepOnTop(false); steamGuard = null; } return; }
@@ -300,6 +395,7 @@ async function launch(e) {
   if (opened) { const p0 = S.playing, o = opened; isGameWindow(p0, o).then((ok) => { if (ok && !p0.winPid) { p0.winPid = o.pid; uncoverSteam(p0); } }); }
   // Every game started this run, so several can run at once (see Quick Resume).
   S.sessions = [...S.sessions.filter((x) => x.id !== e.id), S.playing];
+  Players.launched(S.playing, e, player); Roms.launched(S.playing, e); AchClips.session(S.playing, e);
   if (S.playing.covered) {
     const p0 = S.playing;
     setTimeout(() => {
@@ -327,7 +423,7 @@ async function launch(e) {
     // Without KDE we cannot see the game's window arrive; a few seconds covers Steam's pop-up.
     if (p?.covered) setTimeout(() => uncoverSteam(p), 7000);
     // Let the intro finish before tucking Bladedeck away.
-    if (S.lib.settings.hideOnLaunch) setTimeout(() => { Sound.duck(true); api.minimize(); }, Intro.playing() ? 3000 : 0);
+    if (S.lib.settings.hideOnLaunch && !Players.on()) setTimeout(() => { Sound.duck(true); api.minimize(); }, Intro.playing() ? 3000 : 0);
   }, fxOn() ? 1500 : 0);
 }
 
@@ -386,6 +482,20 @@ addEventListener('blur', () => setTimeout(() => {
   if (active && launcherWin(active.cls) && steamGuard) { api.winAct(active.id, 'min'); steamGuard.hidden.set(active.id, active.caption); api.deckFocus(); return; }
   uncoverSteam(S.playing);
 }, 400));
+/* Sound follows the game's screen: moving a game (or emulator) to the TV switches the sound to
+   the TV, and back to the laptop's screen switches it back. Only a move counts, not where a game
+   starts, so a game started on the TV with sound on the speakers stays that way. */
+let followAt = { pid: 0, out: '' };
+api.onPeek(async (ev) => {
+  if (ev.kind !== 'windows' || S.lib.settings.soundFollow === false) return;
+  const p = S.playing; if (!p?.winPid) { followAt = { pid: 0, out: '' }; return; }
+  let l; try { l = JSON.parse(ev.caption) || []; } catch { return; }
+  const w = l.find((x) => x.pid === p.winPid); if (!w?.out) return;
+  const was = followAt; followAt = { pid: p.winPid, out: w.out };
+  if (was.pid !== p.winPid || was.out === w.out || !was.out) return;
+  const r = await api.soundFollow(w.out);
+  if (r.ok && r.data) toast(`Sound moved with the game: ${r.data}.`);
+});
 // The first real window to open after a launch is the game (Steam's own windows don't count).
 let launchedAt = 0, opened = null;
 const steamWin = (cls) => /^steam(webhelper)?$/i.test(cls || '');
@@ -405,7 +515,9 @@ api.onPeek(async (ev) => {
 });
 // The walkthrough window: a small YouTube over the game, searching for whatever is being played.
 function walkthrough(q) {
-  const e = (S.playing && S.lib.entries.find((x) => x.id === S.playing.id)) || (S.sel && !S.sel.run && S.sel.title ? S.sel : null);
+  // A video playing in the YouTube panel goes over the game, rather than a search.
+  const vp = !q && Panels.video(); if (vp) return Panels.overGames(vp);
+  const e = (S.playing && entryById(S.playing.id)) || (S.sel && !S.sel.run && S.sel.title ? S.sel : null);
   return api.pipToggle({ query: q || (e ? `${e.title} walkthrough` : '') });
 }
 api.onPeek((ev) => { if (ev.kind === 'pip') walkthrough(); });
@@ -414,6 +526,7 @@ api.onPeek((ev) => {
   if (ev.kind !== 'gone' || !ev.pid) return;
   for (const ses of S.sessions.filter((x) => x.winPid === ev.pid)) {
     S.sessions = S.sessions.filter((x) => x !== ses); Capture.sessionsChanged();
+    if (Players.on() && !S.sessions.length) Players.ended();
     if (ses === S.playing || ses.tracked) continue; // the panel, or the main process, handles those
     const e = S.lib.entries.find((x) => x.id === ses.id);
     if (e) sessionOver(e, Math.round((Date.now() - ses.t) / 1000));
@@ -431,6 +544,8 @@ function syncAway() {
   const on = document.hidden || (!!(S.playing || launching) && !deckFocused());
   if (on === away) return;
   away = on;
+  // CSS animations (glows, shimmer, the orb) stop too: nobody is looking at them.
+  document.body.classList.toggle('away', on);
   document.dispatchEvent(new CustomEvent('deck-away', { detail: on }));
 }
 document.addEventListener('visibilitychange', syncAway);
@@ -453,6 +568,10 @@ function sessionOver(e, seconds) {
 }
 api.onEnded(({ id, seconds }) => {
   const e = S.lib.entries.find((x) => x.id === id);
+  // The game that had the screen ended: take it back, so the controller drives Bladedeck again.
+  if (S.playing?.id === id) AchClips.session(null);
+  if (Players.on()) Players.ended();
+  else if (S.playing?.id === id && !deckFocused()) setTimeout(() => api.deckFocus(), 300);
   if (S.playing?.id === id) { S.playing = null; NowPlaying.end(); }
   S.sessions = S.sessions.filter((x) => x.id !== id);
   Capture.sessionsChanged();
@@ -489,6 +608,7 @@ function renderConsole() {
 function setBlade(i, force) {
   i = Math.max(0, Math.min(S.blades.length - 1, i));
   if (i === S.bi && !force) return;
+  if (i !== S.bi && S.blades[S.bi]?.special === 'system') sysGroup = null;
   const prev = S.bi; S.bi = i;
   const els = $$('.blade');
   els.forEach((el, k) => el.classList.toggle('active', k === i));
@@ -514,14 +634,19 @@ function emptyText(b) {
   return 'Nothing here yet. Open the System blade to add a game or scan Steam, or drop a program or game file onto this window.';
 }
 function itemHtml(e, i) {
+  if (e.header) return `<div class="sec-h ${e.note ? 'note' : ''}" data-h="${i}">${esc(e.title)}</div>`;
   const tag = S.renderHome && S.homeTags?.get(e.id);
   return `<div class="item" data-i="${i}"><div class="thumb">${cover(e)}</div><div class="meta"><b>${esc(e.title)}</b><span>${tag ? `<em class="htag">${esc(tag)}</em> ` : ''}${esc(subline(e))}</span></div>${e.favorite ? '<i class="star">★</i>' : ''}</div>`;
 }
 
 function setItem(j, quiet) {
   const n = S.items.length;
-  if (!n) { S.sel = null; updateDetail(); Showcase.show(null); return; }
+  if (!n || S.items.every((x) => x.header)) { S.sel = null; updateDetail(); Showcase.show(null); return; }
   j = Math.max(0, Math.min(n - 1, j));
+  // Section titles are skipped, in the way you were going (and never left as the last stop).
+  const dir = j < (S.ii[S.bi] || 0) ? -1 : 1;
+  while (S.items[j]?.header) j += dir;
+  if (j < 0 || j >= n) { j = Math.max(0, Math.min(n - 1, j)); while (S.items[j]?.header) j -= dir; }
   const moved = S.ii[S.bi] !== j;
   S.ii[S.bi] = j;
   const list = $('.blade.active .list');
@@ -541,7 +666,7 @@ function updateDetail() {
   d.innerHTML = `<div class="poster">${cover(e)}</div><div class="info">${GameTheme.on() && e.logo ? `<img class="logo" src="${fileUrl(e.logo)}" alt="${esc(e.title)}">` : `<h3>${esc(e.title)}</h3>`}
     <p class="sub">${esc(e.run ? e.sub : TYPES[e.type].label + (e.system ? ' on ' + e.system : ''))}</p>${stats}${e.run ? '' : Player.detailHtml(e)}
     ${e.run ? '' : `<span class="task-pill">${Tasks.count(e)} of ${TASKS.length} tasks. Start for more</span>`}
-    ${Ach.fits(e) && Ach.on() ? '<p class="stat ach"></p>' : ''}
+    ${Ach.fits(e) && (Ach.on() || e.type === 'steam') ? '<p class="stat ach"></p>' : ''}
     <p class="cta">${e.run ? 'Press A to open' : 'Press A to launch'}</p></div>`;
   Showcase.show(e); GameTheme.show(e); Ach.fill(e, $('.ach', d));
 }
@@ -553,7 +678,7 @@ function refreshQuiet() {
 
 /* ---------------------------------------------------------------- PC view */
 function pcNavs() {
-  const navs = S.lib.settings.blades.map((b, i) => ({ key: 'blade:' + i, label: b.name, blade: b, items: () => bladeItems(b), special: !!b.special }))
+  const navs = S.lib.settings.blades.map((b, i) => ({ key: 'blade:' + i, label: b.name, blade: b, items: () => bladeItems(b).filter((e) => !e.header), special: !!b.special }))
     .filter((n) => !n.special);
   navs.push({ key: 'hidden', label: 'Hidden', items: () => S.lib.entries.filter((e) => e.hidden).sort(byTitle) });
   navs.forEach((n) => { n.count = n.items().length; });
@@ -679,13 +804,32 @@ function openModal({ title, html, wide, buttons = [], onOpen }) {
   if (S.pad) PadNav.start(root); else $('input[type=text],select,textarea', root)?.focus();
   return root;
 }
-function closeModal() { OSK.close(); PadNav.clear(); const r = $('#modal'); r.classList.remove('open'); r.innerHTML = ''; r.onclick = null; S.modal = false; }
+/* Each dialog gets a fresh #modal element, so the listeners its onOpen added go with it. Keeping
+   one element meant every dialog's click handlers piled up: a dialog that redraws itself (Sources)
+   then ran "Add a folder" once per redraw, opening folder pickers without end. */
+function closeModal() {
+  OSK.close(); PadNav.clear();
+  const old = $('#modal'), r = old.cloneNode(false);
+  r.classList.remove('open'); old.replaceWith(r);
+  S.modal = false; const f = S.modalGone; S.modalGone = null; f?.();
+}
+// A yes-or-no question. True only when the yes button is pressed; B, Cancel or clicking away is no.
+// With a controller the yes button starts highlighted, so it takes a deliberate second press (A).
+function confirmAsk({ title, text, yes = 'OK', no = 'Cancel', danger = false }) {
+  return new Promise((res) => {
+    let done = false; const end = (v) => { if (!done) { done = true; res(v); } };
+    const root = openModal({ title, html: `<p>${esc(text)}</p>`, buttons: [{ label: no, left: true, onClick: () => end(false) }, { label: yes, primary: !danger, danger, onClick: () => end(true) }] });
+    S.modalGone = () => end(false);
+    if (S.pad) PadNav.mark($('[data-btn="1"]', root));
+  });
+}
 const val = (root, n) => $(`[name="${n}"]`, root)?.value.trim() ?? '';
 const chk = (root, n) => !!$(`[name="${n}"]`, root)?.checked;
 const row = (name, kind, v = '', ph = '') => `<div class="row"><input type="text" name="${name}" value="${esc(v)}" placeholder="${esc(ph)}"><button type="button" data-browse="${kind}:${name}">Browse</button></div>`;
 
 /* ---------------------------------------------------------------- entry editor */
 function editEntry(existing, preset = {}) {
+  if (Players.isP2()) { toast('Games are edited on Player 1\'s screen.'); return; }
   const e = existing ? { ...existing } : { id: uid(), type: 'exe', title: '', added: Date.now(), playtime: 0, ...preset };
   const emus = S.lib.emulators;
   let armed = false;
@@ -699,12 +843,14 @@ function editEntry(existing, preset = {}) {
         <label>Program${row('exe', 'exe', e.exe)}</label>
         <label>Arguments<input type="text" name="args" value="${esc(e.args || '')}"></label>
         <label>Start in folder${row('cwd', 'dir', e.cwd, "Defaults to the program's folder")}</label>
+        <label>Environment (optional), one KEY=value per line<textarea name="env" rows="2" placeholder="WINEDLLOVERRIDES=dxgi=n,b">${esc(e.env || '')}</textarea></label>
       </div>
       <div data-for="rom" style="display:flex;flex-direction:column;gap:12px">
         <label>Emulator<select name="emulatorId">${emus.length ? emus.map((x) => `<option value="${x.id}" ${e.emulatorId === x.id ? 'selected' : ''}>${esc(x.name)}${x.system ? ' (' + esc(x.system) + ')' : ''}</option>`).join('') : '<option value="">No emulators yet. Add one first.</option>'}</select></label>
         <label>Game file${row('rom', 'rom', e.rom)}</label>
       </div>
       <label>Cover image (optional)${row('cover', 'image', e.cover, 'Generated art is used if empty')}</label>
+      <label>Music when it is highlighted (optional)${row('music', 'audio', e.music, 'Found by itself when the game has music files')}</label>
       <div class="checks"><label><input type="checkbox" name="favorite" ${e.favorite ? 'checked' : ''}> Favorite</label><label><input type="checkbox" name="hidden" ${e.hidden ? 'checked' : ''}> Hide from lists</label></div>
       <p class="note">Arguments support {rom}, {romdir} and {title}. For recompiled ports, point Program at the port's executable.</p>`,
     buttons: [
@@ -714,7 +860,8 @@ function editEntry(existing, preset = {}) {
         S.lib.entries = S.lib.entries.filter((x) => x.id !== existing.id); S.sel = null; save(); refresh(); } }] : []),
       { label: 'Cancel' },
       { label: 'Save', primary: true, onClick: (root) => {
-        const o = { ...e, title: val(root, 'title'), type: val(root, 'type'), cover: val(root, 'cover'), favorite: chk(root, 'favorite'), hidden: chk(root, 'hidden') };
+        const o = { ...e, title: val(root, 'title'), type: val(root, 'type'), cover: val(root, 'cover'), music: val(root, 'music'), favorite: chk(root, 'favorite'), hidden: chk(root, 'hidden') };
+        if (e.id && (o.music || '') !== (e.music || '')) { api.gameMusicForget(e.id); HoverMusic.forget(e.id); }
         if (!o.title) { toast('Give it a name first.', 'err'); return false; }
         if (o.type === 'steam') { o.appid = val(root, 'appid'); if (!/^\d+$/.test(o.appid)) { toast('Steam app ID must be a number.', 'err'); return false; } }
         else if (o.type === 'rom') {
@@ -723,7 +870,7 @@ function editEntry(existing, preset = {}) {
           if (!em || !o.rom) { toast('Pick an emulator and a game file.', 'err'); return false; }
           o.system = em.system || em.name;
         } else {
-          o.exe = val(root, 'exe'); o.args = val(root, 'args'); o.cwd = val(root, 'cwd');
+          o.exe = val(root, 'exe'); o.args = val(root, 'args'); o.cwd = val(root, 'cwd'); o.env = val(root, 'env');
           if (!o.exe && !(o.type === 'gog' && o.heroicId)) { toast('Pick a program to run.', 'err'); return false; }
         }
         if (existing) Object.assign(existing, o); else S.lib.entries.push(o);
@@ -944,7 +1091,8 @@ const CONTROLS = [
     ['Pull the guide flap out', 'hold LT, then push the stick the way it opens', 'G, or drag the tab on the edge'],
     ['Move and pick', 'D-pad, then A', 'arrows and Enter, or click'],
     ['Back, then put it away', 'B', 'Esc'],
-    ['Push it shut', 'hold LT, push the stick back into the edge', 'drag the tab back']
+    ['Push it shut', 'hold LT, push the stick back into the edge', 'drag the tab back'],
+    ['Quick menu: music, alerts, recordings', 'hold RT, push the stick the way it opens (LB / RB change tab)', 'C, or drag the ♪ tab']
   ]],
   ['Quick Resume (several games and apps at once)', [
     ['Open Quick Resume', 'hold View', 'Q, or ▣ at the top'],
@@ -995,7 +1143,14 @@ const CONTROLS = [
   ['Breaking things', [
     ['Break the menu', 'slam from one end to the other', 'slam from one end to the other'],
     ['Hammer it back together', 'mash A', 'mash Enter, Space or click'],
-    ['Leave it broken', 'B', 'Esc']
+    ['Leave it broken', 'B', 'Esc'],
+    ['Wrecking ball: a draft of another interface (alpha)', 'LB + RB + Y together', 'Shift+W']
+  ]],
+  ['System menu', [
+    ['Open a group (Games and library, Gaming software, Play together…)', 'A', 'Enter'],
+    ['Back out of a group', 'B', 'Esc'],
+    ['Browse your sources: search, install', 'System, Games and library', 'same'],
+    ['Back up or restore everything you set', 'System, Backup and restore', 'same']
   ]]
 ];
 
@@ -1010,49 +1165,98 @@ function openControls() {
 }
 
 /* ---------------------------------------------------------------- settings */
+// Fewer, plainer pages: everything about running games and emulators is Gaming software, and
+// everything about playing with someone else in the room is Local multiplayer.
+const SET_TABS = [['general', 'General'], ['look', 'Look and sound'], ['games', 'Gaming software'], ['pads', 'Controllers'], ['multi', 'Local multiplayer'], ['rec', 'Recording and live view'], ['online', 'Accounts'], ['adv', 'Advanced']];
+let setTab = 0;
+function settingsTab(root, i) {
+  setTab = (i + SET_TABS.length) % SET_TABS.length;
+  const id = SET_TABS[setTab][0];
+  root.querySelectorAll('.set-tabs button').forEach((b, k) => b.classList.toggle('on', k === setTab));
+  root.querySelectorAll('.set-sec').forEach((sec) => { sec.hidden = sec.dataset.sec !== id; });
+  root.querySelector('.set-pages').scrollTop = 0;
+  if (S.pad) PadNav.mark(root.querySelector('.set-tabs button.on'));
+}
+// Settings, opened on one page (after a dialog of its own closed it).
+function openSettingsAt(id) { const i = SET_TABS.findIndex(([t]) => t === id); if (i >= 0) setTab = i; openSettings(); }
 function openSettings() {
+  if (Players.isP2()) { toast('Settings are on Player 1\'s screen.'); return; }
   const st = S.lib.settings;
   openModal({
     title: 'Settings', wide: true,
-    html: `
-      <label>Your name<input type="text" name="playerName" value="${esc(st.playerName)}"></label>
-      <label>Theme<select name="theme">${S.themes.map((t) => `<option value="${t.id}" ${t.id === st.theme ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
-      <label>Steam folder (leave empty to detect)${row('steamPath', 'dir', st.steamPath)}</label>
-      <div class="checks"><label><input type="checkbox" name="sounds" ${st.sounds ? 'checked' : ''}> Menu sounds</label><label><input type="checkbox" name="ambient" ${st.ambient ? 'checked' : ''}> Deep-sea ambience</label><label><input type="checkbox" name="fx" ${st.fx !== false ? 'checked' : ''}> Animations</label><label><input type="checkbox" name="intro" ${st.intro !== false ? 'checked' : ''}> Launch intro</label><label><input type="checkbox" name="bootAnim" ${st.bootAnim !== false ? 'checked' : ''}> Boot animation</label></div>
-      <div class="checks"><label><input type="checkbox" name="curatedHome" ${st.curatedHome !== false ? 'checked' : ''}> Home shows a few picks (Switch-style)</label></div>
-      <label>Your town, for the weather<input type="text" name="town" value="${esc(st.town || '')}"></label>
-      <div class="checks"><label><input type="checkbox" name="voice" ${st.voice ? 'checked' : ''}> Voice commands (View + LB, Space or 🎤)</label></div>
-      <div class="checks"><label><input type="checkbox" name="lanOn" ${st.lanOn !== false ? 'checked' : ''}> Show me to other Bladedecks nearby</label><label><input type="checkbox" name="lanShare" ${st.lanShare === true ? 'checked' : ''}> Share my game list with them</label></div>
-      <div class="checks"><label><input type="checkbox" name="runningList" ${st.runningList !== false ? 'checked' : ''}> Show what's running on the left</label><label><input type="checkbox" name="autoFreeze" ${st.autoFreeze ? 'checked' : ''}> Pause games when I switch away</label></div>
-      <div class="checks"><label><input type="checkbox" name="hideOnLaunch" ${st.hideOnLaunch ? 'checked' : ''}> Minimize while a game runs</label><label><input type="checkbox" name="quietWhilePlaying" ${st.quietWhilePlaying ? 'checked' : ''}> Silence desktop pop-ups while playing</label></div>
-      <div class="checks"><label><input type="checkbox" name="showcase" ${st.showcase !== false ? 'checked' : ''}> Play clips and pictures behind games</label></div>
-      <label class="range-row">Ambience volume<input type="range" name="ambientVolume" min="0" max="1" step="0.05" value="${st.ambientVolume ?? 0.5}"></label>
-      <label class="range-row">Clip and picture strength<input type="range" name="showcaseAlpha" min="0.2" max="1" step="0.05" value="${st.showcaseAlpha ?? 0.6}"></label>
-      <label>GOG game folders, one per line (common places are checked anyway)<textarea name="gogDirs" rows="2">${esc((st.gogDirs || []).join('\n'))}</textarea></label>
-      <div><button type="button" data-browse="dir:gogDirs" data-append="1">Add GOG folder</button></div>
-      <label>Music folder (leave empty for your Music folder)${row('musicDir', 'dir', st.musicDir)}</label>
-      <div class="checks"><label><input type="checkbox" name="musicDuringGames" ${st.musicDuringGames ? 'checked' : ''}> Keep music playing during games</label><label><input type="checkbox" name="peekMinimize" ${st.peekMinimize ? 'checked' : ''}> Minimize the game when peeking with Ctrl+M</label></div>
-      <p class="note">Ctrl+M jumps between a game or app and Bladedeck. On KDE you can change the key in System Settings, Shortcuts, KWin, "Bladedeck: peek". Minimizing the game can freeze its live view, so it is off by default.</p>
-      <h3 class="set-h">Recording</h3>
-      ${Capture.settingsHtml()}
-      <h3 class="set-h">Watched folders</h3>
-      ${Watch.settingsHtml()}
-      <h3 class="set-h">Guide</h3>
-      ${Guide.settingsHtml()}
-      <h3 class="set-h">Faster starts</h3>
-      <div class="checks"><label><input type="checkbox" name="prewarmSteam" ${st.prewarmSteam !== false ? 'checked' : ''}> Start Steam quietly when Bladedeck opens, so Steam games launch right away</label></div>
-      <div class="checks"><label><input type="checkbox" name="shaderCache" ${st.shaderCache !== false ? 'checked' : ''}> Big shader cache for games Bladedeck starts itself (fewer stutters, faster second starts)</label><label><input type="checkbox" name="gamemode" ${st.gamemode ? 'checked' : ''}> Run games with GameMode, if it is installed</label></div>
-      <p class="note">Steam games start through Steam, so set these in Steam too: Settings, Downloads, turn on Shader Pre-Caching and "Allow background processing of Vulkan shaders". Then Steam compiles shaders while you're not playing, instead of while you wait. For a game that still compiles a lot, put <code>MESA_SHADER_CACHE_MAX_SIZE=10G %command%</code> in its Launch Options.</p>
-      <h3 class="set-h">Accounts</h3>
-      <label>SteamGridDB API key (free: steamgriddb.com, Preferences, API) for cover art and backgrounds<input type="password" name="sgdbKey" value="${esc(st.sgdbKey || '')}" autocomplete="off"></label>
-      <div class="row2"><label>RetroAchievements name<input type="text" name="raUser" value="${esc(st.raUser || '')}" autocomplete="off"></label>
-        <label>RetroAchievements web API key (retroachievements.org, Settings, Keys)<input type="password" name="raKey" value="${esc(st.raKey || '')}" autocomplete="off"></label></div>
-      <div style="display:flex;gap:8px;align-items:center"><button type="button" data-x="ratest">Check RetroAchievements</button><span class="note ra-res"></span></div>
-      <h3 class="set-h">Everything else</h3>
-      <label>Command for Windows games (leave empty for wine)<input type="text" name="wineCommand" value="${esc(st.wineCommand || '')}" placeholder="wine"></label>
-      <label>Blades (JSON). Rename, reorder, remove, or add filters. Each blade is { "name", "filter": { "types": [...], "system": "...", "emulator": "id", "favorite": true, "recent": 12 } }.<textarea name="blades" rows="9">${esc(JSON.stringify(st.blades, null, 2))}</textarea></label>
-      <div class="btns" style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-x="look">Look and menus</button><button type="button" data-x="themes">Open themes folder</button><button type="button" data-x="css">Show custom.css</button><button type="button" data-x="blades">Reset blades</button></div>
-      <p class="note">Themes are JSON files in the themes folder. custom.css is loaded last and can restyle anything.</p>`,
+    /* Tabs down the side (LB / RB on a controller); every page's controls stay in the form, so Save
+       keeps all of them, whichever page they are on. */
+    html: `<div class="set">
+      <nav class="set-tabs">${SET_TABS.map(([id, label], i) => `<button type="button" class="${i === setTab ? 'on' : ''}" data-tab="${id}">${label}</button>`).join('')}</nav>
+      <div class="set-pages">
+      <section class="set-sec" data-sec="general">
+        <label>Your name<input type="text" name="playerName" value="${esc(st.playerName)}"></label>
+        <label>Your town, for the weather<input type="text" name="town" value="${esc(st.town || '')}"></label>
+        <div class="checks"><label><input type="checkbox" name="curatedHome" ${st.curatedHome !== false ? 'checked' : ''}> Home shows a few picks for today under Favorites and Recently played</label><label><input type="checkbox" name="runningList" ${st.runningList !== false ? 'checked' : ''}> Show what's running on the left</label><label><input type="checkbox" name="voice" ${st.voice ? 'checked' : ''}> Voice commands (View + LB, Space or 🎤)</label><label><input type="checkbox" name="showStats" ${st.showStats !== false ? 'checked' : ''}> Show processor, memory and temperature at the top (click it, or press I, for This PC)</label></div>
+        <h4 class="set-sub">Guide and quick menu</h4>${Guide.settingsHtml()}
+      </section>
+      <section class="set-sec" data-sec="look">
+        <label>Theme<select name="theme">${S.themes.map((t) => `<option value="${t.id}" ${t.id === st.theme ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
+        <div class="checks"><label><input type="checkbox" name="fx" ${st.fx !== false ? 'checked' : ''}> Animations</label><label><input type="checkbox" name="intro" ${st.intro !== false ? 'checked' : ''}> Launch intro</label><label><input type="checkbox" name="bootAnim" ${st.bootAnim !== false ? 'checked' : ''}> Boot animation</label><label><input type="checkbox" name="showcase" ${st.showcase !== false ? 'checked' : ''}> Play clips and pictures behind games</label></div>
+        <label class="range-row">Clip and picture strength<input type="range" name="showcaseAlpha" min="0.2" max="1" step="0.05" value="${st.showcaseAlpha ?? 0.6}"></label>
+        <h4 class="set-sub">Sound</h4>
+        <div class="checks"><label><input type="checkbox" name="sounds" ${st.sounds ? 'checked' : ''}> Menu sounds</label><label><input type="checkbox" name="ambient" ${st.ambient ? 'checked' : ''}> Deep-sea ambience</label><label><input type="checkbox" name="soundFollow" ${st.soundFollow !== false ? 'checked' : ''}> Sound follows a game to another screen (the TV's speakers when it moves to the TV)</label><label><input type="checkbox" name="hoverMusic" ${st.hoverMusic !== false ? 'checked' : ''}> Play a game's own music when it stays highlighted for 3 seconds</label></div>
+        <label class="range-row">Ambience volume<input type="range" name="ambientVolume" min="0" max="1" step="0.05" value="${st.ambientVolume ?? 0.5}"></label>
+        <h4 class="set-sub">Music</h4>
+        <label>Music folder (leave empty for your Music folder)${row('musicDir', 'dir', st.musicDir)}</label>
+        <div class="checks"><label><input type="checkbox" name="musicDuringGames" ${st.musicDuringGames ? 'checked' : ''}> Keep music playing during games</label></div>
+        <div class="btns"><button type="button" data-x="look">Look and menus…</button></div>
+      </section>
+      <section class="set-sec" data-sec="games">
+        <nav class="set-jump">${[['g-run', 'Launching'], ['g-emu', 'Emulators'], ['g-fast', 'Faster starts'], ['g-where', 'Steam, GOG and Windows games'], ['g-watch', 'Watched folders']].map(([id, n]) => `<button type="button" data-jump="${id}">${n}</button>`).join('')}</nav>
+        <h4 class="set-sub" id="g-run">Launching</h4>
+        <div class="checks"><label><input type="checkbox" name="hideOnLaunch" ${st.hideOnLaunch ? 'checked' : ''}> Minimize Bladedeck while a game runs</label><label><input type="checkbox" name="autoFreeze" ${st.autoFreeze ? 'checked' : ''}> Pause games when I switch away</label><label><input type="checkbox" name="quietWhilePlaying" ${st.quietWhilePlaying ? 'checked' : ''}> Silence desktop pop-ups while playing</label><label><input type="checkbox" name="peekMinimize" ${st.peekMinimize ? 'checked' : ''}> Minimize the game when peeking with Ctrl+M</label><label><input type="checkbox" name="achClips" ${st.achClips !== false ? 'checked' : ''}> Keep a clip of every achievement you unlock (30 seconds before to 5 after), shown behind the game</label></div>
+        <h4 class="set-sub" id="g-emu">Emulators</h4>
+        <div class="checks"><label><input type="checkbox" name="askStates" ${st.askStates !== false ? 'checked' : ''}> When an emulated game has save states, offer to continue from one</label><label><input type="checkbox" name="romsFullscreen" ${st.romsFullscreen !== false ? 'checked' : ''}> Emulated games always fill the screen (Xenia, PCSX2, Dolphin and the rest)</label></div>
+        <div class="btns"><button type="button" data-x="emus">Your emulators…</button><button type="button" data-x="emuget">Install emulators…</button><button type="button" data-x="sources">Sources (ROMs, BIOS, texture packs)…</button><button type="button" data-x="mc">Minecraft…</button></div>
+        <p class="note">Ctrl+M (or View + Start) jumps between a game and Bladedeck. On KDE the key is in System Settings, Shortcuts, KWin, "Bladedeck: peek". Minimizing the game can freeze its live view, so that is off by default.</p>
+        <h4 class="set-sub" id="g-fast">Faster starts</h4>
+        <div class="checks"><label><input type="checkbox" name="prewarmSteam" ${st.prewarmSteam !== false ? 'checked' : ''}> Start Steam quietly when Bladedeck opens, so Steam games launch right away</label><label><input type="checkbox" name="shaderCache" ${st.shaderCache !== false ? 'checked' : ''}> Big shader cache for games Bladedeck starts itself (fewer stutters, faster second starts)</label><label><input type="checkbox" name="gamemode" ${st.gamemode ? 'checked' : ''}> Run games with GameMode, if it is installed</label></div>
+        <p class="note">Steam games start through Steam, so set these in Steam too: Settings, Downloads, turn on Shader Pre-Caching and "Allow background processing of Vulkan shaders". For a game that still compiles a lot, put <code>MESA_SHADER_CACHE_MAX_SIZE=10G %command%</code> in its Launch Options.</p>
+        <h4 class="set-sub" id="g-where">Steam, GOG and Windows games</h4>
+        <label>Steam folder (leave empty to detect)${row('steamPath', 'dir', st.steamPath)}</label>
+        <label>GOG game folders, one per line (common places are checked anyway)<textarea name="gogDirs" rows="2">${esc((st.gogDirs || []).join('\n'))}</textarea></label>
+        <div><button type="button" data-browse="dir:gogDirs" data-append="1">Add GOG folder</button></div>
+        <label>Command for Windows games (leave empty for wine; umu-run uses Proton)<input type="text" name="wineCommand" value="${esc(st.wineCommand || '')}" placeholder="wine"></label>
+        <h4 class="set-sub" id="g-watch">Watched folders</h4>${Watch.settingsHtml()}
+      </section>
+      <section class="set-sec" data-sec="pads">
+        <div class="checks"><label><input type="checkbox" name="padBackground" ${st.padBackground ? 'checked' : ''}> Let games and emulators hear the controller while Bladedeck's menu is in front</label></div>
+        <div class="pl-box"><p class="note">Looking for controllers…</p></div>
+      </section>
+      <section class="set-sec" data-sec="multi">
+        <h4 class="set-sub">Split screen: one screen</h4>
+        <p class="note">Up to four players on one screen, each with a controller, through PartyDeck. For PC games with online or LAN play.</p>
+        <div class="btns"><button type="button" data-x="split">Split screen…</button></div>
+        <h4 class="set-sub">Multi-screen: a screen each</h4>
+        <div class="ms-box"><p class="note">Looking for screens…</p></div>
+        <h4 class="set-sub">Nearby: other Bladedecks</h4>
+        <div class="checks"><label><input type="checkbox" name="lanOn" ${st.lanOn !== false ? 'checked' : ''}> Show me to other Bladedecks nearby</label><label><input type="checkbox" name="lanShare" ${st.lanShare === true ? 'checked' : ''}> Share my game list with them</label></div>
+        <p class="note">Who is which player, and each controller's rumble and sound, are on the Controllers page.</p>
+      </section>
+      <section class="set-sec" data-sec="rec">${Capture.settingsHtml()}
+        <h4 class="set-sub">Live view</h4>
+        <div class="checks"><label><input type="checkbox" name="liveAuto" ${st.liveAuto !== false ? 'checked' : ''}> Live view starts by itself: the first time you jump out of a game it asks once, then it is just there</label></div>
+        <p class="note">The live view and the recorder each ask the desktop once what to show. In that box, pick the game's <b>window</b> (live view) or your <b>screen</b> (recording). "New virtual output" makes an extra invisible screen and "Region" a rectangle; neither is needed here. Leave "Allow restoring" ticked so it is not asked again.</p>
+        <div class="btns"><button type="button" data-x="liveforget">Ask again for every game</button></div>
+      </section>
+      <section class="set-sec" data-sec="online">
+        <label>SteamGridDB API key (free: steamgriddb.com, Preferences, API) for cover art and backgrounds<input type="password" name="sgdbKey" value="${esc(st.sgdbKey || '')}" autocomplete="off"></label>
+        <div class="row2"><label>RetroAchievements name<input type="text" name="raUser" value="${esc(st.raUser || '')}" autocomplete="off"></label>
+          <label>RetroAchievements web API key (retroachievements.org, Settings, Keys)<input type="password" name="raKey" value="${esc(st.raKey || '')}" autocomplete="off"></label></div>
+        <div style="display:flex;gap:8px;align-items:center"><button type="button" data-x="ratest">Check RetroAchievements</button><span class="note ra-res"></span></div>
+      </section>
+      <section class="set-sec" data-sec="adv">
+        <label>Blades (JSON). Rename, reorder, remove, or add filters. Each blade is { "name", "filter": { "types": [...], "system": "...", "emulator": "id", "favorite": true, "recent": 12 } }.<textarea name="blades" rows="9">${esc(JSON.stringify(st.blades, null, 2))}</textarea></label>
+        <div class="btns" style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-x="backup">Backup and restore…</button><button type="button" data-x="themes">Open themes folder</button><button type="button" data-x="css">Show custom.css</button><button type="button" data-x="blades">Reset blades</button></div>
+        <p class="note">Themes are JSON files in the themes folder. custom.css is loaded last and can restyle anything.</p>
+      </section>
+      </div></div>`,
     buttons: [{ label: 'Cancel' }, { label: 'Save', primary: true, onClick: (root) => {
       let blades;
       try { blades = JSON.parse($('[name=blades]', root).value); if (!Array.isArray(blades) || !blades.length || blades.some((b) => !b.name)) throw new Error('shape'); }
@@ -1062,19 +1266,31 @@ function openSettings() {
         ambientVolume: +val(root, 'ambientVolume'), showcaseAlpha: +val(root, 'showcaseAlpha'), wineCommand: val(root, 'wineCommand'),
         gogDirs: val(root, 'gogDirs').split('\n').map((x) => x.trim()).filter(Boolean) });
       const peekWas = st.peekMinimize, dirWas = st.musicDir;
-      Object.assign(st, { musicDir: val(root, 'musicDir'), musicDuringGames: chk(root, 'musicDuringGames'), peekMinimize: chk(root, 'peekMinimize') });
-      Object.assign(st, { prewarmSteam: chk(root, 'prewarmSteam'), shaderCache: chk(root, 'shaderCache'), gamemode: chk(root, 'gamemode'),
+      Object.assign(st, { musicDir: val(root, 'musicDir'), musicDuringGames: chk(root, 'musicDuringGames'), peekMinimize: chk(root, 'peekMinimize'), romsFullscreen: chk(root, 'romsFullscreen'), showStats: chk(root, 'showStats'), hoverMusic: chk(root, 'hoverMusic'), achClips: chk(root, 'achClips'), askStates: chk(root, 'askStates') });
+      st.liveAuto = chk(root, 'liveAuto');
+      Object.assign(st, { prewarmSteam: chk(root, 'prewarmSteam'), shaderCache: chk(root, 'shaderCache'), gamemode: chk(root, 'gamemode'), padBackground: chk(root, 'padBackground'), soundFollow: chk(root, 'soundFollow'),
         sgdbKey: val(root, 'sgdbKey'), raUser: val(root, 'raUser'), raKey: val(root, 'raKey') });
-      Boot.setOn(st.bootAnim !== false); Guide.readSettings(root); Watch.readSettings(root); Capture.readSettings(root); Running.refresh();
+      Boot.setOn(st.bootAnim !== false); Guide.readSettings(root); Watch.readSettings(root); Capture.readSettings(root); Players.readControllers(root); Players.readMulti(root); Running.refresh();
       if (peekWas !== st.peekMinimize) api.peekConfig({ minimize: st.peekMinimize });
       if (dirWas !== st.musicDir) Music.load(true).then(Music.draw);
       Sound.sync(); Showcase.reset();
       applyTheme(val(root, 'theme')); $('#who').textContent = st.playerName; Player.header(); S.bi = 0; S.pcNav = 'blade:0'; save();
       if (S.mode === 'console') renderConsole(); else renderPc();
     } }],
-    onOpen: (root) => { Capture.settingsOpen(root); root.addEventListener('click', (ev) => {
+    onOpen: (root) => {
+      Capture.settingsOpen(root);
+      root.querySelector('.dlg').classList.add('settings');
+      settingsTab(root, setTab);
+      Players.wireControllers($('.pl-box', root)); Players.wireMulti($('.ms-box', root), root);
+      root.addEventListener('click', (ev) => {
+      const t = ev.target.closest('.set-tabs [data-tab]');
+      if (t) { settingsTab(root, SET_TABS.findIndex(([id]) => id === t.dataset.tab)); Sound.play('tick'); return; }
       const x = ev.target.closest('[data-x]')?.dataset.x;
       if (x === 'look') { closeModal(); Look.open(); }
+      const go = { emus: manageEmulators, emuget: () => Shop.open('emus'), sources: () => Roms.sources(), mc: () => Minecraft.open(), split: () => SplitScreen.open(), backup: () => Backup.open() }[x];
+      if (go) { closeModal(); setTimeout(go, 0); return; }
+      if (x === 'liveforget') { S.lib.settings.liveAsked = {}; api.liveForget('*'); toast('The live view asks again the next time for each game.'); }
+      const j = ev.target.closest('[data-jump]'); if (j) $('#' + j.dataset.jump, root)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       if (x === 'ratest') {
         const out = $('.ra-res', root), keep = { raUser: st.raUser, raKey: st.raKey };
         Object.assign(st, { raUser: val(root, 'raUser'), raKey: val(root, 'raKey') }); save();
@@ -1091,7 +1307,23 @@ function openSettings() {
 /* ---------------------------------------------------------------- input (keyboard + gamepad share one dispatcher) */
 function activate() { if (S.sel) launch(S.sel); }
 
-function handle(a) {
+function handle(a) { handleInput(a); hints(); if (a === 'up' || a === 'down' || a === 'left' || a === 'right') Players.bump(); }
+/* The hint bar says what the buttons do where you are, so Y reads "Close…" in the Running list
+   and the dock rather than "Edit". */
+let hintsDefault = null, hintsNow = '';
+function hints() {
+  const bar = $('#hints'); if (!bar) return;
+  if (hintsDefault === null) hintsDefault = bar.innerHTML;
+  const h = (k, t, cls = k) => `<span class="h"><i class="pad ${cls}">${k.toUpperCase()}</i>${t}</span>`;
+  const run = Running.active() && Running.current(), dock = Dock.active() && Dock.current();
+  const html = run ? h('a', 'Switch to it') + (run.canPause ? h('x', run.paused ? 'Resume' : 'Pause') : '') + (run.canClose ? h('y', 'Close…') : '') + h('b', 'Back')
+    : dock ? h('a', dock.open ? 'Show / hide' : dock.edit ? 'Edit dock' : 'Open') + (dock.open ? h('x', 'Minimize') + h('y', 'Close…') : '') + h('b', 'Back')
+    : NowPlaying.highlighted() ? h('a', 'Back to the game') + h('x', 'Live view') + h('b', 'Back')
+    : hintsDefault;
+  if (html !== hintsNow) { hintsNow = html; bar.innerHTML = html; }
+}
+
+function handleInput(a) {
   // A press during the boot animation only skips it.
   if (Boot.playing?.()) { Boot.done(); return; }
   if (Drive.handle(a)) return;
@@ -1101,6 +1333,7 @@ function handle(a) {
   if (OSK.handle(a)) return;
   if (Tour.handle(a)) return;
   if (Crash.handle(a)) return;
+  if (Wreck.handle(a)) return;
   if (S.modal) { modalInput(a); return; }
   if (Notify.handle(a)) return;
   if (Resume.handle(a)) return;
@@ -1109,6 +1342,7 @@ function handle(a) {
   // While a game starts behind Bladedeck, X shows whatever Steam is asking.
   if (a === 'x' && S.playing?.covered) { revealSteam(); uncoverSteam(S.playing); api.minimize(); return; }
   if (a === 'guide') { Guide.toggle('type'); return; }
+  if (a === 'quick') { Guide.quick(); return; }
   if (Guide.handle(a)) return;
   if (Running.handle(a)) return;
   if (Dock.handle(a)) return;
@@ -1116,6 +1350,7 @@ function handle(a) {
   if (a === 'music') { Music.toggle(); return; }
   if (a === 'help') { openControls(); return; }
   if (a === 'voice') { Voice.listen(); return; }
+  if (a === 'pc') { openThisPc(); return; }
   if (a === 'lt') { Music.prev(); return; }
   if (a === 'rt') { Music.next(); return; }
   if (Secrets.feed(a)) return;
@@ -1133,6 +1368,9 @@ function handle(a) {
 // left and right change a list or slider, B closes. See pad.js.
 function modalInput(a) {
   if (a === 'b') { closeModal(); return; }
+  // Settings: LB and RB go through its pages.
+  const sr = $('#modal .dlg.settings');
+  if (sr && (a === 'lb' || a === 'rb')) { settingsTab($('#modal'), setTab + (a === 'rb' ? 1 : -1)); Sound.play('tick'); return; }
   PadNav.input($('#modal'), a);
 }
 
@@ -1145,7 +1383,7 @@ function consoleInput(a) {
     case 'up': setItem(j - 1); break;
     case 'down': setItem(j + 1); break;
     case 'a': activate(); break;
-    case 'b': if (S.bi !== 0) { sndBack(); setBlade(0); } break;
+    case 'b': if (sysGroup && S.blades[S.bi]?.special === 'system') sysOpen(null); else if (S.bi !== 0) { sndBack(); setBlade(0); } break;
     case 'x': if (S.sel && !S.sel.run) toggleFav(S.sel); break;
     case 'y': if (S.sel && !S.sel.run) editEntry(S.sel); break;
     case 'start': if (S.sel && !S.sel.run) Tasks.open(S.sel); else setBlade(S.blades.length - 1); break;
@@ -1171,7 +1409,7 @@ function pcInput(a) {
   }
 }
 
-const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b', f: 'x', e: 'y', s: 'start', t: 'tasks', p: 'poke', r: 'ach', m: 'music', g: 'guide', v: 'vol', q: 'resume', n: 'notify', ' ': 'voice', F1: 'help', '?': 'help', '[': 'lt', ']': 'rt', F10: 'back', PageUp: 'lb', PageDown: 'rb' };
+const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b', f: 'x', e: 'y', s: 'start', t: 'tasks', p: 'poke', r: 'ach', m: 'music', g: 'guide', v: 'vol', q: 'resume', n: 'notify', ' ': 'voice', F1: 'help', '?': 'help', c: 'quick', '[': 'lt', ']': 'rt', F10: 'back', PageUp: 'lb', PageDown: 'rb', i: 'pc' };
 
 function bindInput() {
   addEventListener('keydown', (ev) => { if (ev.isTrusted) S.pad = false; }, true);
@@ -1192,24 +1430,44 @@ function bindInput() {
   // gamepad: first connected pad, d-pad or left stick, with hold-to-repeat.
   // View + Menu together is the controller's Ctrl+M, and works while a game has focus too, so
   // View and Menu on their own act when let go, once it is clear they were not that pair.
-  const prev = {}, rep = {};
+  const prev = {}, rep = {}, prevStick = {}, stickLet = {}, stickBounce = {};
   let paired = false, viewAt = 0, viewHeld = false;
   (function poll(now) {
     requestAnimationFrame(poll);
-    const p = [...(navigator.getGamepads?.() || [])].find(Boolean);
-    if (!p) return;
-    const b = (i) => !!p.buttons[i]?.pressed;
-    const st = { up: b(12) || p.axes[1] < -0.6, down: b(13) || p.axes[1] > 0.6, left: b(14) || p.axes[0] < -0.6, right: b(15) || p.axes[0] > 0.6,
+    // Every controller this menu listens to (all of them, or in multi-screen just this player's).
+    const ps = Players.pads();
+    if (!ps.length) return;
+    const p = ps.find((g) => g.buttons.some((x) => x.pressed)) || ps[0];
+    const b = (i) => ps.some((g) => !!g.buttons[i]?.pressed);
+    const ax = (i) => ps.reduce((m, g) => (Math.abs(g.axes[i] || 0) > Math.abs(m) ? g.axes[i] : m), 0);
+    /* The stick, with its spring-back ignored: let go of a stick pushed right and it swings past the
+       middle a little to the left. A push the other way within 200 ms of letting go is that swing,
+       not a press. The d-pad is never filtered. */
+    const sx = ax(0), sy = ax(1);
+    const stick = { up: sy < -0.6, down: sy > 0.6, left: sx < -0.6, right: sx > 0.6 };
+    const OPP = { up: 'down', down: 'up', left: 'right', right: 'left' };
+    // Let-gos first (a swing can cross the middle within one frame), then new pushes.
+    for (const d in OPP) if (prevStick[d] && !stick[d]) stickLet[d] = now;
+    for (const d in OPP) {
+      if (stick[d] && !prevStick[d] && now - (stickLet[OPP[d]] ?? -1e9) < 200) stickBounce[d] = true;
+      if (!stick[d]) stickBounce[d] = false;
+    }
+    Object.assign(prevStick, stick);
+    const sd = (d) => stick[d] && !stickBounce[d];
+    const st = { up: b(12) || sd('up'), down: b(13) || sd('down'), left: b(14) || sd('left'), right: b(15) || sd('right'),
       a: b(0), b: b(1), x: b(2), y: b(3), lb: b(4), rb: b(5), lt: b(6), rt: b(7), back: b(8), start: b(9), ach: b(10), music: b(11), vol: b(16) };
-    if (st.back && st.start && !paired) { paired = true; api.peekToggle(); }
+    // In multi-screen it is this player's own: pause the game and show their menu, or go back.
+    if (st.back && st.start && !paired) { paired = true; if (Players.on()) Players.toggleMenu(); else api.peekToggle(); }
     // View + Y: the walkthrough window. View + X: record. View + RB: save the last moments. In games too.
     if (st.back && st.y && !paired) { paired = true; walkthrough(); }
     if (st.back && st.x && !paired) { paired = true; Capture.toggleRecord(); }
     if (st.back && st.rb && !paired) { paired = true; Capture.saveReplay(); }
+    // LB + RB + Y: the wrecking ball (an alpha draft of another interface).
+    if (st.lb && st.rb && st.y && !st.back && !paired && (Players.inMenu() ?? deckFocused())) { paired = true; Wreck.start(); }
     // View + LB: a voice command.
     if (st.back && st.lb && !paired) { paired = true; Voice.listen(); }
     if (!S.pad && deckFocused()) for (const k in st) if (st[k]) { S.pad = true; break; }
-    const focused = deckFocused();
+    const focused = Players.inMenu() ?? deckFocused();
     // Holding the guide trigger pulls the flap out with the stick; the stick is not the menu's then.
     const pulling = focused && !S.modal && !Volume.isOpen() && !Resume.isOpen() && Guide.frame(p, now);
     for (const k in st) {
@@ -1224,7 +1482,7 @@ function bindInput() {
       else if (st[k] && dir && now > rep[k]) { handle(k); rep[k] = now + 90; }
       prev[k] = st[k];
     }
-    if (!st.back && !st.start) paired = false;
+    if (!st.back && !st.start && !(st.lb && st.rb)) paired = false;
     // Holding View opens Quick Resume; a quick press still swaps console and PC mode.
     if (st.back && !prev.backHeld) viewAt = now;
     if (!st.back) { viewAt = 0; viewHeld = false; }
@@ -1289,12 +1547,14 @@ function bindInput() {
   { const b = document.querySelector('.bt-sub'); if (b) b.textContent = `Welcome back, ${S.lib.settings.playerName || 'player'}`; }
   Player.header();
   $('.who').addEventListener('click', () => Player.profile());
-  startBg(); startClock(); bindInput();
-  setMode(S.lib.settings.mode || 'console', true);
+  startBg(); startClock(); startSysChip(); bindInput();
+  setMode(Players.isP2() ? 'console' : S.lib.settings.mode || 'console', true);
   Sound.startAmbient(); Secrets.bump();
   Music.load().then(Music.draw);
+  // Player 2's menu (multi-screen) is just a menu: the main one does the watching, music and network.
+  if (Players.isP2()) { S.lib.settings.playerName = 'Player 2'; $('#who').textContent = 'Player 2'; Players.applySounds(); Guide.init(); Dock.draw(); Running.refresh(); return; }
   Dock.draw(); Guide.init(); Watch.start(); ensureEmuApps(); Tour.maybeOffer(); Running.refresh();
-  Friends.presence();
+  Friends.presence(); Players.applySounds(); Players.applyPad(); Extras.boot(); Roms.fixArgs();
   api.onDownloads((list) => Downloads.update(list));
   // First run: go and find everything so the library is never empty.
   if (!S.lib.entries.length) setTimeout(findEverything, 600);

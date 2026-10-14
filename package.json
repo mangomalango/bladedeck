@@ -5,7 +5,10 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "node scripts/predist.js && electron-builder"
+    "dist": "node scripts/predist.js && electron-builder",
+    "snapshot": "node scripts/snapshot.js",
+    "rollback": "node scripts/rollback.js",
+    "check": "node scripts/check.js"
   },
   "devDependencies": {
     "electron": "^33.0.0",
@@ -26,7 +29,19 @@
       "system.js",
       "companion/**",
       "companion.js",
+      "players.js",
+      "extras.js",
+      "roms.js",
+      "achievements.js",
+      "gamemusic.js",
+      "savestates.js",
+      "realdebrid.js",
       "capture.js",
+      "livecap.js",
+      "webdl.js",
+      "finder.js",
+      "minecraft.js",
+      "backup.js",
       "winaudio.js",
       "winpad.js",
       "winlist.js",
@@ -40,23 +55,28 @@
       "themes/**"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "companion/icon-512.png"
     },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "icon": "companion/icon-512.png"
     },
     "mac": {
       "target": "dmg"
     },
     "asarUnpack": [
-      "node_modules/sherpa-onnx/**"
-    ]
+      "node_modules/sherpa-onnx/**",
+      "node_modules/seek-bzip/**"
+    ],
+    "icon": "companion/icon-512.png"
   },
   "allowScripts": {
     "electron@33.4.11": true
   },
   "dependencies": {
     "qrcode-generator": "^1.4.4",
+    "seek-bzip": "^2.0.0",
     "sherpa-onnx": "^1.13.8"
   }
 }

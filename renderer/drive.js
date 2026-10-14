@@ -29,6 +29,7 @@ const Drive = (() => {
     fade = document.createElement('div'); fade.id = 'drive-fade'; canvas.after(fade);
     hud = document.createElement('div'); hud.id = 'drive-hud'; hud.hidden = true; document.body.appendChild(hud);
 
+    tmp = new THREE.Vector3(); tmp2 = new THREE.Vector3(); look = new THREE.Vector3();
     R = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'low-power' });
     R.setPixelRatio(Math.min(devicePixelRatio, 1) * 0.8);
     R.toneMapping = THREE.ACESFilmicToneMapping; R.toneMappingExposure = 1.45;
@@ -168,7 +169,8 @@ const Drive = (() => {
   /* -------------------------------------------------------------- each frame */
   function size() { if (!R) return; R.setSize(innerWidth, innerHeight, false); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); }
 
-  const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3(), look = new THREE.Vector3();
+  // Scratch vectors, made with the world (the 3D library loads only when the theme is on).
+  let tmp, tmp2, look;
   function roadY(x, z) {
     // Height of the road under a free-driven car: the bridge only counts if you are on it and up there already.
     let best = 1e9, y = 0;
@@ -293,9 +295,21 @@ const Drive = (() => {
   }
 
   /* -------------------------------------------------------------- on, off, and the wheel */
+  /* The 3D library (670 KB) is only loaded the first time the theme is turned on, not with every
+     start of Bladedeck. */
+  let loading = null;
+  function three() {
+    if (typeof THREE !== 'undefined') return Promise.resolve(true);
+    return (loading = loading || new Promise((res) => {
+      const sc = document.createElement('script'); sc.src = 'vendor/three.min.js';
+      sc.onload = () => res(true); sc.onerror = () => { loading = null; res(false); };
+      document.head.appendChild(sc);
+    }));
+  }
   function set(enable) {
     on = !!enable;
-    if (on && !ready) { if (typeof THREE === 'undefined') { on = false; return; } build(); }
+    if (on && !ready && typeof THREE === 'undefined') { three().then((ok) => { if (ok && on) set(true); else if (!ok) on = false; }); return; }
+    if (on && !ready) build();
     if (!ready) return;
     R.domElement.hidden = !on; fade.hidden = !on;
     if (!on) { if (driving) stopDriving(); cancelAnimationFrame(raf); raf = 0; }
@@ -307,6 +321,8 @@ const Drive = (() => {
   function startDriving() {
     if (!on) { const t = S.themes.find((x) => x.scene === 'drive'); if (t) { applyTheme(t.id); save(); } }
     if (!on || driving) return;
+    // The theme was just turned on and its 3D library is still loading: take the wheel once it is.
+    if (!ready) { three().then((ok) => { if (ok) setTimeout(() => { if (ready) startDriving(); }, 200); }); return; }
     driving = true;
     free.x = carPos.x; free.z = carPos.z; free.yaw = Math.atan2(carDir.x, carDir.z); free.speed = 0; free.camera = 0;
     R.setPixelRatio(Math.min(devicePixelRatio, 1)); size();

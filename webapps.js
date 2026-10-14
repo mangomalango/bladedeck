@@ -63,15 +63,19 @@ function open({ key, name, url, tv }) {
    Mobile YouTube fits a small window best. */
 const MOBILE_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36';
 const searchUrl = (q) => `https://m.youtube.com/results?search_query=${encodeURIComponent(q)}`;
-function pipToggle({ query = '', show } = {}) {
+// A YouTube video page to play in it, from the YouTube panel. Only YouTube watch pages.
+const videoUrl = (u) => { try { const x = new URL(String(u)); return /^https:$/.test(x.protocol) && /^(m|www)\.youtube\.com$/.test(x.hostname) && x.pathname === '/watch' && /^[\w-]{11}$/.test(x.searchParams.get('v') || '') ? x.toString() : ''; } catch { return ''; } };
+function pipToggle({ query = '', show, url = '' } = {}) {
   let w = apps.get('walkthrough');
+  url = videoUrl(url);
   if (w && !w.isDestroyed()) {
     const visible = w.isVisible() && !w.isMinimized();
     if (visible && show !== true) {
       w.webContents.executeJavaScript("document.querySelectorAll('video').forEach((v) => v.pause()); 1").catch(() => {});
       w.hide(); tell(); return 'hidden';
     }
-    if (query && query !== w.__q) { w.__q = query; w.loadURL(searchUrl(query), { userAgent: MOBILE_UA }); }
+    if (url) { w.__q = ''; w.loadURL(url, { userAgent: MOBILE_UA }); }
+    else if (query && query !== w.__q) { w.__q = query; w.loadURL(searchUrl(query), { userAgent: MOBILE_UA }); }
     if (w.isMinimized()) w.restore();
     w.showInactive(); w.setAlwaysOnTop(true, 'screen-saver'); tell(); return 'shown';
   }
@@ -85,7 +89,7 @@ function pipToggle({ query = '', show } = {}) {
   w.setMenuBarVisibility(false); w.setAlwaysOnTop(true, 'screen-saver'); w.setVisibleOnAllWorkspaces?.(true);
   w.__q = query;
   apps.set('walkthrough', w);
-  w.loadURL(query ? searchUrl(query) : 'https://m.youtube.com', { userAgent: MOBILE_UA });
+  w.loadURL(url || (query ? searchUrl(query) : 'https://m.youtube.com'), { userAgent: MOBILE_UA });
   w.webContents.setUserAgent(MOBILE_UA);
   w.once('ready-to-show', () => { w.showInactive(); tell(); });
   w.webContents.setWindowOpenHandler(({ url: u }) => { if (/youtube\.com|youtu\.be/.test(u)) w.loadURL(u); else if (/^https?:/i.test(u)) shell.openExternal(u); return { action: 'deny' }; });

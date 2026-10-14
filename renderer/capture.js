@@ -43,14 +43,16 @@ const Capture = (() => {
   }
   window.bladedeck.onCaptureStatus((s) => { st = s; badge(); });
 
-  const playing = () => (S.playing && S.lib.entries.find((x) => x.id === S.playing.id)) || null;
+  const playing = () => (S.playing && entryById(S.playing.id)) || null;
   function tellGame() { const e = playing(); api.captureGame(e ? { title: e.title, id: e.id } : {}); }
 
   // A game started: keep the replay ready while it runs.
   async function sessionStarted() {
     tellGame();
     await refresh();
-    if (st.available && cfg().replay > 0 && !(st.running && st.mode === 'replay')) { await api.captureReplay({ replay: cfg().replay, mic: cfg().mic, fps: cfg().fps }); refresh(); }
+    // Achievement clips need the minute before an unlock that is noticed a little late.
+    const secs = AchClips.on() ? Math.max(cfg().replay, 60) : cfg().replay;
+    if (st.available && cfg().replay > 0 && !(st.running && st.mode === 'replay')) { await api.captureReplay({ replay: secs, mic: cfg().mic, fps: cfg().fps }); refresh(); }
   }
   // Nothing running any more: stop the replay a minute later (unless recording).
   let idleT = 0;
@@ -89,7 +91,16 @@ const Capture = (() => {
   function note(text, err) { toast(text, err ? 'err' : 'ok'); }
 
   // A finished clip: attach it to its game.
-  window.bladedeck.onCaptureSaved((d) => {
+  window.bladedeck.onCaptureSaved(async (d) => {
+    // Saved for an achievement: cut to the moment and kept as that game's b-roll.
+    const ach = await AchClips.take(d);
+    if (ach) {
+      const g = entryById(ach.entryId);
+      if (g) { (g.media = g.media || []).push({ path: ach.file, kind: 'video', rec: true, secs: ach.secs || 35, tag: 'achievement', title: ach.title, icon: ach.icon, at: Date.now() }); save(); Tasks.sync(g); if (S.sel === g) Showcase.show(g, true); }
+      Sound.play('fixed');
+      toast(`🏆 Clip of "${ach.title}" saved${g ? ` for ${g.title}` : ''}.`, 'fun');
+      return;
+    }
     const e = S.lib.entries.find((x) => x.id === d.id);
     if (e) {
       (e.media = e.media || []).push({ path: d.file, kind: 'video', rec: true, secs: d.secs || cfg().replay, tag: d.kind === 'replay' ? 'replay' : '', at: Date.now() });

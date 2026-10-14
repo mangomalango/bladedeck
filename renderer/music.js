@@ -148,5 +148,10 @@ const Music = (() => {
   }
 
   function setVolume(v) { st().musicVolume = v; audio.volume = v; save(); }
-  return { load, toggle, next, prev, open, draw, setVolume, playing: () => !audio.paused };
+  // What is on, for the guide flap's Music tab.
+  function now() { const f = pos >= 0 ? list[order[pos]] : ''; return { title: f ? title(f) : '', artist: f ? artist(f) : '', playing: !audio.paused, count: list.length, shuffle, volume: Math.round((st().musicVolume ?? 0.7) * 100), at: audio.currentTime || 0, length: audio.duration || 0 }; }
+  function toggleShuffle() { shuffle = !shuffle; const cur = order[pos]; order = list.map((_, i) => i); if (shuffle) shuffleOrder(); pos = cur === undefined ? -1 : order.indexOf(cur); draw(); }
+  // Quieter while a game's own music plays over the menu, then back.
+  function duck(on) { if (audio.paused) return; fade(on ? (st().musicVolume ?? 0.7) * 0.12 : st().musicVolume ?? 0.7); }
+  return { load, toggle, next, prev, open, draw, setVolume, now, toggleShuffle, duck, playing: () => !audio.paused };
 })();

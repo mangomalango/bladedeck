@@ -16,7 +16,7 @@ const { ipcMain, app } = require('electron');
 
 const PORT = 47616;
 const STATIC = path.join(__dirname, 'companion');
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.svg': 'image/svg+xml' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.svg': 'image/svg+xml', '.apk': 'application/vnd.android.package-archive' };
 
 let server = null, file = '', data = { devices: [] }, pairing = null, getWin = () => null, loadLib = () => ({ entries: [] });
 let pending = new Map(), seq = 0, streams = new Set(), lastState = '';
@@ -29,7 +29,22 @@ function addresses() {
   for (const [name, list] of Object.entries(os.networkInterfaces())) {
     for (const a of list || []) if (a.family === 'IPv4' && !a.internal) out.push({ ip: a.address, kind: /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(a.address) ? 'Tailscale' : /^(wl|wlan|wifi)/i.test(name) ? 'Wi-Fi' : 'Network' });
   }
-  return out.sort((a, b) => (a.kind === 'Tailscale') - (b.kind === 'Tailscale'));
+  // Tailscale first: it reaches the phone anywhere, and its traffic gets past a firewall that drops
+  // everything else coming in (ufw on CachyOS, for one).
+  return out.sort((a, b) => (b.kind === 'Tailscale') - (a.kind === 'Tailscale'));
+}
+
+/* Whether a firewall drops phones on the home network: ufw running with its default "deny
+   incoming" and no rule for this port. Only read, never changed. (Tailscale is let through by
+   Tailscale's own rules.) */
+function lanBlocked() {
+  if (process.platform !== 'linux') return false;
+  try {
+    if (!fs.existsSync('/etc/ufw/ufw.conf') || !/ENABLED=yes/.test(fs.readFileSync('/etc/ufw/ufw.conf', 'utf8'))) return false;
+    const policy = (fs.readFileSync('/etc/default/ufw', 'utf8').match(/DEFAULT_INPUT_POLICY="(\w+)"/) || [])[1] || '';
+    if (/ACCEPT/i.test(policy)) return false;
+    return !new RegExp(`dport (${PORT}|4761[0-9]:\\d+)`).test(fs.readFileSync('/etc/ufw/user.rules', 'utf8'));
+  } catch { return false; }
 }
 
 // Ask the page for something and wait for its answer.
@@ -91,7 +106,8 @@ async function handle(req, res) {
     const rel = p === '/' ? 'index.html' : p.slice(1);
     const f = path.resolve(STATIC, rel);
     if (!f.startsWith(STATIC + path.sep) || !fs.existsSync(f)) { res.writeHead(404); return res.end(); }
-    res.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
+    // The Android app itself can be downloaded from here, so a phone needs nothing else to get it.
+    res.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-cache', ...(f.endsWith('.apk') ? { 'Content-Disposition': 'attachment; filename="Bladedeck.apk"' } : {}) });
     return fs.createReadStream(f).pipe(res);
   }
   // Lets the Android app find Bladedecks on the network.
@@ -208,7 +224,7 @@ function register({ getWin: gw, loadLib: ll }) {
   ipcMain.on('companion-ring', (_e, r) => event('ring', { title: String(r?.title || 'Bladedeck').slice(0, 80), text: String(r?.text || '').slice(0, 200) }));
   // The page only builds its status when a phone is listening.
   ipcMain.handle('companion-listening', () => streams.size > 0);
-  ipcMain.handle('companion-info', () => ({ enabled: !!data.enabled, port: PORT, addresses: addresses(), devices: data.devices.map((d) => ({ name: d.name, added: d.added, seen: d.seen, id: d.key.slice(0, 6) })), listeners: streams.size }));
+  ipcMain.handle('companion-info', () => ({ blocked: lanBlocked(), enabled: !!data.enabled, port: PORT, addresses: addresses(), devices: data.devices.map((d) => ({ name: d.name, added: d.added, seen: d.seen, id: d.key.slice(0, 6) })), listeners: streams.size }));
   ipcMain.handle('companion-enable', (_e, on) => { data.enabled = !!on; persist(); if (on) start(); else stop(); return !!server; });
   ipcMain.handle('companion-code', () => {
     pairing = { code: String(crypto.randomInt(0, 1e6)).padStart(6, '0'), until: Date.now() + 10 * 60000, misses: 0 };
@@ -217,6 +233,11 @@ function register({ getWin: gw, loadLib: ll }) {
     qr.addData(urls[0] ? `${urls[0].url}#pair=${pairing.code}` : ''); qr.make();
     return { code: pairing.code, until: pairing.until, urls, qr: qr.createSvgTag({ cellSize: 6, margin: 3, scalable: true }) };
   });
+  // Whether the server answers on each address (from this PC: a firewall can still stop a phone).
+  ipcMain.handle('companion-check', () => Promise.all(addresses().map((a) => new Promise((res) => {
+    const r = http.get({ host: a.ip, port: PORT, path: '/api/hello', timeout: 3000 }, (x) => { x.resume(); res({ ...a, ok: x.statusCode === 200 }); });
+    r.on('error', () => res({ ...a, ok: false })); r.on('timeout', () => { r.destroy(); res({ ...a, ok: false }); });
+  }))));
   ipcMain.handle('companion-forget', (_e, id) => { data.devices = data.devices.filter((d) => !d.key.startsWith(String(id))); persist(); return true; });
   app.on('will-quit', stop);
 }

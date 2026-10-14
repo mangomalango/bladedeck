@@ -11,15 +11,15 @@ const EMU_CATALOG = [
   { id: 'io.mgba.mGBA', win: { id: 'JeffreyPfau.mGBA', hint: 'mgba', exe: '^mgba\\.exe$' }, name: 'mGBA', system: 'Game Boy Advance', also: 'Game Boy, Game Boy Color', args: '-f "{rom}"', exts: 'gba,gb,gbc,sgb', site: 'https://mgba.io' },
   { id: 'com.snes9x.Snes9x', name: 'Snes9x', system: 'Super Nintendo', args: '"{rom}"', exts: 'sfc,smc,zip', site: 'https://www.snes9x.com' },
   { id: 'com.github.Rosalie241.RMG', name: 'Rosalie\'s Mupen GUI', system: 'Nintendo 64', args: '--fullscreen "{rom}"', exts: 'n64,z64,v64', site: 'https://github.com/Rosalie241/RMG' },
-  { id: 'org.DolphinEmu.dolphin-emu', name: 'Dolphin', system: 'GameCube / Wii', args: '-b -e "{rom}"', exts: 'iso,gcm,rvz,wbfs,gcz,ciso,wad', site: 'https://dolphin-emu.org' },
+  { id: 'org.DolphinEmu.dolphin-emu', name: 'Dolphin', system: 'GameCube / Wii', args: '-b -C Dolphin.Display.Fullscreen=True -e "{rom}"', exts: 'iso,gcm,rvz,wbfs,gcz,ciso,wad', site: 'https://dolphin-emu.org' },
   { id: 'info.cemu.Cemu', win: { id: 'Cemu.Cemu', hint: 'cemu', exe: '^cemu\\.exe$' }, name: 'Cemu', system: 'Wii U', args: '-f -g "{rom}"', exts: 'wua,wud,wux,rpx', site: 'https://cemu.info' },
-  { id: 'net.kuribo64.melonDS', win: { id: 'melonDS.melonDS', hint: 'melonds', exe: '^melonds\\.exe$' }, name: 'melonDS', system: 'Nintendo DS', args: '"{rom}"', exts: 'nds', site: 'https://melonds.kuribo64.net' },
-  { id: 'org.azahar_emu.Azahar', win: { id: 'AzaharEmu.Azahar', hint: 'azahar', exe: '^azahar(-qt)?\\.exe$' }, name: 'Azahar', system: 'Nintendo 3DS', args: '"{rom}"', exts: '3ds,cci,cxi,3dsx', site: 'https://azahar-emu.org' },
-  { id: 'io.github.ryubing.Ryujinx', name: 'Ryujinx', system: 'Switch', args: '"{rom}"', exts: 'nsp,xci', site: 'https://ryujinx.app' },
+  { id: 'net.kuribo64.melonDS', win: { id: 'melonDS.melonDS', hint: 'melonds', exe: '^melonds\\.exe$' }, name: 'melonDS', system: 'Nintendo DS', args: '-f "{rom}"', exts: 'nds', site: 'https://melonds.kuribo64.net' },
+  { id: 'org.azahar_emu.Azahar', win: { id: 'AzaharEmu.Azahar', hint: 'azahar', exe: '^azahar(-qt)?\\.exe$' }, name: 'Azahar', system: 'Nintendo 3DS', args: '-f "{rom}"', exts: '3ds,cci,cxi,3dsx', site: 'https://azahar-emu.org' },
+  { id: 'io.github.ryubing.Ryujinx', name: 'Ryujinx', system: 'Switch', args: '--fullscreen "{rom}"', exts: 'nsp,xci', site: 'https://ryujinx.app' },
   { id: 'net.pcsx2.PCSX2', win: { id: 'PCSX2Team.PCSX2', hint: 'pcsx2', exe: '^pcsx2(-qt)?\\.exe$' }, name: 'PCSX2', system: 'PlayStation 2', args: '-batch -fullscreen -- "{rom}"', exts: 'iso,chd,cso,gz', site: 'https://pcsx2.net' },
   { id: '', win: { id: 'Stenzek.DuckStation', hint: 'duckstation', exe: '^duckstation-qt-x64.*\\.exe$' }, name: 'DuckStation', system: 'PlayStation', args: '-batch -fullscreen -- "{rom}"', exts: 'cue,chd,pbp,m3u', site: 'https://www.duckstation.org', linuxNote: 'Not on Flathub. Get the AppImage from its website, then add it in Emulators.' },
-  { id: 'org.ppsspp.PPSSPP', win: { id: 'PPSSPPTeam.PPSSPP', hint: 'ppsspp', exe: '^ppssppwindows64\\.exe$' }, name: 'PPSSPP', system: 'PSP', args: '"{rom}"', exts: 'iso,cso,pbp,chd', site: 'https://www.ppsspp.org' },
-  { id: 'net.rpcs3.RPCS3', name: 'RPCS3', system: 'PlayStation 3', args: '--no-gui "{rom}"', exts: 'iso,bin', site: 'https://rpcs3.net' },
+  { id: 'org.ppsspp.PPSSPP', win: { id: 'PPSSPPTeam.PPSSPP', hint: 'ppsspp', exe: '^ppssppwindows64\\.exe$' }, name: 'PPSSPP', system: 'PSP', args: '--fullscreen "{rom}"', exts: 'iso,cso,pbp,chd', site: 'https://www.ppsspp.org' },
+  { id: 'net.rpcs3.RPCS3', gh: 'rpcs3', name: 'RPCS3', system: 'PlayStation 3', args: '--no-gui "{rom}"', exts: 'iso,bin', site: 'https://rpcs3.net', note: 'The official build from the RPCS3 team. Replaces a Flathub RPCS3, keeping its firmware, games and saves.' },
   { id: '', gh: 'shadps4', name: 'shadPS4', system: 'PlayStation 4', args: '"{rom}"', exts: 'bin', onlyNames: ['eboot.bin'], site: 'https://shadps4.net', note: 'PS4 games are folders: point it at your own dumps. Bloodborne runs; online play is not available yet.' },
   { id: '', gh: 'xenia', name: 'Xenia Canary', system: 'Xbox 360', args: '--fullscreen=true "{rom}"', exts: 'iso,xex,zar', site: 'https://xenia.jp', note: 'Downloaded from its GitHub releases. The Linux build is newer and still experimental.' },
   { id: 'org.flycast.Flycast', name: 'Flycast', system: 'Dreamcast', args: '"{rom}"', exts: 'cdi,gdi,chd', site: 'https://github.com/flyinghead/flycast' },
@@ -206,10 +206,12 @@ const Shop = (() => {
       body = `<p class="note">One press installs an emulator (from Flathub on Linux, with winget on Windows) and adds it to Bladedeck. Put your own game dumps in <code>${esc(paths.roms)}${esc(paths.sep)}&lt;system&gt;</code> and press Scan in Emulators.</p>
         <div class="sh-emus">${EMU_CATALOG.map((e, i) => {
           const k = key(e), inLib = k && S.lib.emulators.some((x) => x.installKey === k || x.flatpak === k);
+          // Set up from Flathub, but its makers publish their own build: offer to switch.
+          const older = e.gh && !inLib && S.lib.emulators.some((x) => x.flatpak === e.id || `${x.exe} ${x.args}`.includes(e.id));
           const note = e.note || (!paths.win && e.linuxNote) || (paths.win && !k ? 'No Windows package to install from. Get it from its website, then add it in Emulators.' : '');
-          const state = !k ? 'Website' : busy[k] != null ? `Installing ${busy[k]}%` : inLib ? 'Open' : have[k] ? 'Set up' : 'Install';
+          const state = !k ? 'Website' : busy[k] != null ? `Installing ${busy[k]}%` : inLib ? 'Open' : older ? 'Use the official build' : have[k] ? 'Set up' : 'Install';
           return `<div class="sh-emu"><b>${esc(e.name)}</b><span>${esc(e.system)}${e.also ? `, ${esc(e.also)}` : ''}</span>${note ? `<small>${esc(note)}</small>` : ''}
-            <button type="button" data-emu="${i}" ${busy[k] != null ? 'disabled' : ''} class="${state === 'Install' || state === 'Set up' ? 'primary' : ''}">${esc(state)}</button></div>`;
+            <button type="button" data-emu="${i}" ${busy[k] != null ? 'disabled' : ''} class="${state === 'Install' || state === 'Set up' || state === 'Use the official build' ? 'primary' : ''}">${esc(state)}</button></div>`;
         }).join('')}</div>`;
     }
     el.innerHTML = `<div class="sh-tabs">${tabs.map(([k, n]) => `<button type="button" data-tab="${k}" class="${k === tab ? 'primary' : ''}">${n}</button>`).join('')}</div><div class="sh-body">${body}</div>`;
@@ -219,9 +221,17 @@ const Shop = (() => {
   // Install (if needed) and add one emulator to the library. Returns the library's emulator.
   async function setUp(e) {
     const k = key(e);
-    let em = S.lib.emulators.find((x) => x.installKey === k || (x.flatpak && x.flatpak === e.id));
-    if (em) return em;
+    let em = S.lib.emulators.find((x) => x.installKey === k || (x.flatpak && x.flatpak === e.id) || (e.gh === 'rpcs3' && /net\.rpcs3\.RPCS3/.test(`${x.exe} ${x.args}`)));
+    // An emulator set up from Flathub that now has its makers' own build: switch it over.
+    const upgrade = em && e.gh && em.installKey !== k && (em.flatpak === e.id || `${em.exe} ${em.args}`.includes(e.id));
+    if (em && !upgrade) return em;
     const run = await install(e); if (!run) return null;
+    if (upgrade) {
+      Object.assign(em, { exe: run.exe, args: e.args, installKey: k }); delete em.flatpak;
+      save(); ensureEmuApps(); refresh(); draw();
+      toast(`${e.name} now runs the official build. Your games and saves are where they were.`, 'fun');
+      return em;
+    }
     const dir = `${paths.roms}${paths.sep}${e.system.split(' / ')[0]}`;
     if (!e.exts) {
       // RetroArch picks its own core per game, so it lives in the library as an app.
@@ -323,6 +333,7 @@ const Shop = (() => {
     if (b.dataset.emu) {
       const e = EMU_CATALOG[+b.dataset.emu]; if (!key(e)) { web(e.site); return; }
       const em = S.lib.emulators.find((x) => x.installKey === key(e) || (x.flatpak && x.flatpak === e.id));
+      if (e.gh && S.lib.emulators.some((x) => x.installKey !== key(e) && (x.flatpak === e.id || `${x.exe} ${x.args}`.includes(e.id))) && !S.lib.emulators.some((x) => x.installKey === key(e))) { setUp(e); return; }
       // Already set up: open it, and show where its tile lives.
       const tile = em && S.lib.entries.find((x) => x.emuApp === em.id);
       if (tile) { closeModal(); launch(tile); toast(`${e.name} is on the Emulation blade too.`); return; }

@@ -100,16 +100,29 @@ function watch() {
 
 function status() { return { available: !!(gsr = gsr || find()), running: !!proc, mode, recording, since: recStart, dir: root() }; }
 
-async function startReplay(opts) {
+// Starts are one at a time: two calls close together must not leave two recorders running.
+let starting = null;
+function startReplay(opts) {
+  starting = (starting || Promise.resolve()).then(() => startReplayNow(opts)).finally(() => { starting = null; });
+  return starting;
+}
+async function startReplayNow(opts) {
   gsr = gsr || find(); if (!gsr) return status();
   if (proc && mode === 'replay') return status();
   if (proc) stop();
   fs.mkdirSync(inbox(), { recursive: true }); watch();
-  proc = spawn(gsr.cmd, await args(opts, Math.max(5, Math.min(600, +opts.replay || 30))), { stdio: 'ignore' });
-  mode = 'replay';
-  proc.on('exit', () => { proc = null; mode = null; recording = false; send('capture-status', status()); });
+  const a = await args(opts, Math.max(5, Math.min(600, +opts.replay || 30)));
+  if (proc) return status();
+  adopt(spawn(gsr.cmd, a, { stdio: 'ignore' }), 'replay');
   send('capture-status', status());
   return status();
+}
+// A recorder that ends only clears the state if it is still the current one: an old one that
+// takes a moment to stop must not make Bladedeck forget the new one (and start a third).
+function adopt(p, m) {
+  proc = p; mode = m;
+  p.on('exit', () => { if (proc !== p) return; proc = null; mode = null; recording = false; send('capture-status', status()); });
+  p.on('error', () => { if (proc === p) { proc = null; mode = null; recording = false; } });
 }
 
 async function toggleRecord(opts) {
@@ -122,9 +135,10 @@ async function toggleRecord(opts) {
     sig('SIGINT'); recording = false;
   } else {
     fs.mkdirSync(inbox(), { recursive: true });
-    proc = spawn(gsr.cmd, await args(opts, 0), { stdio: 'ignore' });
-    mode = 'record'; recording = true; recStart = Date.now();
-    proc.on('exit', () => { proc = null; mode = null; recording = false; send('capture-status', status()); });
+    const a = await args(opts, 0);
+    if (proc) return status();
+    adopt(spawn(gsr.cmd, a, { stdio: 'ignore' }), 'record');
+    recording = true; recStart = Date.now();
   }
   send('capture-status', status());
   return status();
@@ -136,7 +150,7 @@ function saveReplay() {
   return status();
 }
 
-function stop() { if (proc) { sig('SIGINT'); const p = proc; setTimeout(() => { try { p.kill('SIGKILL'); } catch { /* gone */ } }, 4000); } proc = null; mode = null; recording = false; }
+function stop() { if (proc) { sig('SIGINT'); const p = proc; setTimeout(() => { if (p.exitCode === null && p.signalCode === null) { try { p.kill('SIGKILL'); } catch { /* gone */ } } }, 4000); } proc = null; mode = null; recording = false; }
 
 // Every capture, newest first, for the gallery.
 function list() {
@@ -183,4 +197,4 @@ function register({ getWin }) {
   app.on('will-quit', stop);
 }
 
-module.exports = { register, status };
+module.exports = { register, status, stop };

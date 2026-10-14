@@ -74,6 +74,8 @@ const Tour = (() => {
     if (!on) return;
     on = false; el.classList.remove('open'); setTimeout(() => { if (!on) el.hidden = true; }, 250);
     S.lib.settings.tourSeen = TOUR.length; save();
+    // Then, once: the optional extras worth turning on.
+    if (!S.lib.settings.extrasSeen) setTimeout(() => { if (!S.modal) Extras.open(); }, 700);
   }
   function go(d) { const n = i + d; if (n < 0) return; if (n >= TOUR.length) { close(); return; } i = n; Sound.play('tick'); draw(); }
   // Show the real thing; the tour steps aside and comes back where it was when that closes.

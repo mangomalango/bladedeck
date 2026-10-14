@@ -24,10 +24,11 @@ function pairScreen() {
   $('#tabs').hidden = true;
   const pre = (location.hash.match(/pair=(\d{6})/) || [])[1] || '';
   view.innerHTML = `<div class="pairbox"><div class="orb" style="width:70px;height:70px;margin:0 auto"></div><h1>Pair with Bladedeck</h1>
-    <p>In Bladedeck open System, Phone app, and enter the code it shows.</p>
+    <p>In Bladedeck open System, This PC, Phone app, and enter the code it shows.</p>
     <input class="code" id="code" inputmode="numeric" maxlength="6" placeholder="000000" value="${pre}">
     <input id="name" placeholder="This phone's name" value="${esc(/Android/.test(navigator.userAgent) ? 'Android phone' : /iPhone/.test(navigator.userAgent) ? 'iPhone' : 'Phone')}">
-    <button class="primary" id="pair">Pair</button></div>`;
+    <button class="primary" id="pair">Pair</button>
+    ${!window.BladedeckApp && /Android/.test(navigator.userAgent) ? '<a class="getapp" href="bladedeck-phone.apk" download="Bladedeck.apk">Get the Android app</a><p class="small">It finds Bladedeck by itself and keeps a notification for timers. Open the file once it downloads and allow installing from your browser.</p>' : ''}</div>`;
   $('#pair').onclick = async () => {
     const r = await fetch('api/pair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: $('#code').value.replace(/\D/g, ''), name: $('#name').value }) }).then((x) => x.json()).catch(() => ({ error: 'Bladedeck did not answer.' }));
     if (!r.key) { toast(r.error || 'That did not work.'); return; }
@@ -143,7 +144,11 @@ document.addEventListener('click', async (ev) => {
   if (t.dataset.tabGo) { setTab(t.dataset.tabGo); return; }
   if (t.dataset.pad && !t.hasAttribute('data-rep')) { doIt({ a: 'pad', key: t.dataset.pad }); return; }
   if (t.dataset.do) { const r = await doIt({ a: t.dataset.do }); if (t.dataset.do === 'clip') toast('Saving the last moments…'); if (t.dataset.do === 'pip') toast('Walkthrough window toggled'); return r; }
-  if (t.dataset.run) { await doIt({ a: 'run', i: +t.dataset.run, act: t.dataset.act }); return; }
+  if (t.dataset.run) {
+    // Closing takes a second tap: the first one turns ✕ into "Close?" for three seconds.
+    if (t.dataset.act === 'close' && !t.classList.contains('sure')) { buzz(); t.classList.add('sure'); t.textContent = 'Close?'; setTimeout(() => { t.classList.remove('sure'); t.textContent = '✕'; }, 3000); return; }
+    await doIt({ a: 'run', i: +t.dataset.run, act: t.dataset.act }); return;
+  }
   if (t.dataset.game) { gameSheet(t.dataset.game); return; }
   if (t.dataset.f) { libFilter = t.dataset.f; drawLibrary(); return; }
   if (t.dataset.mute) { const [kind, id, m] = t.dataset.mute.split('|'); buzz(); drawSound(await api('sound', { kind: kind === 'output' ? 'output' : kind, id, mute: m === '1' })); return; }

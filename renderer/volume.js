@@ -50,7 +50,7 @@ const Volume = (() => {
     const body = rs.map((r, i) => {
       if (r.k === 'outputs') {
         return `<div class="vo-row outputs ${i === row ? 'hl' : ''}" data-r="${i}"><div class="vo-mid"><b>Play sound on</b>
-          <div class="vo-chips">${outs.map((o, j) => `<button type="button" class="${o.on ? 'on' : ''} ${i === row && j === chip ? 'cur' : ''}" data-out="${j}"><i>${outIcon(o)}</i>${esc(short(o))}</button>`).join('')}</div></div></div>`;
+          <div class="vo-chips">${outs.map((o, j) => `<button type="button" class="${o.on ? 'on' : ''} ${o.unplugged ? 'off' : ''} ${i === row && j === chip ? 'cur' : ''}" data-out="${j}" title="${o.unplugged ? 'Nothing is plugged in here' : ''}"><i>${outIcon(o)}</i>${esc(short(o))}${o.unplugged ? '<small> · not connected</small>' : ''}</button>`).join('')}</div></div></div>`;
       }
       const head = r.k === 'app' && (i === 0 || rs[i - 1].k !== 'app') ? '<div class="vo-h">Apps playing sound</div>' : r.k === 'music' ? '<div class="vo-h">Bladedeck</div>' : '';
       return head + slider(r, i);
@@ -97,8 +97,35 @@ const Volume = (() => {
   }
   async function useOutput(j) {
     const o = state?.outputs[j]; if (!o || o.on) return;
+    const was = state.outputs.find((x) => x.on);
+    if (o.unplugged && !(await confirmAsk({ title: `Nothing is plugged into ${short(o)}`, text: 'Sound would go nowhere until something is connected there. Use it anyway?', yes: 'Use it' }))) return;
     const res = await api.soundSet({ kind: 'default', id: o.name });
-    if (res.ok) { state = res.data; Sound.play('pop'); draw(); }
+    if (!res.ok) { toast(res.error || `Could not play sound on ${short(o)}.`, 'err'); return; }
+    state = res.data; Sound.play('pop'); draw();
+    if (was) keepOrRevert(was, o);
+  }
+  /* Like a TV's picture settings: after switching, keep it only if you say so. Silence (a screen
+     with no speakers, a wrong port) can't be fixed from a sound card you can't hear, so with no
+     answer it goes back by itself. */
+  function keepOrRevert(was, now) {
+    let left = 12, t = 0;
+    const back = async () => {
+      clearInterval(t);
+      await load();
+      // The old output can come back under another name when the card changed setup.
+      const o = state?.outputs.find((x) => x.name === was.name) || state?.outputs.find((x) => x.label === was.label);
+      if (o && !o.on) { const r = await api.soundSet({ kind: 'default', id: o.name }); if (r.ok) state = r.data; }
+      toast(`Sound is back on ${short(was)}.`);
+      if (on) draw();
+    };
+    const text = (n) => `Sound is playing on ${short(now)} now. If you can hear this, keep it. Otherwise it goes back to ${short(was)} in ${n} seconds.`;
+    confirmAsk({ title: 'Keep this output?', text: text(left), yes: 'Keep it', no: 'Go back' }).then((keep) => { clearInterval(t); if (!keep) back(); });
+    Sound.play('fixed');
+    t = setInterval(() => {
+      left--;
+      const p = document.querySelector('#modal .dlg-body p'); if (p) p.textContent = text(left);
+      if (left <= 0) { clearInterval(t); closeModal(); }
+    }, 1000);
   }
 
   /* -------------------------------------------------------------- the volume pill */

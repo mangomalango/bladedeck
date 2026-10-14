@@ -31,8 +31,11 @@ const Panels = (() => {
     ['Left half', (a) => ({ w: a.w / 2 - 6, h: a.h, x: a.x, y: a.y })],
     ['Corner', (a) => ({ w: a.w * 0.36, h: a.h * 0.42, x: a.x + a.w * 0.64, y: a.y + a.h * 0.58 })],
     ['Top corner', (a) => ({ w: a.w * 0.36, h: a.h * 0.42, x: a.x + a.w * 0.64, y: a.y })],
-    ['Full', (a) => ({ ...a })]
+    ['Full', (a) => ({ ...a })],
+    // A small video-shaped box docked in the bottom corner: the mini player.
+    ['Mini player', (a) => { const w = Math.max(320, a.w * 0.26), h = w * 9 / 16 + 40; return { w, h, x: a.x + a.w - w, y: a.y + a.h - h }; }]
   ];
+  const MINI = SNAPS.length - 1;
 
   function place(p) {
     const a = area();
@@ -46,7 +49,7 @@ const Panels = (() => {
   function show(spec) {
     const key = String(spec.key || spec.kind);
     let p = open.get(key);
-    if (p) { p.min = false; p.el.hidden = false; if (spec.path && p.kind === 'files') Files.go(p, spec.path); focus(p); tell(); return p; }
+    if (p) { p.min = false; p.el.hidden = false; wake(p); if (spec.path && p.kind === 'files') Files.go(p, spec.path); if (spec.url && p.kind === 'browser' && p.wv) go(p, spec.url); focus(p); tell(); return p; }
     const g = geo()[key];
     const s0 = SNAPS[0][1](area());
     p = { key, startPath: spec.path || '', kind: spec.kind || 'web', title: spec.title || 'Panel', icon: spec.icon || '🌐', url: spec.url || PANEL_HOME, tv: !!spec.tv,
@@ -55,21 +58,13 @@ const Panels = (() => {
     p.el.className = `fw ${p.kind}`;
     p.el.innerHTML = `<header class="fw-bar"><i class="fw-ic">${esc(p.icon)}</i><b class="fw-t">${esc(p.title)}</b>
         ${p.kind === 'browser' ? `<input class="fw-url" type="text" value="${esc(p.url)}" aria-label="Address">` : '<span class="fw-sp"></span>'}
-        <div class="fw-btns"><button type="button" data-a="back" title="Back">‹</button><button type="button" data-a="pin" title="Pin">📌</button><button type="button" data-a="min" title="Minimize">–</button><button type="button" data-a="max" title="Fill the screen">▢</button><button type="button" data-a="close" title="Close">✕</button></div></header>
-      <div class="fw-body"></div><i class="fw-grip"></i><div class="fw-hint"></div>`;
+        <div class="fw-btns"><button type="button" data-a="back" title="Back">‹</button>${p.kind === 'web' && /youtube/i.test(p.url) ? '<button type="button" data-a="over" title="Float over games">⧉</button>' : ''}<button type="button" data-a="mini" title="Mini player in the corner">▣</button><button type="button" data-a="pin" title="Pin">📌</button><button type="button" data-a="min" title="Minimize">–</button><button type="button" data-a="max" title="Fill the screen">▢</button><button type="button" data-a="close" title="Close">✕</button></div></header>
+      <div class="fw-body"></div>${p.kind === 'browser' || p.kind === 'web' ? '<div class="fw-dl" hidden></div>' : ''}<i class="fw-grip"></i><div class="fw-hint"></div>`;
     p.body = p.el.querySelector('.fw-body');
     if (p.kind === 'files') Files.mount(p);
     else if (p.kind === 'system') SysPanel.mount(p);
-    else {
-      const wv = document.createElement('webview');
-      wv.setAttribute('partition', 'persist:webapps');
-      if (p.tv) wv.setAttribute('useragent', TV_UA);
-      wv.setAttribute('src', p.tv ? 'https://www.youtube.com/tv' : p.url);
-      wv.addEventListener('page-title-updated', (ev) => { p.el.querySelector('.fw-t').textContent = ev.title || p.title; p.caption = ev.title; tell(); });
-      wv.addEventListener('did-navigate', (ev) => { const u = p.el.querySelector('.fw-url'); if (u && document.activeElement !== u) u.value = ev.url; });
-      wv.addEventListener('did-navigate-in-page', (ev) => { const u = p.el.querySelector('.fw-url'); if (u && ev.isMainFrame && document.activeElement !== u) u.value = ev.url; });
-      p.body.appendChild(wv); p.wv = wv;
-    }
+    else if (p.kind === 'finder') Finder.mount(p);
+    else view(p, p.tv ? 'https://www.youtube.com/tv' : p.url);
     p.el.classList.toggle('pinned', p.pinned);
     layer.appendChild(p.el);
     open.set(key, p);
@@ -82,6 +77,40 @@ const Panels = (() => {
     return p;
   }
 
+  // A web panel's page. Made when the panel opens, and again when one that was unloaded comes back.
+  function view(p, src) {
+    const wv = document.createElement('webview');
+    wv.setAttribute('partition', 'persist:webapps');
+    if (p.tv) wv.setAttribute('useragent', TV_UA);
+    wv.setAttribute('src', src);
+    wv.addEventListener('page-title-updated', (ev) => { p.el.querySelector('.fw-t').textContent = ev.title || p.title; p.caption = ev.title; tell(); });
+    wv.addEventListener('did-navigate', (ev) => { const u = p.el.querySelector('.fw-url'); if (u && document.activeElement !== u) u.value = ev.url; });
+    wv.addEventListener('did-navigate-in-page', (ev) => { const u = p.el.querySelector('.fw-url'); if (u && ev.isMainFrame && document.activeElement !== u) u.value = ev.url; });
+    p.body.appendChild(wv); p.wv = wv;
+    WebDl.draw();
+  }
+  /* A web panel left minimized for 10 minutes gives its memory back: its page is closed and
+     reopened where it was the next time the panel comes up. A pinned one, or one playing sound
+     (music in the background), is left alone. */
+  const IDLE = 10 * 60000;
+  function idleLater(p) {
+    clearTimeout(p.idleT);
+    if (!p.wv || p.kind === 'finder') return;
+    p.idleT = setTimeout(() => {
+      if (!p.min || p.pinned || !p.wv || !open.has(p.key)) return;
+      // Music playing in a tucked-away panel is still being listened to: check again later.
+      let audible = false; try { audible = p.wv.isCurrentlyAudible(); } catch { /* not ready */ }
+      if (audible) { idleLater(p); return; }
+      try { p.lastUrl = p.wv.getURL(); } catch { p.lastUrl = ''; }
+      p.wv.remove(); p.wv = null;
+    }, IDLE);
+  }
+  function wake(p) {
+    clearTimeout(p.idleT);
+    if (p.wv || p.kind === 'files' || p.kind === 'system' || p.kind === 'finder') return;
+    view(p, p.lastUrl || (p.tv ? 'https://www.youtube.com/tv' : p.url));
+  }
+
   /* -------------------------------------------------------------- focus */
   function focus(p) {
     if (focused && focused !== p) { focused.el.classList.remove('focus'); }
@@ -89,7 +118,8 @@ const Panels = (() => {
     if (!p) { document.body.classList.remove('panel-on'); hint(); tell(); return; }
     p.z = ++z; p.el.style.zIndex = p.z; p.el.classList.add('focus'); p.el.classList.remove('arrange');
     document.body.classList.add('panel-on');
-    if (p.wv) setTimeout(() => p.wv.focus(), 60);
+    if (p.kind === 'finder') Finder.focus(p);
+    else if (p.wv) setTimeout(() => p.wv.focus(), 60);
     else if (p.kind === 'files') Files.focus(p);
     else if (p.kind === 'system') SysPanel.focus(p);
     hint(); tell();
@@ -104,13 +134,45 @@ const Panels = (() => {
     document.activeElement?.blur?.();
     Sound.play('back'); hint(); tell();
   }
-  function minimize(p, quiet) { p.min = true; p.el.hidden = true; if (focused === p) { focused = null; document.body.classList.remove('panel-on'); } if (!quiet) Sound.play('back'); tell(); }
+  function minimize(p, quiet) { p.min = true; p.el.hidden = true; idleLater(p); if (focused === p) { focused = null; document.body.classList.remove('panel-on'); } if (!quiet) Sound.play('back'); tell(); }
   function close(p) {
+    clearTimeout(p.idleT);
     p.el.classList.remove('in'); p.el.classList.add('out');
     setTimeout(() => p.el.remove(), 220);
     open.delete(p.key); if (focused === p) { focused = null; document.body.classList.remove('panel-on'); }
     Sound.play('back'); tell();
   }
+  // The mini player: docked small in the corner and pinned, so it keeps playing over the menu.
+  function mini(p) {
+    if (p.snap === MINI && p.prev) { Object.assign(p, p.prev); p.prev = null; p.snap = 0; }
+    else { p.prev = { x: p.x, y: p.y, w: p.w, h: p.h }; p.snap = MINI; Object.assign(p, SNAPS[MINI][1](area())); if (!p.pinned) { p.pinned = true; p.el.classList.add('pinned'); } }
+    p.el.classList.add('anim'); place(p); setTimeout(() => p.el.classList.remove('anim'), 260);
+    Sound.play('tick');
+  }
+  /* Over games: the video goes on in the walkthrough window, which floats above full-screen
+     games without taking their focus; the panel pauses and tucks away. */
+  function videoOf(p) {
+    if (!p?.wv) return '';
+    let u = ''; try { u = p.wv.getURL(); } catch { return ''; }
+    const id = (u.match(/[?&#/]v=([\w-]{11})/) || u.match(/youtu\.be\/([\w-]{11})/) || [])[1];
+    if (!id) return '';
+    let t = 0; try { t = Math.floor(+(new URL(u).searchParams.get('t') || 0)) || 0; } catch { /* no time */ }
+    return `https://m.youtube.com/watch?v=${id}${t ? `&t=${t}` : ''}`;
+  }
+  async function overGames(p) {
+    const url = videoOf(p);
+    if (!url) { toast('Play a video first, then float it over your games.', 'err'); return; }
+    // Carry on from the same moment.
+    let at = 0; try { at = Math.floor(await p.wv.executeJavaScript('(document.querySelector("video") || {}).currentTime || 0')); } catch { /* start over */ }
+    try { p.wv.executeJavaScript('document.querySelectorAll("video").forEach((v) => v.pause()); 1'); } catch { /* fine */ }
+    await api.pipToggle({ url: at ? `${url.replace(/&t=\d+/, '')}&t=${at}` : url, show: true });
+    p.handed = true; minimize(p, true);
+    toast('The video floats over your games now. View + Y hides or shows it.');
+  }
+  // The YouTube panel's video, for View + Y.
+  // (Not one already handed over: then View + Y just shows and hides the floating window.)
+  const video = () => { for (const p of open.values()) { if (!p.handed && videoOf(p)) return p; } return null; };
+
   function pin(p) { p.pinned = !p.pinned; p.el.classList.toggle('pinned', p.pinned); place(p); toast(p.pinned ? `${p.title} is pinned: it stays out while you use the menu.` : `${p.title} is unpinned: it tucks away when you leave it.`); Sound.play('tick'); }
   function maximize(p) {
     if (p.prev) { Object.assign(p, p.prev); p.prev = null; } else { p.prev = { x: p.x, y: p.y, w: p.w, h: p.h }; Object.assign(p, SNAPS[5][1](area())); }
@@ -128,7 +190,7 @@ const Panels = (() => {
     if (!focused) return;
     const h = focused.el.querySelector('.fw-hint');
     h.textContent = arranging
-      ? `Arranging${extra ? `: ${extra}` : ''} · ✛ move · LB/RB size · LT/RT snap · X ${focused.pinned ? 'unpin' : 'pin'} · Y close · A done`
+      ? `Arranging${extra ? `: ${extra}` : ''} · ✛ move · LB/RB size · LT/RT snap (Mini player is one) · X ${focused.pinned ? 'unpin' : 'pin'} · View minimize · Y close · A done`
       : `Menu arrange · View back to the menu${focused.kind === 'browser' ? ' · Y address' : ''}`;
   }
 
@@ -139,7 +201,8 @@ const Panels = (() => {
   function tell() { document.dispatchEvent(new CustomEvent('panels-changed', { detail: list() })); }
   function act(key, a) {
     const p = open.get(key); if (!p) return false;
-    if (a === 'close') close(p); else if (a === 'min') minimize(p); else { p.min = false; p.el.hidden = false; focus(p); }
+    if (a === 'show') p.handed = false;
+    if (a === 'close') close(p); else if (a === 'min') minimize(p); else { p.min = false; p.el.hidden = false; wake(p); focus(p); }
     return true;
   }
 
@@ -171,13 +234,14 @@ const Panels = (() => {
       else if (a === 'lt' || a === 'rt') snap(p, a === 'rt' ? 1 : -1);
       else if (a === 'x') { pin(p); hint(); }
       else if (a === 'y') close(p);
-      else if (a === 'a' || a === 'b' || a === 'start') { arranging = false; p.el.classList.remove('arrange'); hint(); Sound.play('tick'); if (p.wv) p.wv.focus(); }
-      else if (a === 'back') leave();
+      else if (a === 'a' || a === 'b' || a === 'start') { arranging = false; p.el.classList.remove('arrange'); hint(); Sound.play('tick'); if (p.wv && p.kind !== 'finder') p.wv.focus(); }
+      else if (a === 'back') { arranging = false; p.el.classList.remove('arrange'); minimize(p); hint(); }
       return true;
     }
     if (a === 'start') { arranging = true; p.el.classList.add('arrange'); hint(); Sound.play('tick'); return true; }
     if (a === 'back') { leave(); return true; }
     if (p.kind === 'files') return Files.handle(p, a);
+    if (p.kind === 'finder') return Finder.handle(p, a);
     if (p.kind === 'system') return SysPanel.handle(p, a);
     const map = { up: 'Up', down: 'Down', left: 'Left', right: 'Right', a: 'Enter', x: p.tv ? 'MediaPlayPause' : 'Space', lb: 'PageUp', rb: 'PageDown' };
     if (map[a]) { key(p, map[a]); return true; }
@@ -192,7 +256,7 @@ const Panels = (() => {
     p.el.addEventListener('pointerdown', () => { if (focused !== p) focus(p); });
     bar.addEventListener('click', (ev) => {
       const a = ev.target.closest('[data-a]')?.dataset.a; if (!a) return;
-      ({ back: () => back(p), pin: () => pin(p), min: () => minimize(p), max: () => maximize(p), close: () => close(p) })[a]?.();
+      ({ back: () => back(p), pin: () => pin(p), min: () => minimize(p), max: () => maximize(p), close: () => close(p), mini: () => mini(p), over: () => overGames(p) })[a]?.();
     });
     bar.addEventListener('dblclick', (ev) => { if (!ev.target.closest('button, input')) maximize(p); });
     const drag = (ev, mode) => {
@@ -215,7 +279,7 @@ const Panels = (() => {
   // Games start: unpinned panels tuck away.
   document.addEventListener('deck-away', (ev) => { if (!ev.detail) return; for (const p of open.values()) if (!p.pinned && !p.min) minimize(p, true); });
 
-  return { show, act, list, handle, leave, isOpen, active: () => !!focused, has: (k) => open.has(k), focus: (k) => { const p = open.get(k); if (p) act(k, 'show'); } };
+  return { show, act, list, handle, leave, isOpen, video, overGames, active: () => !!focused, has: (k) => open.has(k), focus: (k) => { const p = open.get(k); if (p) act(k, 'show'); } };
 })();
 
 /* Files: Bladedeck's own file browser for the Files panel. Places on the left (Bladedeck's own
@@ -262,6 +326,8 @@ const Files = (() => {
   async function openItem(p, it) {
     if (!it) return;
     if (it.dir) { load(p, it.path); Sound.play('tick'); return; }
+    // A game file plays in its emulator, full screen.
+    if (Roms.isRom(it.path)) { Roms.play(it.path); return; }
     Sound.play('go');
     const ok = await api.fsOpen(it.path);
     toast(ok ? `Opening ${it.name}…` : `Nothing on this PC opens ${it.name}.`, ok ? 'ok' : 'err');
@@ -301,6 +367,8 @@ const SysPanel = (() => {
     refresh(p);
   }
 
+  // Memory compression, in a few words: what it holds and how small it got.
+  const zram = (c) => !c ? '' : c.kind === 'zram' ? ` · compressed swap (zram${c.algo ? `, ${esc(c.algo)}` : ''}) ${c.orig ? `holding ${gb(c.orig)} in ${gb(c.compr)}` : 'on, unused'}` : c.kind === 'zswap' ? ' · zswap compression on' : ' · no memory compression';
   async function refresh(p) {
     const s = await api.sysStats(); if (!p.el.isConnected) { clearInterval(p.timer); return; }
     const t = s.temps || {}, card = (ic, title, big, sub, pct, hot) => `<div class="sy-card"><span>${ic} ${esc(title)}</span><b>${big}</b>${pct != null ? bar(pct, hot) : ''}<small>${sub}</small></div>`;
@@ -308,7 +376,7 @@ const SysPanel = (() => {
     p.body.querySelector('.sy-cards').innerHTML = [
       card('🧠', 'Processor', s.cpu.load != null ? `${s.cpu.load}%` : '…', `${esc(s.cpu.model)} · ${s.cpu.cores} threads${t.Processor ? ` · ${t.Processor}°C` : ''}`, s.cpu.load, t.Processor > 85),
       g ? card('🎮', 'Graphics', g.busy != null ? `${g.busy}%` : g.mhz ? `${g.mhz} MHz` : esc(g.name), `${esc(g.name)}${g.maxMhz ? ` · up to ${g.maxMhz} MHz` : ''}${t.Graphics ? ` · ${t.Graphics}°C` : ''}`, g.busy ?? (g.mhz && g.maxMhz ? 100 * g.mhz / g.maxMhz : null), t.Graphics > 85) : '',
-      card('💾', 'Memory', gb(s.mem.used), `of ${gb(s.mem.total)}`, 100 * s.mem.used / s.mem.total, s.mem.used / s.mem.total > 0.9),
+      card('💾', 'Memory', gb(s.mem.used), `of ${gb(s.mem.total)}${zram(s.mem.compression)}`, 100 * s.mem.used / s.mem.total, s.mem.used / s.mem.total > 0.9),
       b ? card(b.status === 'Charging' ? '⚡' : '🔋', 'Battery', `${b.pct}%`, `${esc(b.status || '')}${b.watts ? ` · ${b.watts} W` : ''}`, b.pct, b.pct < 15) : '',
       ...(s.disks || []).map((d) => card('🗄️', d.label, `${gb(d.free)} free`, `of ${gb(d.total)}`, 100 * (1 - d.free / d.total), d.free / d.total < 0.08)),
       n ? card(n.kind === 'Ethernet' ? '🔌' : '📶', 'Network', n.connected ? esc(n.name) : 'Offline', n.connected ? `${n.kind}${n.signal != null ? ` · ${n.signal}% signal` : ''}` : 'Not connected', n.signal, false) : '',
@@ -354,4 +422,4 @@ const SysPanel = (() => {
 })();
 
 // One way to act on any window: panels here, everything else through the main process.
-function winAct(id, a) { return String(id).startsWith('panel:') ? Promise.resolve(Panels.act(String(id).slice(6), a)) : api.winAct(id, a); }
+function winAct(id, a, pid) { return String(id).startsWith('panel:') ? Promise.resolve(Panels.act(String(id).slice(6), a)) : api.winAct(id, a, pid); }

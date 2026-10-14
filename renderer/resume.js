@@ -27,10 +27,19 @@ const Resume = (() => {
   window.bladedeck.onWebapps((l) => { const a = (l || []).find((w) => w.active); if (a) order = [a.id, ...order.filter((x) => x !== a.id)]; });
 
   const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+  // Which processes each window's process was started by, so a window opened by a child of
+  // what Bladedeck launched (a Flatpak emulator, a launcher script) still counts as that game.
+  const parents = new Map();
+  async function learn(wins) {
+    const need = wins.filter((w) => w.pid && !w.web && !parents.has(w.pid));
+    await Promise.all(need.map(async (w) => { const i = await api.pidInfo(w.pid).catch(() => null); parents.set(w.pid, i?.ancestors || []); }));
+    if (parents.size > 200) parents.clear();
+  }
   function entryFor(w) {
     if (w.web) return null; // a web app (even "Castle Crashers walkthrough") is not the game
-    const ses = (S.sessions || []).find((x) => w.pid && (x.winPid === w.pid || x.pid === w.pid));
-    if (ses) return S.lib.entries.find((e) => e.id === ses.id);
+    const up = parents.get(w.pid) || [];
+    const ses = (S.sessions || []).find((x) => w.pid && (x.winPid === w.pid || x.pid === w.pid || (x.pid && up.includes(x.pid))));
+    if (ses) return entryById(ses.id);
     const app = String(w.cls || '').match(/^steam_app_(\d+)$/i);
     if (app) return S.lib.entries.find((e) => String(e.appid) === app[1]);
     const c = norm(w.caption);
@@ -40,6 +49,7 @@ const Resume = (() => {
   async function build() {
     frozen = new Set((await api.procFrozen()) || []);
     const wins = Dock.windows();
+    if ((S.sessions || []).some((x) => x.pid)) await learn(wins);
     if (wins.length) {
       items = wins.map((w) => {
         const e = entryFor(w), slot = !e && Dock.slotFor(w);
@@ -47,8 +57,9 @@ const Resume = (() => {
       });
     } else {
       // No window list (Windows, or another desktop): the games Bladedeck started.
-      items = (S.sessions || []).map((ses) => { const e = S.lib.entries.find((x) => x.id === ses.id); return e && { ses, e, pid: ses.winPid || ses.pid || 0, title: e.title, sub: 'Running' }; }).filter(Boolean);
+      items = (S.sessions || []).map((ses) => { const e = entryById(ses.id); return e && { ses, e, pid: ses.winPid || ses.pid || 0, title: e.title, sub: 'Running' }; }).filter(Boolean);
     }
+    items = items.filter((it) => Players.owns(it));
     const rank = (it) => { const i = it.w ? order.indexOf(it.w.id) : -1; return i < 0 ? 999 : i; };
     items.sort((a, b) => rank(a) - rank(b) || (b.e ? 1 : 0) - (a.e ? 1 : 0));
     sel = Math.max(0, Math.min(sel, items.length - 1));
@@ -113,13 +124,20 @@ const Resume = (() => {
     } finally { busy = false; }
   }
 
-  async function closeApp(it) {
-    if (!it?.w) return;
+  /* Closing asks first: a game loses anything unsaved. Afterwards Bladedeck takes the screen back,
+     because the desktop otherwise hands focus to whatever window is next, and the controller
+     only drives Bladedeck while it has focus. */
+  async function closeApp(it, { ask = true } = {}) {
+    if (!it?.w) return false;
+    if (ask && !(await confirmAsk({ title: `Close ${it.title}?`, text: it.e ? 'Anything you have not saved in the game will be lost.' : 'It closes the way its own ✕ would.', yes: 'Close', danger: true }))) return false;
     if (frozen.has(it.pid)) await freeze(it, false);
-    await winAct(it.w.id, 'close');
+    const ok = await winAct(it.w.id, 'close', it.pid);
+    if (ok === 'own') { toast(`${it.title} is what Bladedeck is running in, so it stays open.`, 'err'); return false; }
     Sound.play('back');
+    setTimeout(() => api.deckFocus(), 400);
     setTimeout(() => document.dispatchEvent(new CustomEvent('running-changed')), 700);
     setTimeout(() => build().then(draw), 600);
+    return true;
   }
 
   function handle(a) {

@@ -25,6 +25,7 @@ const Mods = (() => {
       ${dirs.some((d) => d.path) ? `<div class="side-h">Copy into the chosen folder</div>
         <div class="md-recent">${recent.map((f, i) => `<button type="button" data-md="copy" data-f="${i}"><b>${esc(f.name)}</b><small>${f.dir ? 'Folder' : `${Math.max(1, Math.round(f.size / 1024))} KB`} · Bladedeck/Mods</small></button>`).join('') || `<p class="note">Put downloaded mods and cheats in ${esc(inbox)} and they show up here.</p>`}
         <button type="button" data-md="file">Another file…</button></div>` : ''}
+      ${(() => { const t = Roms.textureLinks(e, em); return `<div class="side-h">HD texture packs</div><p class="note">${esc(t.note)}</p>${t.links.length ? `<div class="md-recent">${t.links.map(([l, u]) => `<button type="button" data-md="site" data-u="${esc(u)}">${esc(l)}</button>`).join('')}</div>` : ''}`; })()}
       <label>Notes for this game (codes, which mods are on)<textarea name="mdNotes" rows="3">${esc(e.modNotes || '')}</textarea></label></div>`;
     openModal({
       title: `Cheats & mods: ${e.title}`, wide: true, html: html(),
@@ -32,6 +33,7 @@ const Mods = (() => {
       onOpen: (root) => root.addEventListener('click', async (ev) => {
         const b = ev.target.closest('[data-md]'); if (!b) return;
         const a = b.dataset.md, d = dirs[+b.dataset.i];
+        if (a === 'site') { e.modNotes = $('[name=mdNotes]', root).value; save(); closeModal(); Panels.show({ kind: 'browser', key: 'browser', title: 'Browser', icon: '🌐', url: b.dataset.u }); return; }
         if (a === 'pick') { target = +b.dataset.i; $('.dlg-body', root).innerHTML = html(); }
         else if (a === 'open') { e.modNotes = $('[name=mdNotes]', root).value; save(); closeModal(); Panels.show({ kind: 'files', key: 'files', title: 'Files', icon: '🗂', path: d.path }); }
         else if (a === 'mk') { if (await api.modMkdir(d.path)) { d.exists = true; target = +b.dataset.i; toast('Folder created.'); $('.dlg-body', root).innerHTML = html(); } }

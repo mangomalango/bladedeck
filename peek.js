@@ -84,10 +84,10 @@ workspace.windowRemoved.connect((w) => {
 function sendList(gone) {
   const list = workspace.windowList().filter((w) => usable(w) && w !== gone).map((w) => ({
     id: String(w.internalId), caption: String(w.caption), cls: String(w.resourceClass), pid: w.pid,
-    min: !!w.minimized, active: workspace.activeWindow === w }));
+    min: !!w.minimized, active: workspace.activeWindow === w, out: w.output ? String(w.output.name) : '' }));
   callDBus('dev.bladedeck.Peek', '/Peek', 'dev.bladedeck.Peek', 'Event', 'windows', JSON.stringify(list), '0', '');
 }
-function watch(w) { if (!w || isDeck(w)) return; w.captionChanged.connect(() => sendList()); w.minimizedChanged.connect(() => sendList()); }
+function watch(w) { if (!w || isDeck(w)) return; w.captionChanged.connect(() => sendList()); w.minimizedChanged.connect(() => sendList()); try { w.outputChanged.connect(() => sendList()); } catch (e) { /* older KWin */ } }
 workspace.windowList().forEach(watch);
 workspace.windowAdded.connect((w) => { watch(w); sendList(); });
 workspace.windowRemoved.connect((w) => sendList(w));
@@ -185,16 +185,37 @@ async function back() {
 // Show, minimize or close one window from the dock. KWin scripts can't take calls, so each
 // action is a tiny script of its own, loaded, run and unloaded. One at a time.
 const ACTIONS = {
-  show: 'w.minimized = false; workspace.activeWindow = w;',
+  // Raised as well as activated: a game in a window (not full screen) could otherwise stay
+  // behind Bladedeck's full-screen window.
+  show: 'w.minimized = false; try { workspace.raiseWindow(w); } catch (e) { /* older KWin */ } workspace.activeWindow = w;',
   min: 'w.minimized = true;',
+  // A game's window filling its screen (emulators that start windowed).
+  full: 'if (!w.fullScreen) w.fullScreen = true;',
   close: 'w.closeWindow();'
 };
 let acting = Promise.resolve();
 function windowAction(id, act) {
+  // Multi-screen: put a player's game on their display (KWin's name for it, e.g. HDMI-A-1).
+  const scr = /^screen:([\w.-]{1,40})$/.exec(act);
+  if (mode === 'kwin' && scr) {
+    return runAct(`const w = workspace.windowList().find((x) => String(x.internalId) === ${JSON.stringify(String(id))});\nconst o = workspace.screens.find((s) => s.name === ${JSON.stringify(scr[1])});\nif (w && o) { const f = w.fullScreen; if (f) w.fullScreen = false; workspace.sendClientToScreen(w, o); if (f) w.fullScreen = true; }\n`);
+  }
   if (mode !== 'kwin' || !ACTIONS[act]) return Promise.resolve(false);
+  return runAct(`const w = workspace.windowList().find((x) => String(x.internalId) === ${JSON.stringify(String(id))});\nif (w) { ${ACTIONS[act]} }\n`);
+}
+// Bring Bladedeck itself to the front. KWin does it, because Wayland keeps an app from taking
+// focus on its own (focus-stealing prevention), and the controller only drives Bladedeck when
+// it has focus.
+// Multi-screen has two Bladedeck windows in one process, so the one wanted is named by its title.
+function focusDeck(caption = '') {
+  if (mode !== 'kwin') return Promise.resolve(false);
+  const want = JSON.stringify(String(caption));
+  return runAct(`const mine = workspace.windowList().filter((x) => x.pid === ${process.pid} && x.normalWindow);\nconst w = mine.find((x) => String(x.caption) === ${want}) || mine.find((x) => !/Player 2/.test(String(x.caption)));\nif (w) { w.minimized = false; workspace.activeWindow = w; }\n`);
+}
+function runAct(code) {
   acting = acting.then(async () => {
     const file = path.join(path.dirname(scriptFile), 'kwin-act.js');
-    fs.writeFileSync(file, `const w = workspace.windowList().find((x) => String(x.internalId) === ${JSON.stringify(String(id))});\nif (w) { ${ACTIONS[act]} }\n`);
+    fs.writeFileSync(file, code);
     const name = 'bladedeck-act';
     await gdbus(['--dest', 'org.kde.KWin', '--object-path', '/Scripting', '--method', 'org.kde.kwin.Scripting.unloadScript', name]);
     const r = await gdbus(['--dest', 'org.kde.KWin', '--object-path', '/Scripting', '--method', 'org.kde.kwin.Scripting.loadScript', file, name]);
@@ -216,4 +237,4 @@ function stop() {
   mode = null;
 }
 
-module.exports = { start, back, toggle, windowAction, reconfigure, stop, mode: () => mode };
+module.exports = { start, back, toggle, windowAction, focusDeck, reconfigure, stop, mode: () => mode };

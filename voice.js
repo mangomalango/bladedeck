@@ -8,7 +8,6 @@
    time. Weather comes from Open-Meteo (no account), for the town you set. */
 const fs = require('fs');
 const path = require('path');
-const { execFile } = require('child_process');
 const { ipcMain, app, net, utilityProcess } = require('electron');
 
 const MODEL = 'sherpa-onnx-moonshine-tiny-en-quantized-2026-02-27';
@@ -56,10 +55,10 @@ async function download(progress) {
         const pct = Math.min(99, Math.round(100 * got / total)); if (pct !== last) { last = pct; progress(pct); }
       }
       await new Promise((res) => out.end(res));
-      // tar reads .bz2 on Linux and on Windows 10 and later.
-      const err = await new Promise((res) => execFile('tar', ['-xjf', tmp, '-C', base()], { windowsHide: true, timeout: 120000 }, (e) => res(e)));
+      // Unpacked in the voice helper, so the menus never freeze for it.
+      const u = await call({ kind: 'unpack', tarball: tmp, dest: base() }, 180000);
       fs.rmSync(tmp, { force: true });
-      if (err || !ready()) return { ok: false, error: 'The voice model could not be unpacked.' };
+      if (!u.ok || !ready()) return { ok: false, error: 'The voice model could not be unpacked.' };
       progress(100);
       return { ok: true };
     } catch (err) { return { ok: false, error: String(err.message || err) }; } finally { busy = null; }

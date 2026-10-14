@@ -110,7 +110,12 @@ const Running = (() => {
   window.bladedeck.onWebapps(() => setTimeout(refresh, 150));
   document.addEventListener('running-changed', refresh);
   addEventListener('focus', () => setTimeout(refresh, 300));
-  timer = setInterval(() => { if (deckFocused()) refresh(); }, 4000);
+  timer = setInterval(() => { if (deckFocused() || Players.on()) refresh(); }, 4000);
 
-  return { refresh, edge, handle, active: () => focus >= 0, visible: () => !el.hidden };
+  // What the highlighted row can do, for the hint bar.
+  function current() {
+    const it = rows[focus]; if (!it) return null;
+    return { canPause: !!(it.pid && !(it.w && it.w.web)), paused: !!(it.pid && frozen.has(it.pid)), canClose: !!it.w };
+  }
+  return { refresh, edge, handle, current, active: () => focus >= 0, visible: () => !el.hidden };
 })();

@@ -57,6 +57,25 @@ function gameTree(pid) {
   return { root, pids: out.filter((x) => x !== process.pid) };
 }
 
+// Bladedeck's own processes, and every program it is running under (the terminal or file manager
+// it was started from, the AppImage runtime): freezing or closing one of those takes Bladedeck
+// down with it, so they are never touched.
+function ownTree() {
+  if (process.platform !== 'linux') return new Set([process.pid]);
+  const { kids, parent } = procTable();
+  const mine = new Set();
+  // Bladedeck's own processes are the ones running its own program (Electron's renderer, GPU and
+  // helper processes). Games and emulators it started are its children too, but they run other
+  // programs, and those must stay closable and pausable.
+  const self = exeOf(process.pid);
+  const walk = (q) => { mine.add(q); for (const k of kids.get(q) || []) if (exeOf(k) === self) walk(k); };
+  walk(process.pid);
+  for (let p = parent.get(process.pid) || 0, i = 0; p > 1 && i < 40; p = parent.get(p) || 0, i++) mine.add(p);
+  return mine;
+}
+const isOwn = (pid) => !!pid && ownTree().has(+pid);
+function exeOf(pid) { try { return fs.readlinkSync(`/proc/${pid}/exe`); } catch { return ''; } }
+
 function save() { try { fs.writeFileSync(file, JSON.stringify([...frozen.entries()])); } catch { /* optional */ } }
 
 const PS_SUSPEND = (pids, on) => `
@@ -95,6 +114,7 @@ async function freeze(pid, on) {
   const known = [...frozen.entries()].find(([, l]) => l.includes(pid));
   const { root, pids } = on ? gameTree(pid) : known ? { root: known[0], pids: known[1] } : gameTree(pid);
   if (!pids.length) return false;
+  if (on) { const own = ownTree(); if (own.has(root) || pids.some((p) => own.has(p))) return false; }
   const sig = on ? 'SIGSTOP' : 'SIGCONT';
   if (on) await muteTree(root, pids, true);
   // Stop children first and continue parents first, so nothing waits on a stopped parent.
@@ -140,4 +160,4 @@ function info(pid) {
   return { ancestors, appId };
 }
 
-module.exports = { init, freeze, isFrozen, list, thawAll, info };
+module.exports = { init, freeze, isFrozen, list, thawAll, info, isOwn };

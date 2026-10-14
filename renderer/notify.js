@@ -39,8 +39,11 @@ const Notify = (() => {
     const gb = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${(n / 1e6).toFixed(0)} MB`);
     const rows = [
       ...dl.map((d) => `<div class="nc-dl"><b>⬇️ ${esc(d.title)}</b><i class="nc-bar"><b style="width:${(d.done / d.total * 100).toFixed(1)}%"></b></i><small>Steam · ${gb(d.done)} of ${gb(d.total)}${d.paused ? ' · paused' : ''}</small></div>`),
-      ...[...installs.values()].map((x) => `<div class="nc-dl"><b>⬇️ Installing ${esc(x.name)}</b><i class="nc-bar"><b style="width:${x.pct}%"></b></i><small>${x.pct}%</small></div>`)
+      ...[...installs.values()].map((x) => `<div class="nc-dl"><b>⬇️ Installing ${esc(x.name)}</b><i class="nc-bar"><b style="width:${x.pct}%"></b></i><small>${x.pct}%</small></div>`),
+      ...WebDl.downloads().map((x) => `<div class="nc-dl"><b>⬇️ ${esc(x.name)}</b><i class="nc-bar"><b style="width:${x.pct}%"></b></i><small>${esc(x.from)} · ${x.pct}%</small></div>`)
     ];
+    const done = WebDl.list().filter((d) => d.state === 'completed').slice(-6).reverse();
+    if (done.length) rows.push(`<div class="nc-h">Finished downloads</div>${done.map((d) => `<div class="nc-dl done"><b>✓ ${esc(d.unpacked ? d.title || d.name : d.name)}</b><small>${esc(d.unpacked ? 'Installed, in your library' : d.dir)}</small><button type="button" data-dl="show" data-id="${d.id}">Show</button></div>`).join('')}`);
     el.innerHTML = `<div class="nc-card"><div class="nc-head"><b>Notifications</b><button type="button" data-nc="clear">Clear all</button><button type="button" data-nc="close" aria-label="Close">✕</button></div>
       ${rows.length ? `<div class="nc-h">Downloads</div>${rows.join('')}` : ''}
       <div class="nc-h">${items.length ? 'Recent' : ''}</div>
@@ -59,10 +62,15 @@ const Notify = (() => {
     else if (a === 'b' || a === 'a' || a === 'start') close();
     return true;
   }
-  el.addEventListener('click', (ev) => { const b = ev.target.closest('[data-nc]'); if (!b) return; if (b.dataset.nc === 'clear') { items.length = 0; draw(); } else close(); });
+  el.addEventListener('click', (ev) => { if (ev.target.closest('[data-dl]')) close(); const b = ev.target.closest('[data-nc]'); if (!b) return; if (b.dataset.nc === 'clear') { items.length = 0; draw(); } else close(); });
   addEventListener('pointerdown', (ev) => { if (on && !el.contains(ev.target) && !ev.target.closest('#nc-btn')) close(); }, true);
   document.getElementById('nc-btn')?.addEventListener('click', toggle);
   setInterval(() => { if (on) draw(); }, 5000);
 
-  return { add, open, close, toggle, handle, isOpen: () => on };
+  // For the guide flap's Notifications tab: the same list, the downloads, and clearing.
+  const recent = () => items.slice();
+  const downloads = () => [...((typeof Downloads !== 'undefined' && Downloads.list?.()) || []).map((d) => ({ name: d.title, pct: Math.round(d.done / d.total * 100), from: 'Steam' })), ...[...installs.values()].map((x) => ({ name: x.name, pct: x.pct, from: 'Bladedeck' })), ...WebDl.downloads()];
+  function clear() { items.length = 0; if (on) draw(); }
+  function seen() { unread = 0; badge(); }
+  return { add, open, close, toggle, handle, recent, downloads, clear, seen, when, ICON, isOpen: () => on };
 })();

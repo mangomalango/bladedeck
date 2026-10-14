@@ -252,18 +252,50 @@ function settle(file, root, send, last = -1) {
 const pct = (v) => Math.round(((v && Object.values(v)[0]?.value) || 0) / 655.36);
 async function pactl(args) { return run('pactl', args); }
 async function soundState() {
-  const [sinks, inputs, sources, defSink, defSrc] = await Promise.all([
+  const [sinks, inputs, sources, defSink, defSrc, cards] = await Promise.all([
     pactl(['-f', 'json', 'list', 'sinks']).then(JSON.parse), pactl(['-f', 'json', 'list', 'sink-inputs']).then(JSON.parse),
-    pactl(['-f', 'json', 'list', 'sources']).then(JSON.parse), pactl(['get-default-sink']), pactl(['get-default-source'])]);
+    pactl(['-f', 'json', 'list', 'sources']).then(JSON.parse), pactl(['get-default-sink']), pactl(['get-default-source']),
+    pactl(['-f', 'json', 'list', 'cards']).then(JSON.parse).catch(() => [])]);
   const ds = defSink.trim(), dm = defSrc.trim();
   const appName = (p) => p['application.name'] || p['application.process.binary'] || p['media.name'] || 'App';
+  const outputs = sinks.map((s) => {
+    const port = (s.ports || []).find((p) => p.name === s.active_port);
+    return { name: s.name, label: s.description || s.name, volume: pct(s.volume), mute: s.mute, on: s.name === ds,
+      port: port?.description || '', unplugged: port?.availability === 'not available' };
+  });
+  // Outputs the sound card has but cannot play on in its current setup (a laptop's speaker when
+  // the card is set up for headphones): picking one switches the card over first.
+  for (const c of cards) {
+    const shown = new Set(sinks.filter((s) => s.properties?.['device.name'] === c.name).flatMap((s) => (s.ports || []).map((p) => p.name)));
+    for (const [pname, p] of Object.entries(c.ports || {})) {
+      if (shown.has(pname) || !/^\[Out\]|output/i.test(pname) || p.availability === 'not available') continue;
+      const prof = (p.profiles || []).find((n) => n !== 'pro-audio' && c.profiles?.[n]?.available !== false);
+      if (prof) outputs.push({ name: `card:${c.name}\n${pname}`, label: p.description || pname, port: p.description || '', volume: 0, mute: false, on: false, unplugged: false, other: true });
+    }
+  }
+  outputs.sort((a, b) => a.unplugged - b.unplugged);
   return {
-    outputs: sinks.map((s) => ({ name: s.name, label: s.description || s.name, volume: pct(s.volume), mute: s.mute, on: s.name === ds,
-      port: (s.ports || []).find((p) => p.name === s.active_port)?.description || '' })),
+    outputs,
     apps: inputs.filter((i) => !/^(speech-dispatcher|libcanberra)/i.test(appName(i.properties))).map((i) => ({ id: i.index, label: appName(i.properties),
       what: i.properties['media.name'] || '', icon: i.properties['application.icon_name'] || '', volume: pct(i.volume), mute: i.mute, bin: i.properties['application.process.binary'] || '' })),
     mic: (() => { const m = sources.find((s) => s.name === dm) || sources.find((s) => !/\.monitor$/.test(s.name)); return m && !/\.monitor$/.test(m.name) ? { name: m.name, label: m.description, volume: pct(m.volume), mute: m.mute } : null; })()
   };
+}
+
+// Switch a sound card to the setup that has this output, and return the output's name.
+async function useCardPort(card, port) {
+  const cards = JSON.parse(await pactl(['-f', 'json', 'list', 'cards']));
+  const c = cards.find((x) => x.name === card); const p = c?.ports?.[port];
+  const prof = p && (p.profiles || []).find((n) => n !== 'pro-audio' && c.profiles?.[n]?.available !== false);
+  if (!prof) throw new Error('That output is not there any more.');
+  if (c.active_profile !== prof) await pactl(['set-card-profile', card, prof]);
+  for (let i = 0; i < 20; i++) {
+    const sinks = JSON.parse(await pactl(['-f', 'json', 'list', 'sinks']));
+    const s = sinks.find((x) => x.properties?.['device.name'] === card && (x.ports || []).some((q) => q.name === port));
+    if (s) { if (s.active_port !== port) await pactl(['set-sink-port', s.name, port]); return s.name; }
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  throw new Error('The sound card did not switch over.');
 }
 
 function register({ getWin }) {
@@ -311,6 +343,8 @@ function register({ getWin }) {
     twoship: { repo: '2ship2harkinian/2ship2harkinian', name: '2 Ship 2 Harkinian', asset: { linux: /Linux\.zip$/i, win32: /Win64\.zip$/i }, exe: { linux: /^2ship\.appimage$/i, win32: /^2ship\.exe$/i } },
     zelda64: { repo: 'Zelda64Recomp/Zelda64Recomp', name: 'Zelda 64 Recompiled', asset: { linux: /Linux-X64\.zip$/i, win32: /Windows.*\.zip$/i }, exe: { linux: /^Zelda64Recompiled$/, win32: /^Zelda64Recompiled\.exe$/i } },
     partydeck: { repo: 'partydeck/partydeck', name: 'PartyDeck', asset: { linux: /anylinux-x86_64\.AppImage$/i }, exe: { linux: /^partydeck.*\.AppImage$/i } },
+    // RPCS3's own Linux build (the Flathub one is not made by the RPCS3 team, which RPCS3 points out).
+    rpcs3: { repo: 'RPCS3/rpcs3-binaries-linux', name: 'RPCS3', asset: { linux: /_linux64\.AppImage$/i }, exe: { linux: /^rpcs3.*\.AppImage$/i } },
     xenia: { repo: 'xenia-canary/xenia-canary-releases', name: 'Xenia Canary', asset: { linux: /linux.*\.tar/i, win32: /windows.*\.zip/i }, exe: { linux: /^xenia_canary$/i, win32: /^xenia_canary\.exe$/i } } };
   const ghDir = (g) => path.join(os.homedir(), 'Games', 'Emulators', g.name);
   const ghFind = (g) => { const want = g.exe[process.platform]; if (!want) return null; const walk = (d, n) => { let it; try { it = fs.readdirSync(d, { withFileTypes: true }); } catch { return null; } for (const x of it) { if (x.isFile() && want.test(x.name)) return path.join(d, x.name); } for (const x of it) if (x.isDirectory() && n < 6) { const f = walk(path.join(d, x.name), n + 1); if (f) return f; } return null; }; return walk(ghDir(g), 0); };
@@ -330,6 +364,12 @@ function register({ getWin }) {
     // An AppImage is the program itself: no unpacking.
     if (/\.AppImage$/i.test(asset.name)) {
       const f = path.join(dest, asset.name); fs.writeFileSync(f, Buffer.from(await r.arrayBuffer())); fs.chmodSync(f, 0o755);
+      // Moving from the Flathub RPCS3: the official build reads ~/.config/rpcs3, so point that at the
+      // Flathub one's folder (firmware, installed games and saves stay where they are).
+      if (id === 'rpcs3') {
+        const flat = path.join(os.homedir(), '.var/app/net.rpcs3.RPCS3/config/rpcs3'), own = path.join(os.homedir(), '.config', 'rpcs3');
+        try { if (fs.existsSync(flat) && !fs.existsSync(own)) fs.symlinkSync(flat, own); } catch { /* it starts fresh */ }
+      }
       return { exe: f, already: false, version: rel.tag_name };
     }
     const tmp = path.join(os.tmpdir(), `bladedeck-${id}-${asset.name.replace(/[^\w.-]/g, '')}`);
@@ -438,6 +478,8 @@ function register({ getWin }) {
 
   ipcMain.handle('sound-state', wrap(() => soundGet()));
   ipcMain.handle('sound-set', wrap((_e, o) => soundSetFn(o)));
+  ipcMain.handle('sound-follow', wrap((_e, screen) => soundFollow(String(screen || ''))));
+  ipcMain.handle('sound-player-sink', wrap((_e, o) => playerSink(o || {})));
 }
 
 // The sound card, for the page and for the phone app.
@@ -459,12 +501,54 @@ async function soundSetFn({ kind, id, volume, mute } = {}) {
     else if (kind === 'app') { if (v) await pactl(['set-sink-input-volume', ID, v]); if (m) await pactl(['set-sink-input-mute', ID, m]); }
     else if (kind === 'mic') { if (v) await pactl(['set-source-volume', ID, v]); if (m) await pactl(['set-source-mute', ID, m]); }
     else if (kind === 'default') {
-      await pactl(['set-default-sink', ID]);
-      // Move what is playing now, too, like a console does.
-      const ins = JSON.parse(await pactl(['-f', 'json', 'list', 'sink-inputs']));
-      await Promise.all(ins.map((i) => pactl(['move-sink-input', String(i.index), ID]).catch(() => {})));
+      const raw = String(id);
+      const name = raw.startsWith('card:') ? await useCardPort(...raw.slice(5).split('\n')) : ID;
+      await pactl(['set-default-sink', name]);
+      // Move what is playing now, too, like a console does. PipeWire already moves everything that
+      // follows the default; moving it by hand would pin each app to this output for good, so it
+      // would stay there after switching back.
+      if (!/PipeWire/i.test(await pactl(['info']).catch(() => ''))) {
+        const ins = JSON.parse(await pactl(['-f', 'json', 'list', 'sink-inputs']));
+        await Promise.all(ins.map((i) => pactl(['move-sink-input', String(i.index), name]).catch(() => {})));
+      }
     }
     return soundState();
 }
 
-module.exports = { register, romsDir, soundGet, soundSetFn, findLauncher };
+/* Sound follows the screen: a game moved to the TV plays on the TV, and back on the laptop's own
+   screen it plays on its speaker (or headphones). The screen is KWin's name for it (HDMI-A-1,
+   DP-2, eDP-1). Returns the output's label, or '' when nothing needed to change. */
+async function soundFollow(screen) {
+  if (process.platform !== 'linux') return '';
+  const pick = await outputForScreen(screen);
+  if (!pick || pick.on) return '';
+  await soundSetFn({ kind: 'default', id: pick.name });
+  return pick.port || pick.label;
+}
+// The output that belongs to a screen (see soundFollow), without switching to it.
+async function outputForScreen(screen) {
+  const st = await soundState();
+  // A controller's speaker is never a screen's.
+  const ext = (o) => /hdmi|displayport/i.test(`${o.name} ${o.port} ${o.label}`) || o.name.startsWith('bladedeck_');
+  const builtIn = /^(eDP|LVDS|DSI)/i.test(String(screen));
+  let pick;
+  if (builtIn) pick = st.outputs.find((o) => !ext(o) && !o.unplugged && /headphone/i.test(`${o.port} ${o.label}`)) || st.outputs.find((o) => !ext(o) && !o.unplugged);
+  else {
+    const plugged = st.outputs.filter((o) => ext(o) && !o.unplugged && !o.name.startsWith('bladedeck_'));
+    // HDMI-A-2 with HDMI2 among several; otherwise the one that is connected.
+    const n = (String(screen).match(/(\d+)$/) || [])[1];
+    pick = (plugged.length > 1 && n && plugged.find((o) => new RegExp(`(HDMI|DisplayPort|DP)\\D*${n}\\b`, 'i').test(`${o.name} ${o.port}`))) || (plugged.length === 1 ? plugged[0] : null);
+  }
+  return pick || null;
+}
+/* A real output name for a player's sound: one picked by name, or the screen's own. One that is in
+   another setup of its sound card (a laptop speaker) switches the card over first; the other
+   outputs of the card (HDMI) stay. */
+async function playerSink({ output = '', screen = '' } = {}) {
+  if (process.platform !== 'linux') return '';
+  const o = output ? (await soundState()).outputs.find((x) => x.name === output) : await outputForScreen(screen);
+  if (!o) return '';
+  return o.name.startsWith('card:') ? useCardPort(...o.name.slice(5).split('\n')) : o.name;
+}
+
+module.exports = { register, romsDir, soundGet, soundSetFn, soundFollow, findLauncher };

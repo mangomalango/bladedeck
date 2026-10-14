@@ -47,7 +47,7 @@ const Companion = (() => {
     if (a === 'type') return { ok: type(String(b.text || ''), !!b.enter) };
     if (a === 'run') {
       const it = rows[+b.i]; if (!it) return { ok: false };
-      if (b.act === 'go') await Resume.switchTo(it); else if (b.act === 'pause') await Resume.freeze(it); else if (b.act === 'close') await Resume.closeApp(it);
+      if (b.act === 'go') await Resume.switchTo(it); else if (b.act === 'pause') await Resume.freeze(it); else if (b.act === 'close') await Resume.closeApp(it, { ask: false }); // the phone asked with its own second tap
       push(); return { ok: true };
     }
     if (a === 'checkin') { const e = S.lib.entries.find((x) => x.id === b.id); if (e) { e.goal = String(b.goal || '').slice(0, 120); save(); updateDetail(); } return { ok: true }; }
@@ -84,14 +84,25 @@ const Companion = (() => {
           <div class="ph-how"><b>Pair your phone</b>
             <ol><li>Connect the phone to the same Wi-Fi (or Tailscale).</li><li>Scan the code with the phone's camera, or open <code>${esc(pair.urls[0]?.url || '')}</code> in its browser.</li><li>Enter this code:</li></ol>
             <div class="ph-code">${pair.code.slice(0, 3)} ${pair.code.slice(3)}</div><small>Works for 10 minutes. Then open this again for a new one.</small>
+            ${pair.urls[0]?.kind === 'Tailscale' ? '<p class="note">This is your Tailscale address: the phone needs Tailscale on and signed in to the same account. It works at home and away.</p>' : ''}
+            ${info.blocked ? `<p class="note ph-warn">This computer's firewall (ufw) blocks phones on your home Wi-Fi, so the Wi-Fi address below will not answer. Use the Tailscale address, or allow Bladedeck's ports on your home network yourself: <code>sudo ufw allow from 192.168.0.0/16 to any port 47615:47627 proto tcp</code></p>` : ''}
             ${pair.urls.length > 1 ? `<p class="note">Other addresses: ${pair.urls.slice(1).map((u) => `<code>${esc(u.url)}</code> (${esc(u.kind)})`).join(', ')}</p>` : ''}</div></div>
         <div class="side-h">Paired phones</div>
         ${info.devices.length ? info.devices.map((d) => `<div class="ph-dev"><b>${esc(d.name)}</b><span>paired ${ago(d.added)} · last seen ${ago(d.seen)}</span><button type="button" data-forget="${esc(d.id)}">Remove</button></div>`).join('') : '<p class="note">None yet.</p>'}
         <div class="checks"><label><input type="checkbox" class="ph-on" ${info.enabled ? 'checked' : ''}> Let paired phones connect</label></div>
+        <div class="side-h">No app on the phone?</div>
+        <p class="note">You don't need one: the page the code opens <b>is</b> the phone app (add it to the home screen from the browser's menu). For the Android app, that page has a "Get the Android app" button, or open <code>${esc((pair.urls[0]?.url || '') + 'bladedeck-phone.apk')}</code> on the phone. Installing it asks to allow apps from your browser once.</p>
+        <div class="pl-acts"><button type="button" data-ph="check">Check the phone server</button><span class="note ph-res"></span></div>
         <p class="note">The phone app shows what is playing and running, your library to start games from, a remote with a keyboard, recording and clips, the sound card and your profile. On Android, the Bladedeck app (if installed) does the same in its own window.</p></div>`,
       buttons: [{ label: 'Close', primary: true }],
       onOpen: (root) => {
         root.addEventListener('click', async (ev) => {
+          if (ev.target.closest('[data-ph="check"]')) {
+            const out = $('.ph-res', root); out.textContent = 'Checking…';
+            const r = await api.companionCheck();
+            out.textContent = r.map((x) => `${x.kind} ${x.ip}: ${x.ok ? '✓ answers' : '✗ no answer'}`).join(' · ') || 'No network.';
+            return;
+          }
           const f = ev.target.closest('[data-forget]');
           if (f) { await api.companionForget(f.dataset.forget); f.closest('.ph-dev').remove(); toast('That phone can no longer connect.'); }
         });

@@ -146,7 +146,9 @@ const Ach = (() => {
   const BADGE = 'https://media.retroachievements.org/Badge/';
 
   const on = () => !!(S.lib.settings.raUser && S.lib.settings.raKey);
-  const fits = (e) => e && e.type === 'rom';
+  // Emulated games use RetroAchievements; Steam games use Steam's own list, read from this PC.
+  const fits = (e) => e && (e.type === 'rom' || (e.type === 'steam' && !!e.appid));
+  const steamy = (e) => e?.type === 'steam' && !!e.appid;
   function consoleOf(e) {
     const em = S.lib.emulators.find((x) => x.id === e.emulatorId);
     const sys = `${e.system || ''} ${em?.system || ''} ${em?.name || ''}`.toLowerCase();
@@ -175,14 +177,39 @@ const Ach = (() => {
 
   // The little line under a game: "🏆 12 of 40".
   async function fill(e, el) {
+    if (steamy(e) && el) {
+      const s = await api.steamAch(e.appid);
+      if (el.isConnected) el.textContent = s && s.total ? `🏆 ${s.got} of ${s.total} achievements` : '';
+      return;
+    }
     if (!fits(e) || !on() || !el) return;
     const p = await progress(e);
     if (!el.isConnected) return;
     el.textContent = p ? `🏆 ${p.NumAwardedToUser || 0} of ${p.NumAchievements || 0} achievements${p.NumAwardedToUserHardcore ? ` (${p.NumAwardedToUserHardcore} hardcore)` : ''}` : '';
   }
 
+  // Steam's achievements, the way Steam shows them: the icon, coloured when unlocked, grey when not.
+  async function openSteam(e) {
+    const s = await api.steamAch(e.appid);
+    if (!s || !s.total) { toast(`${e.title} has no achievements on this PC yet. Start it once through Steam and they appear.`); return; }
+    const list = s.list.slice().sort((a, b) => (b.got - a.got) || (b.time - a.time));
+    const when = (t) => new Date(t).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+    openModal({
+      title: `Achievements: ${e.title}`, wide: true,
+      html: `<div class="ach-body"><div class="ach-head"><img src="${esc(list.find((a) => a.got)?.icon || list[0].icon)}" alt=""><div><b>${esc(e.title)}</b><span>Steam</span>
+          <span class="fish-bar"><span style="width:${Math.round((s.got / s.total) * 100)}%"></span></span><span>${s.got} of ${s.total} unlocked · ${Math.round((s.got / s.total) * 100)}%</span></div></div>
+        <div class="ach-grid">${list.map((a) => {
+          const secret = a.hidden && !a.got;
+          return `<div class="ach ${a.got ? 'got' : ''}" title="${esc(secret ? 'Hidden achievement' : a.desc)}"><img src="${esc(a.got ? a.icon : a.iconGray || a.icon)}" alt="" loading="lazy">
+            <div><b>${esc(secret ? 'Hidden achievement' : a.title)}</b><span>${esc(secret ? 'Keep playing to find out.' : a.desc)}</span>${a.got && a.time ? `<em>Unlocked ${when(a.time)}</em>` : ''}</div></div>`;
+        }).join('')}</div></div>`,
+      buttons: [{ label: 'Close', primary: true }]
+    });
+  }
+
   async function open(e) {
-    if (!fits(e)) { toast('RetroAchievements are for emulated games.'); return; }
+    if (steamy(e)) { openSteam(e); return; }
+    if (!fits(e)) { toast('Achievements are for Steam games and emulated games (RetroAchievements).'); return; }
     if (!on()) { toast('Add your RetroAchievements name and web API key in Settings, Accounts.', 'err'); return; }
     const root = openModal({ title: `Achievements: ${e.title}`, wide: true, html: '<div class="ach-body"><p class="note">Asking RetroAchievements…</p></div>',
       buttons: [{ label: 'Link a different game', left: true, onClick: () => { link(e); return false; } }, { label: 'Close' }] });

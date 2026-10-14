@@ -178,5 +178,39 @@ const Sound = (() => {
   function duck(on) { if (amb) setAmbientLevel(on ? 0.0002 : 1, on ? 0.6 : 2.5); }
   document.addEventListener('deck-away', (ev) => duck(ev.detail));
 
-  return { play, startAmbient, stopAmbient, setAmbientLevel, duck, whale, sync() { ambOn() ? (startAmbient(), setAmbientLevel(1, 0.5)) : stopAmbient(); } };
+  /* Where Bladedeck's own sounds play: the system's default, or an output whose name matches
+     (the controller's speaker, or Player 2's output in multi-screen). */
+  let want = null;
+  async function setOutput(match) {
+    want = match;
+    try {
+      const a = ctx(); if (!a.setSinkId) return false;
+      if (!match) { await a.setSinkId(''); return true; }
+      const outs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audiooutput');
+      const d = outs.find((x) => match.test(x.label));
+      if (!d) return false;
+      await a.setSinkId(d.deviceId);
+      return true;
+    } catch { return false; }
+  }
+  // An output that appears later (a controller plugged in) is picked up.
+  navigator.mediaDevices?.addEventListener?.('devicechange', () => { if (want) setOutput(want); });
+
+  // A short chime on one output (found by name), whatever Bladedeck's own sounds use.
+  async function test(match) {
+    try {
+      const outs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audiooutput');
+      const d = outs.find((x) => match.test(x.label)); if (!d) return false;
+      const a = new AudioContext(); if (a.setSinkId) await a.setSinkId(d.deviceId);
+      [523, 659, 784].forEach((f, i) => {
+        const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + i * 0.16;
+        o.frequency.value = f; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.25, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+        o.connect(g).connect(a.destination); o.start(t); o.stop(t + 0.45);
+      });
+      setTimeout(() => a.close(), 1500);
+      return true;
+    } catch { return false; }
+  }
+
+  return { play, startAmbient, stopAmbient, setAmbientLevel, duck, whale, setOutput, test, sync() { ambOn() ? (startAmbient(), setAmbientLevel(1, 0.5)) : stopAmbient(); } };
 })();

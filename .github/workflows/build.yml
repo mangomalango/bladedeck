@@ -1,0 +1,50 @@
+# Every push: check the code, then build Bladedeck for Linux (AppImage) and Windows (installer).
+# The builds are kept as downloads on the run's page for two weeks. Nothing is published.
+# CI cannot test controllers, sound, capture or the graphics card: those still need a run on
+# real hardware.
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/check.js
+
+  build:
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: --linux AppImage
+            files: dist/*.AppImage
+          - os: windows-latest
+            target: --win nsis
+            files: dist/*.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx electron-builder ${{ matrix.target }} --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bladedeck-${{ runner.os }}
+          path: ${{ matrix.files }}
+          retention-days: 14

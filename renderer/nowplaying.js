@@ -4,6 +4,33 @@
    A, or Ctrl+M again pops it back out over the whole menu and hands the screen back to the game.
    Uses S, api, esc, cover, toast, fxOn, steamWin and sessionOver at call time. */
 
+/* Live view that remembers (livecap.js): JPEG frames from the desktop's screen share, drawn into
+   a canvas whose stream the panel plays like any other. Remembered per game, so after the first
+   time a game is shown live it starts by itself. Elsewhere getDisplayMedia is used, as before. */
+const LiveCap = (() => {
+  let canvas = null, g = null, key = null, avail = null, onEnd = null;
+  window.bladedeck.onLiveFrame?.(({ key: k, jpeg }) => {
+    if (k !== key || !g) return;
+    createImageBitmap(new Blob([jpeg], { type: 'image/jpeg' })).then((bm) => {
+      if (canvas.width !== bm.width || canvas.height !== bm.height) { canvas.width = bm.width; canvas.height = bm.height; }
+      g.drawImage(bm, 0, 0); bm.close();
+    }).catch(() => {});
+  });
+  window.bladedeck.onLiveEnded?.(({ key: k }) => { if (k === key) { key = null; const f = onEnd; onEnd = null; f?.(); } });
+  async function ok() { if (avail === null) avail = !!(await window.bladedeck.liveAvailable?.().catch(() => false)); return avail; }
+  // A stream for one game's window, or null. ask: the desktop's picker may open.
+  async function stream(k, ask, ended) {
+    canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 360;
+    g = canvas.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, 640, 360);
+    key = k; onEnd = ended;
+    const r = await window.bladedeck.liveStart({ key: k, ask: !!ask }).catch(() => ({ ok: false }));
+    if (!r.ok || key !== k) { if (key === k) { key = null; onEnd = null; } return { stream: null, why: r.error || (r.needsAsk ? 'ask' : '') }; }
+    return { stream: canvas.captureStream(15) };
+  }
+  function stop() { if (key) { key = null; onEnd = null; window.bladedeck.liveStop(); } }
+  return { ok, stream, stop, pause: (on) => window.bladedeck.livePause?.(on), has: (k) => window.bladedeck.liveHas(k) };
+})();
+
 const NowPlaying = (() => {
   const el = document.getElementById('np');
   const video = el.querySelector('video'), art = el.querySelector('.np-art');
@@ -13,7 +40,7 @@ const NowPlaying = (() => {
   let cur = null, stream = null, streamKey = null, asked = {}, hl = false, timer = 0, mode = null, covered = false, going = false;
 
   const visible = () => !el.hidden;
-  const entryNow = () => (S.playing ? S.lib.entries.find((e) => e.id === S.playing.id) : null);
+  const entryNow = () => (S.playing ? entryById(S.playing.id) : null);
   const keyOf = (ev) => `${ev.pid || 0}`;
 
   window.bladedeck.onPeek((ev) => {
@@ -48,8 +75,12 @@ const NowPlaying = (() => {
     updateSub();
     el.hidden = false;
     clearInterval(timer); timer = setInterval(updateSub, 30000);
+    clearTimeout(idleStop);
     if (stream && streamKey === cur.key) { stream.getVideoTracks().forEach((t) => { t.enabled = true; }); el.classList.add('live'); }
-    else { stopLive(); if (!asked[cur.key]) startLive(); }
+    // Only the game being played is ever captured: coming from a browser or a chat shows its name,
+    // not a live copy of it.
+    else { stopLive(); if (!asked[cur.key] && cur.entry) startLive().then(() => autoAsk()); }
+    if (stream && streamKey === cur.key) LiveCap.pause(false);
     if (animate) shrink();
     else requestAnimationFrame(() => document.body.classList.add('np-on'));
     // Not sure yet which window is the game: check this one, and show the game if it is.
@@ -150,7 +181,29 @@ const NowPlaying = (() => {
     sEl.textContent = bits.join(' · ') || (mode === 'kwin' ? 'Running in the background' : '');
   }
 
-  let starting = false;
+  let starting = false, idleStop = 0;
+  /* Asked for with X: say what is about to happen first. The desktop then shows its own window
+     picker, which takes the keyboard and controller until it closes. */
+  async function askLive() {
+    if (!cur || starting) return;
+    if (!cur.entry) { toast('Live view only shows the game you are playing.', 'err'); return; }
+    const remembers = await LiveCap.ok();
+    const ok = await confirmAsk({ title: 'Show a live view?', text: remembers
+      ? `Your desktop will ask which window to share, this once. Pick ${cur.entry.title}, leave "Allow restoring" ticked and press Share. After that the live view starts by itself whenever you jump out of ${cur.entry.title}.`
+      : `Your desktop will ask which window to share. Pick ${cur.entry.title} and press Share. The controller works that picker until it closes, then comes back here.`, yes: 'Continue' });
+    if (ok) startLive(true);
+  }
+  /* Live view on its own: the first time you jump out of a game, Bladedeck offers it once (the
+     desktop then asks which window, with "allow restoring" ticked); from then on it starts by
+     itself for that game. Settings, Recording turns that off. */
+  async function autoAsk() {
+    const e = cur?.entry;
+    if (!e || stream || S.lib.settings.liveAuto === false || !(await LiveCap.ok())) return;
+    const seen = (S.lib.settings.liveAsked = S.lib.settings.liveAsked || {});
+    if (seen[e.id]) return;
+    seen[e.id] = true; save();
+    askLive();
+  }
   async function startLive(ask) {
     // One picker at a time: pressing X again while it is open must not stack a second one.
     if (!cur || starting) return;
@@ -158,6 +211,17 @@ const NowPlaying = (() => {
     asked[key] = true;
     starting = true;
     let id = null, s = null;
+    // The remembering live view, where the desktop has it.
+    if (cur.entry && await LiveCap.ok()) {
+      const r = await LiveCap.stream(cur.entry.id, !!ask, () => { if (streamKey === key) stopLive(); });
+      starting = false;
+      if (!r.stream || !cur || cur.key !== key) { if (r.stream) LiveCap.stop(); if (ask && r.why && r.why !== 'cancelled') toast('The live view could not start.', 'err'); el.classList.remove('live'); return; }
+      stopLive(true);
+      stream = r.stream; streamKey = key;
+      video.srcObject = stream; video.play().catch(() => {});
+      el.classList.add('live');
+      return;
+    }
     try {
       // Without KDE we don't learn the window's title, so look for one named like the game.
       id = await api.captureWant(cur.caption || cur.entry?.title || '', ['window'], !!ask);
@@ -171,10 +235,11 @@ const NowPlaying = (() => {
     video.srcObject = stream;
     video.play().catch(() => {});
     el.classList.add('live');
-    stream.getVideoTracks()[0].addEventListener('ended', stopLive);
+    stream.getVideoTracks()[0].addEventListener('ended', () => stopLive());
   }
 
-  function stopLive() {
+  function stopLive(keepCap) {
+    if (!keepCap) LiveCap.stop();
     stream?.getTracks().forEach((t) => t.stop());
     stream = null; streamKey = null;
     video.srcObject = null;
@@ -203,6 +268,9 @@ const NowPlaying = (() => {
   }
 
   function gone(ev) {
+    // The game on screen closed (quit from its menu, or crashed): come back to Bladedeck, or the
+    // desktop gets the screen and the controller has nothing to drive.
+    if (S.playing?.winPid && S.playing.winPid === ev.pid && !deckFocused()) setTimeout(() => api.deckFocus(), 300);
     if (S.playing && !S.playing.tracked && S.playing.winPid && S.playing.winPid === ev.pid) {
       const p = S.playing; S.playing = null;
       const e = S.lib.entries.find((x) => x.id === p.id);
@@ -224,7 +292,7 @@ const NowPlaying = (() => {
     if (!visible()) return false;
     if (hl) {
       if (a === 'a') back();
-      else if (a === 'x') { if (!el.classList.contains('live')) startLive(true); }
+      else if (a === 'x') { if (!el.classList.contains('live')) askLive(); }
       else if (a === 'down') { highlight(false); Running.edge() || Dock.edge(); }
       else if (a === 'right' || a === 'b') highlight(false);
       return true;
@@ -234,15 +302,23 @@ const NowPlaying = (() => {
   function edge() { if (!visible()) return false; highlight(true); return true; }
 
   // Live frames are not needed while the game itself is on screen.
-  document.addEventListener('deck-away', (ev) => { if (ev.detail) stream?.getVideoTracks().forEach((t) => { t.enabled = false; }); });
+  // After two minutes in the game the capture is stopped outright (not just paused), so nothing
+  // keeps streaming the screen during a long session; it starts again on the next way back.
+  document.addEventListener('deck-away', (ev) => {
+    clearTimeout(idleStop);
+    if (!ev.detail) { LiveCap.pause(false); return; }
+    LiveCap.pause(true);
+    stream?.getVideoTracks().forEach((t) => { t.enabled = false; });
+    if (stream) idleStop = setTimeout(() => { const k = streamKey; stopLive(); if (k) delete asked[k]; }, 120000);
+  });
 
   el.addEventListener('click', (ev) => {
-    if (ev.target.closest('.np-live-btn')) { if (cur) startLive(true); return; }
+    if (ev.target.closest('.np-live-btn')) { if (cur) askLive(); return; }
     back();
   });
   el.addEventListener('pointerenter', () => highlight(true));
   el.addEventListener('pointerleave', () => highlight(false));
   liveBtn.addEventListener('pointerdown', (ev) => ev.stopPropagation());
 
-  return { show, end, handle, edge, visible, mode: () => mode, reset: () => { if (cur) end(); } };
+  return { show, end, handle, edge, visible, highlighted: () => hl, mode: () => mode, reset: () => { if (cur) end(); } };
 })();

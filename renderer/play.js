@@ -150,7 +150,9 @@ const Showcase = (() => {
     root.classList.add('on', 'f-' + (e.look || 'blur'));
     document.body.classList.add('has-show');
     // Start on a random item so glancing past a game looks different each time.
-    let i = (Math.random() * media.length) | 0;
+    // Achievement moments first: they are the best of what you played.
+    const best = media.map((m, k) => (m.tag === 'achievement' ? k : -1)).filter((k) => k >= 0);
+    let i = best.length ? best[(Math.random() * best.length) | 0] : (Math.random() * media.length) | 0;
     put(media[i]);
     if (media.length > 1) cycle = setInterval(() => put(media[++i % media.length]), 14000);
   }
@@ -163,7 +165,7 @@ const Showcase = (() => {
       v.muted = true; v.loop = true; v.playsInline = true; v.src = fileUrl(m.path);
       v.addEventListener('loadedmetadata', () => { if (isFinite(v.duration) && v.duration > 20) v.currentTime = Math.random() * (v.duration - 15); }, { once: true });
       next.appendChild(v);
-      if (!document.hidden) v.play().catch(() => {});
+      if (!document.hidden && !away) v.play().catch(() => {});
     } else {
       next.style.backgroundImage = `url("${fileUrl(m.path)}")`;
       void next.offsetWidth; next.classList.add('kb');
@@ -178,10 +180,12 @@ const Showcase = (() => {
     setTimeout(() => { if (!root.classList.contains('on')) layers.forEach((l) => { l.innerHTML = ''; l.style.backgroundImage = ''; }); }, 1000);
   }
 
-  // Nothing decodes video while a game has the screen.
-  document.addEventListener('visibilitychange', () => {
-    for (const v of root.querySelectorAll('video')) document.hidden ? v.pause() : v.play().catch(() => {});
-  });
+  // Nothing decodes video while a game has the screen. Under XWayland the page is never marked
+  // hidden, so a game taking focus ('deck-away') counts too.
+  let away = false;
+  const sync = () => { for (const v of root.querySelectorAll('video')) (document.hidden || away) ? v.pause() : v.play().catch(() => {}); };
+  document.addEventListener('visibilitychange', sync);
+  document.addEventListener('deck-away', (ev) => { away = ev.detail; sync(); });
 
   return { show, reset: () => { key = null; } };
 })();
@@ -387,7 +391,7 @@ const Friends = (() => {
 
   // Tell friends what we are up to.
   function presence() {
-    const p = S.playing && S.lib.entries.find((e) => e.id === S.playing.id);
+    const p = S.playing && entryById(S.playing.id);
     api.presence({ name: S.lib.settings.playerName, playing: p ? p.title : null, since: S.playing?.t || null });
   }
   setInterval(() => { if (S.lib) presence(); }, 10000);

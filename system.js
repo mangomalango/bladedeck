@@ -3,8 +3,9 @@
    Stats: processor load and temperature, graphics card frequency (and load where the driver
    says), memory, storage, battery, network, uptime. Controls: Wi-Fi (list, connect,
    disconnect), screen brightness, and sleep / restart / shut down / lock.
-   Linux reads /proc and /sys and uses nmcli and KDE's brightness service; Windows uses what
-   Node and PowerShell can tell. Anything a machine does not have is simply left out. */
+   Linux reads /proc and /sys and uses nmcli and KDE's brightness service; Windows uses
+   PowerShell (battery, brightness, network) and netsh (Wi-Fi). Anything a machine does not have
+   is simply left out. */
 const { ipcMain } = require('electron');
 const { execFile } = require('child_process');
 const fs = require('fs');
@@ -57,7 +58,8 @@ function gpu() {
   return null;
 }
 
-function battery() {
+function battery(w) {
+  if (w) return w.bat != null ? { pct: w.bat, status: w.batStatus === 2 ? 'Plugged in' : 'Discharging', watts: null } : null;
   if (process.platform !== 'linux') return null;
   let list; try { list = fs.readdirSync('/sys/class/power_supply').filter((n) => /^BAT/.test(n)); } catch { return null; }
   if (!list.length) return null;
@@ -78,7 +80,8 @@ function disks() {
   return out;
 }
 
-async function network() {
+async function network(w) {
+  if (w) return w.net ? { connected: true, kind: w.wifi ? 'Wi-Fi' : 'Ethernet', name: w.net, signal: w.signal ?? null } : { connected: false };
   if (process.platform !== 'linux') return null;
   const r = await run('nmcli', ['-t', '-f', 'TYPE,STATE,CONNECTION', 'dev', 'status']);
   if (!r.ok) return null;
@@ -89,7 +92,8 @@ async function network() {
   return { connected: true, kind: up[0] === 'wifi' ? 'Wi-Fi' : 'Ethernet', name: up.slice(2).join(':'), signal };
 }
 
-async function brightness() {
+async function brightness(w) {
+  if (process.platform === 'win32') { const v = w ? w.bright : (await winInfo()).bright; return v != null ? { pct: v, max: 100, via: 'win' } : null; }
   if (process.platform !== 'linux') return null;
   const q = (prop) => run('qdbus6', ['org.kde.ScreenBrightness', '/org/kde/ScreenBrightness/display0', `org.kde.ScreenBrightness.Display.${prop}`], 3000);
   const [b, m] = await Promise.all([q('Brightness'), q('MaxBrightness')]);
@@ -99,22 +103,77 @@ async function brightness() {
   return null;
 }
 
+/* Windows: battery, brightness and network from one PowerShell call, kept for 10 seconds
+   (PowerShell is slow to start, and these change slowly). */
+let winCache = null, winAt = 0;
+const ps = (cmd, timeout = 12000) => run('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', cmd], timeout);
+async function winInfo() {
+  if (winCache && Date.now() - winAt < 10000) return winCache;
+  const r = await ps(`$o = @{}
+try { $b = Get-CimInstance Win32_Battery -ErrorAction Stop | Select-Object -First 1; if ($b) { $o.bat = $b.EstimatedChargeRemaining; $o.batStatus = $b.BatteryStatus } } catch {}
+try { $o.bright = (Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness -ErrorAction Stop | Select-Object -First 1).CurrentBrightness } catch {}
+try { $n = Get-NetConnectionProfile -ErrorAction Stop | Select-Object -First 1; if ($n) { $o.net = $n.Name; $o.netIf = $n.InterfaceAlias } } catch {}
+$o | ConvertTo-Json -Compress`);
+  let j = {}; try { j = JSON.parse(r.out.trim() || '{}'); } catch { /* nothing */ }
+  // Wi-Fi signal: netsh shows it as a percentage, whatever the language.
+  if (j.net) { const w = await run('netsh', ['wlan', 'show', 'interfaces'], 5000); const m = w.out.match(/(\d{1,3})\s*%/); j.signal = m ? +m[1] : null; j.wifi = /wi-?fi|wlan|wireless/i.test(j.netIf || '') || !!m; }
+  winCache = j; winAt = Date.now();
+  return j;
+}
+
+/* Memory compression: zram (a compressed swap in memory; CachyOS turns it on by default) and
+   zswap. Shows how much memory it is holding and how small it got. Linux only. */
+function compression() {
+  if (process.platform !== 'linux') return null;
+  let devs = []; try { devs = fs.readdirSync('/sys/block').filter((d) => /^zram\d+$/.test(d)); } catch { /* none */ }
+  let orig = 0, compr = 0, size = 0, algo = '';
+  for (const d of devs) {
+    const mm = (read(`/sys/block/${d}/mm_stat`) || '').trim().split(/\s+/).map(Number);
+    if (mm.length >= 2) { orig += mm[0]; compr += mm[1]; }
+    size += +(read(`/sys/block/${d}/disksize`) || 0);
+    algo = algo || ((read(`/sys/block/${d}/comp_algorithm`) || '').match(/\[(\w+)\]/) || [])[1] || '';
+  }
+  if (size) return { kind: 'zram', size, orig, compr, algo };
+  if (/^Y/.test(read('/sys/module/zswap/parameters/enabled') || '')) return { kind: 'zswap' };
+  return { kind: 'none' };
+}
+
 async function stats() {
   const tot = os.totalmem();
   let avail = os.freemem();
   if (process.platform === 'linux') { const m = (read('/proc/meminfo') || '').match(/MemAvailable:\s+(\d+)/); if (m) avail = +m[1] * 1024; }
-  const [net, bright] = await Promise.all([network(), brightness()]);
+  const w = process.platform === 'win32' ? await winInfo() : null;
+  const [net, bright] = await Promise.all([network(w), brightness(w)]);
   return {
     host: os.hostname(), uptime: os.uptime(),
     cpu: { model: (os.cpus()[0]?.model || '').replace(/\(R\)|\(TM\)|CPU|Processor/g, '').replace(/\s+/g, ' ').trim(), cores: os.cpus().length, load: cpuLoad() },
-    mem: { total: tot, used: tot - avail }, gpu: gpu(), temps: temps(), battery: battery(), disks: disks(), net, brightness: bright, platform: process.platform
+    mem: { total: tot, used: tot - avail, compression: compression() }, gpu: gpu(), temps: temps(), battery: battery(w), disks: disks(), net, brightness: bright, platform: process.platform
   };
 }
 
 function register() {
   cpuLoad();
   ipcMain.handle('sys-stats', () => stats());
+  // The top bar's little readout: only what is quick to read (no commands run).
+  ipcMain.handle('sys-mini', () => {
+    const tot = os.totalmem(); let avail = os.freemem();
+    if (process.platform === 'linux') { const m = (read('/proc/meminfo') || '').match(/MemAvailable:\s+(\d+)/); if (m) avail = +m[1] * 1024; }
+    const t = temps() || {}, vals = Object.values(t).filter((x) => typeof x === 'number');
+    return { cpu: cpuLoad(), used: tot - avail, total: tot, temp: vals.length ? Math.max(...vals) : null };
+  });
   ipcMain.handle('sys-wifi', async () => {
+    if (process.platform === 'win32') {
+      const r = await run('netsh', ['wlan', 'show', 'networks', 'mode=bssid'], 15000);
+      if (!r.ok) return { error: 'No Wi-Fi adapter was found.' };
+      const cur = (await winInfo()).net, nets = [];
+      // "SSID 1 : Name", then its details; the percentage is the signal, "Open" means no password.
+      for (const block of r.out.split(/\r?\n(?=SSID \d+ :)/)) {
+        const m = block.match(/^SSID \d+ : (.*)$/m); if (!m || !m[1].trim()) continue;
+        const sig = block.match(/(\d{1,3})\s*%/);
+        nets.push({ ssid: m[1].trim(), signal: sig ? +sig[1] : 0, secure: !/:\s*Open\s*$/mi.test(block), on: m[1].trim() === cur });
+      }
+      return { networks: nets.sort((a, b) => b.on - a.on || b.signal - a.signal).slice(0, 20) };
+    }
     const r = await run('nmcli', ['-t', '-f', 'IN-USE,SSID,SIGNAL,SECURITY', 'dev', 'wifi', 'list', '--rescan', 'auto'], 15000);
     if (!r.ok) return { error: 'Wi-Fi controls need NetworkManager (nmcli).' };
     const seen = new Map();
@@ -127,15 +186,38 @@ function register() {
     return { networks: [...seen.values()].sort((a, b) => b.on - a.on || b.signal - a.signal).slice(0, 20) };
   });
   ipcMain.handle('sys-wifi-connect', async (_e, { ssid, password }) => {
+    if (process.platform === 'win32') {
+      // A known network connects by name; a new one gets a profile (WPA2 personal) first.
+      if (password) {
+        const x = (v) => String(v).replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c]));
+        const xml = `<?xml version="1.0"?><WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1"><name>${x(ssid)}</name><SSIDConfig><SSID><name>${x(ssid)}</name></SSID></SSIDConfig><connectionType>ESS</connectionType><connectionMode>auto</connectionMode><MSM><security><authEncryption><authentication>WPA2PSK</authentication><encryption>AES</encryption><useOneX>false</useOneX></authEncryption><sharedKey><keyType>passPhrase</keyType><protected>false</protected><keyMaterial>${x(password)}</keyMaterial></sharedKey></security></MSM></WLANProfile>`;
+        const f = path.join(os.tmpdir(), `bd-wifi-${process.pid}.xml`);
+        fs.writeFileSync(f, xml, { mode: 0o600 });
+        const a = await run('netsh', ['wlan', 'add', 'profile', `filename=${f}`, 'user=current'], 15000);
+        fs.rmSync(f, { force: true });
+        if (!a.ok) return { ok: false, error: 'Windows did not accept that network.' };
+      }
+      const r = await run('netsh', ['wlan', 'connect', `name=${ssid}`], 20000);
+      winAt = 0;
+      return r.ok ? { ok: true } : { ok: false, error: 'Could not connect. If it is new, enter its password.' };
+    }
     const args = ['dev', 'wifi', 'connect', String(ssid)]; if (password) args.push('password', String(password));
     const r = await run('nmcli', args, 40000);
     return r.ok ? { ok: true } : { ok: false, error: (r.err || r.out).split('\n').filter(Boolean).pop() || 'Could not connect.' };
   });
-  ipcMain.handle('sys-wifi-off', async () => { const r = await run('nmcli', ['dev', 'disconnect', 'wlan0'], 15000); return { ok: r.ok }; });
+  ipcMain.handle('sys-wifi-off', async () => {
+    if (process.platform === 'win32') { const r = await run('netsh', ['wlan', 'disconnect'], 15000); winAt = 0; return { ok: r.ok }; }
+    // Whichever Wi-Fi device is connected (not always called wlan0).
+    const d = await run('nmcli', ['-t', '-f', 'DEVICE,TYPE,STATE', 'dev'], 5000);
+    const dev = d.out.split('\n').map((l) => l.split(':')).find((f) => f[1] === 'wifi' && f[2] === 'connected');
+    if (!dev) return { ok: false };
+    const r = await run('nmcli', ['dev', 'disconnect', dev[0]], 15000); return { ok: r.ok };
+  });
   ipcMain.handle('sys-brightness', async (_e, pct) => {
     const b = await brightness(); if (!b) return { ok: false };
     const v = Math.round(Math.max(1, Math.min(100, +pct)) * b.max / 100);
-    if (b.via === 'kde') { const r = await run('qdbus6', ['org.kde.ScreenBrightness', '/org/kde/ScreenBrightness/display0', 'org.kde.ScreenBrightness.Display.SetBrightness', String(v), '0'], 3000); return { ok: r.ok }; }
+    if (b.via === 'win') { const r = await ps(`Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{Timeout=0;Brightness=${Math.round(Math.max(1, Math.min(100, +pct)))}} | Out-Null`); winAt = 0; return r.ok ? { ok: true } : { ok: false, error: 'This screen does not let Windows change its brightness (desktop monitors usually do not).' }; }
+        if (b.via === 'kde') { const r = await run('qdbus6', ['org.kde.ScreenBrightness', '/org/kde/ScreenBrightness/display0', 'org.kde.ScreenBrightness.Display.SetBrightness', String(v), '0'], 3000); return { ok: r.ok }; }
     return { ok: false, error: 'Changing brightness needs KDE Plasma here.' };
   });
   ipcMain.handle('sys-power', async (_e, what) => {

@@ -18,6 +18,10 @@ const Voice = (() => {
   pill.id = 'vc'; pill.hidden = true; pill.setAttribute('role', 'status');
   document.body.appendChild(pill);
   const say = (html, ms) => { pill.innerHTML = html; pill.hidden = false; pill.classList.add('on'); clearTimeout(say.t); if (ms) say.t = setTimeout(hide, ms); };
+  // In a game the pill is behind it: say it as a desktop notification too, so a voice command
+  // from inside a game is never silent.
+  const away = () => !deckFocused();
+  const notify = (title, body) => { if (!away()) return; try { new Notification(title, { body, silent: true }); } catch { /* optional */ } };
   const hide = () => { pill.classList.remove('on'); setTimeout(() => { if (!pill.classList.contains('on')) pill.hidden = true; }, 250); };
 
   /* -------------------------------------------------------------- setting up */
@@ -50,14 +54,21 @@ const Voice = (() => {
     if (!st.ready || !S.lib.settings.voice) { setup(); return; }
     listening = true;
     let stream;
-    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
+    // The controller's microphone (a DualSense over USB), if that is picked in Settings, Controllers.
+    let mic;
+    if (S.lib.settings.padMic) { try { mic = (await navigator.mediaDevices.enumerateDevices()).find((d) => d.kind === 'audioinput' && /dualsense|wireless controller|sony/i.test(d.label))?.deviceId; } catch { /* default */ } }
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { ...(mic ? { deviceId: { exact: mic } } : {}), channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
     catch { listening = false; toast('No microphone was found, or it is turned off.', 'err'); return; }
     api.voiceWarm();
     Sound.play('pop');
+    notify('Bladedeck is listening', 'Say a command, like "next song" or "set a timer for 10 minutes".');
     say('<i class="vc-dot"></i><b>Listening…</b><span class="vc-lv"><i></i><i></i><i></i><i></i><i></i></span>');
     const ctx = new AudioContext({ sampleRate: 16000 });
     const src = ctx.createMediaStreamSource(stream), node = ctx.createScriptProcessor(2048, 1, 1);
-    const chunks = []; let floor = 0.01, heard = false, quiet = 0, t0 = performance.now();
+    /* Speech is "loud" compared with the room. The room is the quietest moment of the first third
+       of a second (people often start talking the instant they press), and the bar adapts to the
+       microphone: a laptop's built-in one records far more quietly than a headset. */
+    const chunks = []; let floor = Infinity, heard = false, quiet = 0, peak = 0, t0 = performance.now();
     const bars = pill.querySelectorAll('.vc-lv i');
     const done = new Promise((resolve) => {
       stopNow = () => resolve();
@@ -65,9 +76,10 @@ const Voice = (() => {
         const d = new Float32Array(ev.inputBuffer.getChannelData(0)); chunks.push(d);
         let sum = 0; for (let i = 0; i < d.length; i++) sum += d[i] * d[i];
         const rms = Math.sqrt(sum / d.length), ms = performance.now() - t0;
-        if (ms < 300) floor = Math.max(floor, rms);
-        const loud = rms > Math.max(0.02, floor * 2.5);
-        bars.forEach((b, i) => { b.style.transform = `scaleY(${Math.min(1, 0.2 + rms * (12 + i * 5))})`; });
+        if (ms < 300 || rms < floor) floor = Math.min(floor, Math.max(rms, 0.0005));
+        peak = Math.max(peak, rms);
+        const loud = rms > Math.max(0.004, floor * 3);
+        bars.forEach((b, i) => { b.style.transform = `scaleY(${Math.min(1, 0.2 + (rms / Math.max(peak, 0.02)) * (0.6 + i * 0.1))})`; });
         if (loud) { heard = true; quiet = 0; } else if (heard) quiet += d.length / 16;
         if ((heard && quiet > 900) || ms > 8000 || (!heard && ms > 4500)) resolve();
       };
@@ -76,14 +88,21 @@ const Voice = (() => {
     await done;
     node.disconnect(); src.disconnect(); stream.getTracks().forEach((t) => t.stop()); ctx.close();
     listening = false; stopNow = null;
-    if (!heard) { say('<b>Didn\'t hear anything.</b>', 2200); return; }
+    // Something clearly above the room still counts, even if it never crossed the bar.
+    if (!heard && peak > Math.max(0.003, floor * 2)) heard = true;
+    if (!heard) { say('<b>Didn\'t hear anything.</b>', 2200); notify('Voice', 'Didn\'t hear anything. Check the microphone in Sound.'); return; }
     say('<i class="vc-dot think"></i><b>…</b>');
     const all = new Float32Array(chunks.reduce((n, c) => n + c.length, 0)); let o = 0; for (const c of chunks) { all.set(c, o); o += c.length; }
+    // A quiet microphone is turned up before the words are worked out: the model hears loud,
+    // clear speech far better (up to 20 times louder, never past full scale).
+    let top = 0; for (let i = 0; i < all.length; i++) top = Math.max(top, Math.abs(all[i]));
+    if (top > 0 && top < 0.5) { const g = Math.min(20, 0.7 / top); for (let i = 0; i < all.length; i++) all[i] *= g; }
     const r = await api.voiceHear(all);
     if (!r.ok) { say(`<b>${esc(r.error || 'Voice did not work.')}</b>`, 3500); return; }
-    if (!r.text) { say('<b>Didn\'t catch that.</b>', 2500); return; }
+    if (!r.text) { say('<b>Didn\'t catch that.</b>', 2500); notify('Voice', 'Didn\'t catch that.'); return; }
     const out = await run(r.text);
     say(`<span class="vc-q">“${esc(r.text)}”</span><b>${out}</b>`, 4500);
+    notify(`“${r.text}”`, String(out).replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'"));
   }
 
   /* -------------------------------------------------------------- understanding */

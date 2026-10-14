@@ -107,6 +107,18 @@ function ensureUserFiles() {
 // ---------------------------------------------------------------- window
 let win = null;
 
+/* Plain http pages load in Bladedeck's browser views only from your own sites (a server on your
+   network added in Sources); everything else has to be https. */
+const httpOrigins = new Set();
+const httpOk = (u) => { try { const x = new URL(String(u)); return x.protocol === 'http:' && httpOrigins.has(x.origin); } catch { return false; } };
+ipcMain.handle('web-allow', (_e, origin) => {
+  let o; try { o = new URL(String(origin)); } catch { return false; }
+  if (o.protocol !== 'http:') return false;
+  const lib = loadLib();
+  if (!(lib.settings.sources || []).some((s) => { try { return new URL(s.where).origin === o.origin; } catch { return false; } })) return false;
+  httpOrigins.add(o.origin); return true;
+});
+
 function createWindow() {
   const lib = loadLib();
   const consoleMode = lib.settings.mode === 'console';
@@ -133,7 +145,7 @@ function createWindow() {
     delete prefs.preload; prefs.nodeIntegration = false; prefs.contextIsolation = true; prefs.sandbox = true;
     // A Wallpaper Engine web wallpaper: only from a folder a wallpaper scan found, in its own session.
     if (params.partition === 'wallpaper' && require('./wallpaper').webAllowed(params.src)) { prefs.webSecurity = true; return; }
-    if (!/^https:\/\//.test(params.src || '') && params.src !== 'about:blank') params.src = 'about:blank';
+    if (!/^https:\/\//.test(params.src || '') && params.src !== 'about:blank' && !httpOk(params.src)) params.src = 'about:blank';
     params.partition = 'persist:webapps';
   });
   win.webContents.on('did-attach-webview', (_e, wc) => {
@@ -150,7 +162,7 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.once('ready-to-show', () => {
     win.show();
-    Peek.start(win, { dataDir: dataDir(), minimize: !!lib.settings.peekMinimize, handler: (ev) => { if (win) win.webContents.send('peek', ev); } })
+    Peek.start(win, { dataDir: dataDir(), minimize: !!lib.settings.peekMinimize, handler: (ev) => { if (win) win.webContents.send('peek', ev); const p2 = require('./players').p2(); if (p2 && !p2.isDestroyed() && /^(windows|opened|gone)$/.test(ev.kind)) p2.webContents.send('peek', ev); } })
       .then((m) => {
         if (win) win.webContents.send('peek', { kind: 'mode', mode: m });
         // Without KWin, list windows another way (Windows, or Linux on X11 with wmctrl).
@@ -158,7 +170,8 @@ function createWindow() {
       });
     if (process.platform === 'win32') require('./winpad').start(dataDir(), () => peekToggle(), (kind = 'pip') => { if (win) win.webContents.send('peek', { kind, caption: '', pid: 0, cls: '' }); });
   });
-  win.on('closed', () => { win = null; });
+  // Player 2's menu (multi-screen) goes with the main one.
+  win.on('closed', () => { win = null; require('./players').stop(); });
   // Whether Bladedeck's window has the screen's focus, whatever is focused inside it (a panel's page).
   win.on('focus', () => win.webContents.send('deck-focus', true));
   win.on('blur', () => win.webContents.send('deck-focus', false));
@@ -193,7 +206,7 @@ function quiet(on) {
     quietProc.kill(); quietProc = null;
   }
 }
-app.on('will-quit', () => { require('./procs').thawAll(); require('./winlist').stop(); quiet(false); Peek.stop(); Net.stop(); if (process.platform === 'win32') { require('./winaudio').stop(); require('./winpad').stop(); } });
+app.on('will-quit', () => { require('./livecap').stop(); require('./procs').thawAll(); require('./capture').stop(); require('./players').stop(); require('./winlist').stop(); quiet(false); Peek.stop(); Net.stop(); if (process.platform === 'win32') { require('./winaudio').stop(); require('./winpad').stop(); } });
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
@@ -212,15 +225,18 @@ ipcMain.handle('load', () => ({
   platform: process.platform
 }));
 
-ipcMain.handle('save', (_e, lib) => { writeJson(libFile(), lib); return true; });
+// Only the main menu writes the library: Player 2's menu (multi-screen) reads it.
+ipcMain.handle('save', (_e, lib) => { if (win && _e.sender !== win.webContents) return false; writeJson(libFile(), lib); require('./backup').changed(); return true; });
 
+// These act on the window that asked (Player 2's menu has its own).
+const own = (e) => BrowserWindow.fromWebContents(e.sender);
 ipcMain.handle('set-mode', (_e, mode) => {
-  if (!win) return;
-  win.setFullScreen(mode === 'console');
+  const w = own(_e); if (!w) return;
+  w.setFullScreen(mode === 'console');
 });
 
-ipcMain.handle('quit', () => app.quit());
-ipcMain.handle('minimize', () => { if (win) win.minimize(); });
+ipcMain.handle('quit', (_e) => { if (win && _e.sender !== win.webContents) return; app.quit(); });
+ipcMain.handle('minimize', (_e) => { const w = own(_e); if (w) w.minimize(); });
 ipcMain.handle('open-themes', () => shell.openPath(themesDir()));
 ipcMain.handle('open-css', () => { shell.showItemInFolder(cssFile()); return true; });
 
@@ -232,6 +248,9 @@ ipcMain.handle('pick', async (_e, { kind }) => {
   }
   if (kind === 'image') {
     filters = [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'] }];
+  }
+  if (kind === 'audio') {
+    filters = [{ name: 'Music', extensions: ['ogg', 'oga', 'opus', 'mp3', 'flac', 'wav', 'm4a'] }];
   }
   if (kind === 'media') {
     filters = [{ name: 'Clips and pictures', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'webm', 'mp4', 'mkv', 'mov', 'm4v'] }];
@@ -284,7 +303,9 @@ function prewarmSteam() {
   }
 }
 
-ipcMain.handle('launch', async (_e, { entry, emulator, settings }) => {
+ipcMain.handle('launch', async (_e, { entry, emulator, settings, player }) => {
+  // Whoever asked hears when the game ends: the main menu, or Player 2's.
+  const asker = _e.sender;
   try {
     if (entry.type === 'steam') {
       await shell.openExternal(`steam://rungameid/${encodeURIComponent(entry.appid)}`);
@@ -308,6 +329,8 @@ ipcMain.handle('launch', async (_e, { entry, emulator, settings }) => {
       if (!entry.rom || !fs.existsSync(entry.rom)) return { ok: false, error: `Game file not found: ${entry.rom || '(none)'}` };
       exe = emulator.exe;
       args = splitArgs(emulator.args).map(sub);
+      // Starting from a save state: the emulator's own option, for a state found for this game.
+      if (entry.stateFile) args = await require('./savestates').withState(args, entry, emulator, String(entry.stateFile));
       cwd = path.dirname(exe || '.');
     } else {
       exe = entry.exe;
@@ -329,14 +352,34 @@ ipcMain.handle('launch', async (_e, { entry, emulator, settings }) => {
       exe = (settings && settings.wineCommand) || 'wine';
     }
 
+    /* Games and emulators only read the controller while their window is in front, so pressing
+       buttons in Bladedeck's menu does not also play the game behind it. Many emulators ask SDL
+       for background input; the environment variable overrides that. A Flatpak needs it passed in. */
+    const padEnv = (settings && settings.padBackground) || (player && player.multi) ? {} : { SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS: '0' };
+    if (padEnv.SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS && path.basename(exe) === 'flatpak') {
+      const r = args.indexOf('run');
+      if (r >= 0) args.splice(r + 1, 0, '--env=SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=0');
+    }
     const started = Date.now();
     // GameMode asks the system for full speed while the game runs.
     const gm = settings && settings.gamemode && process.platform === 'linux' && onPath('gamemoderun');
     if (gm) { args = [exe, ...args]; exe = gm; }
+    // Multi-screen: the player's own controller only, their sound, and input while unfocused.
+    let playerEnv = {};
+    if (player && player.multi && process.platform === 'linux') {
+      const w = require('./players').wrapForPlayer(exe, args, player);
+      exe = w.exe; args = w.args; playerEnv = w.env;
+    }
+    // A game's own environment (Edit, Environment): KEY=value lines, such as WINEDLLOVERRIDES.
+    const ownEnv = {};
+    for (const line of String(entry.env || '').split(/\r?\n/)) {
+      const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line);
+      if (m) ownEnv[m[1]] = m[2].trim().replace(/^"(.*)"$/, '$1').replace(/^~(?=\/)/, os.homedir());
+    }
     const child = spawn(exe, args, {
       cwd, detached: true, stdio: 'ignore',
       shell: ext === '.bat' || ext === '.cmd',
-      env: { ...process.env, ...(settings && settings.shaderCache === false ? {} : SHADER_ENV) }
+      env: { ...process.env, ...(settings && settings.shaderCache === false ? {} : SHADER_ENV), ...padEnv, ...playerEnv, ...ownEnv }
     });
     await new Promise((res, rej) => { child.once('spawn', res); child.once('error', rej); });
     child.unref();
@@ -348,8 +391,8 @@ ipcMain.handle('launch', async (_e, { entry, emulator, settings }) => {
     child.once('exit', () => {
       quiet(false);
       const seconds = Math.round((Date.now() - started) / 1000);
-      if (!win) return;
-      win.webContents.send('launch-ended', { id: entry.id, seconds });
+      if (!asker.isDestroyed()) asker.send('launch-ended', { id: entry.id, seconds });
+      if (!win || asker !== win.webContents) return;
       // A very short run usually means a launcher stub that handed off to another process.
       if (settings && settings.hideOnLaunch && seconds > 5) { win.restore(); win.focus(); }
     });
@@ -680,16 +723,36 @@ function gameProgram(entry, custom) {
   return null;
 }
 ipcMain.handle('split-status', () => ({ linux: process.platform === 'linux', installed: !!partydeckPath(), bwrap: !!onPath('bwrap'), gamescope: !!onPath('gamescope'), kde: /KDE/i.test(process.env.XDG_CURRENT_DESKTOP || '') }));
-ipcMain.handle('split-launch', (_e, { entry, steamPath }) => {
+// Game setups ("handlers") installed in PartyDeck, by name, so a game can be told which one is its own.
+ipcMain.handle('split-handlers', () => {
+  const dir = path.join(os.homedir(), '.local', 'share', 'partydeck', 'handlers');
+  let out = [];
+  try {
+    out = fs.readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => {
+      let j = {}; try { j = JSON.parse(fs.readFileSync(path.join(dir, d.name, 'handler.json'), 'utf8')); } catch { /* name from the folder */ }
+      return { id: d.name, name: String(j.display_name || j.name || j.game || d.name).slice(0, 80) };
+    });
+  } catch { /* none yet */ }
+  return out;
+});
+ipcMain.handle('split-launch', (_e, { entry, steamPath, mode = 'exec', args = '' }) => {
   if (process.platform !== 'linux') return { ok: false, error: 'Split screen with PartyDeck works on Linux. On Windows, Nucleus Co-op does the same (splitscreen.me).' };
   const pd = partydeckPath(); if (!pd) return { ok: false, error: 'Install PartyDeck first.' };
   if (entry.type === 'rom') return { ok: false, error: 'Emulators have their own multiplayer: plug in more controllers and start the game as usual.' };
+  const kde = /KDE/i.test(process.env.XDG_CURRENT_DESKTOP || '') && onPath('kwin_wayland');
+  // A game with a handler starts from PartyDeck's own screen, where the handler is picked.
+  if (mode === 'handler') {
+    const t1 = Date.now();
+    let c; try { c = spawn(pd, [...(kde ? ['--kwin'] : []), '--fullscreen'], { stdio: 'ignore' }); } catch (err) { return { ok: false, error: String(err.message || err) }; }
+    c.on('exit', () => { if (win && !win.isDestroyed()) win.webContents.send('launch-ended', { id: entry.id, seconds: Math.round((Date.now() - t1) / 1000) }); });
+    return { ok: true, pid: c.pid };
+  }
   const exe = gameProgram(entry, steamPath);
   if (!exe) return { ok: false, error: entry.type === 'steam' ? 'The game\'s program was not found in its Steam folder. Is it installed?' : 'This game has no program file to run.' };
-  const kde = /KDE/i.test(process.env.XDG_CURRENT_DESKTOP || '') && onPath('kwin_wayland');
   const t0 = Date.now();
   let child;
-  try { child = spawn(pd, ['--exec', exe, ...(kde ? ['--kwin'] : []), '--fullscreen'], { cwd: path.dirname(exe), stdio: 'ignore' }); }
+  const extra = String(args || '').trim().slice(0, 300);
+  try { child = spawn(pd, ['--exec', exe, ...(extra ? ['--args', extra] : []), ...(kde ? ['--kwin'] : []), '--fullscreen'], { cwd: path.dirname(exe), stdio: 'ignore' }); }
   catch (err) { return { ok: false, error: String(err.message || err) }; }
   child.on('exit', () => { if (win && !win.isDestroyed()) win.webContents.send('launch-ended', { id: entry.id, seconds: Math.round((Date.now() - t0) / 1000) }); });
   return { ok: true, pid: child.pid, exe };
@@ -701,18 +764,22 @@ ipcMain.handle('split-launch', (_e, { entry, steamPath }) => {
    one that does not exist yet can be created. Some emulators read cheats next to the game. */
 function modDirs({ name = '', exe = '', rom = '' } = {}) {
   const h = os.homedir(), v = (id, ...p) => path.join(h, '.var/app', id, ...p), c = (...p) => path.join(h, '.config', ...p), d = (...p) => path.join(h, '.local/share', ...p);
+  // Windows: Documents, AppData, and portable installs next to the emulator.
+  const W = process.platform === 'win32', doc = (...p) => path.join(h, 'Documents', ...p), ad = (...p) => path.join(process.env.APPDATA || path.join(h, 'AppData', 'Roaming'), ...p);
+  const ex = (...p) => (exe ? path.join(path.dirname(exe), ...p) : '');
   const romDir = rom ? path.dirname(rom) : '';
+  const L = (...ps) => (W ? [] : ps), Win = (...ps) => (W ? ps : []);
   const MAP = [
-    [/pcsx2/i, [['Cheats (.pnach)', v('net.pcsx2.PCSX2', 'config/PCSX2/cheats'), c('PCSX2/cheats')], ['Patches (.pnach)', v('net.pcsx2.PCSX2', 'config/PCSX2/patches'), c('PCSX2/patches')], ['Texture packs', v('net.pcsx2.PCSX2', 'config/PCSX2/textures'), c('PCSX2/textures')]]],
-    [/rpcs3/i, [['Patches (patch.yml)', v('net.rpcs3.RPCS3', 'config/rpcs3/patches'), c('rpcs3/patches')]]],
-    [/dolphin/i, [['Game settings and cheats (.ini)', v('org.DolphinEmu.dolphin-emu', 'data/dolphin-emu/GameSettings'), d('dolphin-emu/GameSettings')], ['Texture packs', v('org.DolphinEmu.dolphin-emu', 'data/dolphin-emu/Load/Textures'), d('dolphin-emu/Load/Textures')]]],
-    [/ryujinx/i, [['Mods and cheats', v('io.github.ryubing.Ryujinx', 'config/Ryujinx/mods/contents'), c('Ryujinx/mods/contents')]]],
-    [/cemu/i, [['Graphic packs and mods', v('info.cemu.Cemu', 'data/Cemu/graphicPacks'), d('Cemu/graphicPacks')]]],
-    [/ppsspp/i, [['Cheats', v('org.ppsspp.PPSSPP', 'config/ppsspp/PSP/Cheats'), c('ppsspp/PSP/Cheats')], ['Texture packs', v('org.ppsspp.PPSSPP', 'config/ppsspp/PSP/TEXTURES'), c('ppsspp/PSP/TEXTURES')]]],
-    [/retroarch/i, [['Cheats (.cht)', v('org.libretro.RetroArch', 'config/retroarch/cheats'), c('retroarch/cheats')]]],
-    [/azahar|citra/i, [['Mods (load/mods)', v('org.azahar_emu.Azahar', 'data/azahar-emu/load/mods'), d('azahar-emu/load/mods')]]],
-    [/shadps4/i, [['Patches', d('shadPS4/patches'), path.join(path.dirname(exe), 'user/patches')]]],
-    [/xenia/i, [['Patches (.patch.toml)', path.join(path.dirname(exe), 'patches')]]],
+    [/pcsx2/i, [['Cheats (.pnach)', ...L(v('net.pcsx2.PCSX2', 'config/PCSX2/cheats'), c('PCSX2/cheats')), ...Win(ex('cheats'), doc('PCSX2', 'cheats'))], ['Patches (.pnach)', ...L(v('net.pcsx2.PCSX2', 'config/PCSX2/patches'), c('PCSX2/patches')), ...Win(ex('patches'), doc('PCSX2', 'patches'))], ['Texture packs', ...L(v('net.pcsx2.PCSX2', 'config/PCSX2/textures'), c('PCSX2/textures')), ...Win(ex('textures'), doc('PCSX2', 'textures'))]]],
+    [/rpcs3/i, [['Patches (patch.yml)', ...L(v('net.rpcs3.RPCS3', 'config/rpcs3/patches'), c('rpcs3/patches')), ...Win(ex('patches'))]]],
+    [/dolphin/i, [['Game settings and cheats (.ini)', ...L(v('org.DolphinEmu.dolphin-emu', 'data/dolphin-emu/GameSettings'), d('dolphin-emu/GameSettings')), ...Win(ex('User', 'GameSettings'), doc('Dolphin Emulator', 'GameSettings'), ad('Dolphin Emulator', 'GameSettings'))], ['Texture packs', ...L(v('org.DolphinEmu.dolphin-emu', 'data/dolphin-emu/Load/Textures'), d('dolphin-emu/Load/Textures')), ...Win(ex('User', 'Load', 'Textures'), doc('Dolphin Emulator', 'Load', 'Textures'), ad('Dolphin Emulator', 'Load', 'Textures'))]]],
+    [/ryujinx/i, [['Mods and cheats', ...L(v('io.github.ryubing.Ryujinx', 'config/Ryujinx/mods/contents'), c('Ryujinx/mods/contents')), ...Win(ex('portable', 'mods', 'contents'), ad('Ryujinx', 'mods', 'contents'))]]],
+    [/cemu/i, [['Graphic packs and mods', ...L(v('info.cemu.Cemu', 'data/Cemu/graphicPacks'), d('Cemu/graphicPacks')), ...Win(ex('graphicPacks'), ad('Cemu', 'graphicPacks'))]]],
+    [/ppsspp/i, [['Cheats', ...L(v('org.ppsspp.PPSSPP', 'config/ppsspp/PSP/Cheats'), c('ppsspp/PSP/Cheats')), ...Win(ex('memstick', 'PSP', 'Cheats'), doc('PPSSPP', 'PSP', 'Cheats'))], ['Texture packs', ...L(v('org.ppsspp.PPSSPP', 'config/ppsspp/PSP/TEXTURES'), c('ppsspp/PSP/TEXTURES')), ...Win(ex('memstick', 'PSP', 'TEXTURES'), doc('PPSSPP', 'PSP', 'TEXTURES'))]]],
+    [/retroarch/i, [['Cheats (.cht)', ...L(v('org.libretro.RetroArch', 'config/retroarch/cheats'), c('retroarch/cheats')), ...Win(ex('cheats'), ad('RetroArch', 'cheats'))]]],
+    [/azahar|citra/i, [['Mods (load/mods)', ...L(v('org.azahar_emu.Azahar', 'data/azahar-emu/load/mods'), d('azahar-emu/load/mods')), ...Win(ex('user', 'load', 'mods'), ad('Azahar', 'load', 'mods'))]]],
+    [/shadps4/i, [['Patches', ...L(d('shadPS4/patches')), ex('user', 'patches'), ...Win(ad('shadPS4', 'patches'))]]],
+    [/xenia/i, [['Patches (.patch.toml)', ex('patches')]]],
     [/mgba/i, [['Cheats: a .cheats file next to the game, named like it', romDir]]],
     [/melonds/i, [['Cheats: a .mch file next to the game, named like it', romDir]]],
     [/xemu|flycast|mupen|rmg|snes9x|duckstation/i, [['Cheats are set inside the emulator', '']]]
@@ -722,7 +789,10 @@ function modDirs({ name = '', exe = '', rom = '' } = {}) {
   return row[1].map(([label, ...ps]) => {
     const paths = ps.filter(Boolean);
     const found = paths.find((p) => fs.existsSync(p));
-    return { label, path: found || paths[0] || '', exists: !!found, creatable: !found && !!paths[0] && paths[0].includes('/.var/app/') && fs.existsSync(paths[0].split('/').slice(0, paths[0].split('/').indexOf('app') + 2).join('/')) };
+    // Not there yet: it can be made where the emulator's own folder already is (a Flatpak's data
+    // folder, the emulator's install folder, its Documents or AppData folder).
+    const makeable = paths.find((p) => { const root = p.includes(`${path.sep}.var${path.sep}app${path.sep}`) ? p.split(path.sep).slice(0, p.split(path.sep).indexOf('app') + 2).join(path.sep) : path.dirname(p); return fs.existsSync(root); });
+    return { label, path: found || makeable || paths[0] || '', exists: !!found, creatable: !found && !!makeable };
   });
 }
 // Only folders worked out here may be created or copied into, and only files in Bladedeck's
@@ -765,8 +835,10 @@ ipcMain.handle('fonts', () => {
 });
 
 // ---------------------------------------------------------------- window dock
-ipcMain.handle('win-act', async (_e, id, act) => {
+ipcMain.handle('win-act', async (_e, id, act, pid) => {
   id = String(id);
+  // Never close the program Bladedeck itself runs under (that would close Bladedeck too).
+  if (act === 'close' && pid && require('./procs').isOwn(pid)) return 'own';
   if (id.startsWith('web:')) return require('./webapps').act(id.slice(4), String(act));
   if (id.startsWith('w32:') || id.startsWith('x11:')) return require('./winlist').act(id, String(act));
   return Peek.windowAction(id, String(act));
@@ -876,12 +948,24 @@ require('./online').register({ settings: () => loadLib().settings, mediaDir });
 require('./store').register({ getWin: () => win });
 require('./capture').register({ getWin: () => win });
 require('./system').register();
+require('./players').register({ getWin: () => win });
+require('./extras').register({ settings: () => loadLib().settings });
+require('./roms').register({ getWin: () => win });
+require('./achievements').register({ getWin: () => win });
+require('./gamemusic').register();
+require('./savestates').register({ getLib: () => loadLib() });
+require('./realdebrid').register({ getWin: () => win, settings: () => loadLib().settings });
 // Nearby Bladedecks: a stable id for this install, so others do not see it twice.
 { const idFile = path.join(app.getPath('userData'), 'lan-id');
   const lanId = () => { try { return fs.readFileSync(idFile, 'utf8').trim(); } catch { const id = require('./lan').newId(); try { fs.writeFileSync(idFile, id); } catch { /* optional */ } return id; } };
   require('./lan').register({ getWin: () => win, dataId: lanId });
   app.on('will-quit', () => require('./lan').stop()); }
 require('./companion').register({ getWin: () => win, loadLib: () => loadLib() });
+require('./livecap').register();
+require('./webdl').register({ getWin: () => win });
+require('./finder').register();
+require('./minecraft').register();
+require('./backup').register({ getWin: () => win, libFile, dataDir });
 
 // ---------------------------------------------------------------- running apps: freeze, web apps, focus
 const Procs = require('./procs');
@@ -892,7 +976,7 @@ ipcMain.handle('pid-info', (_e, pid) => Procs.info(pid));
 const WebApps = require('./webapps').register({ getDeck: () => win });
 WebApps.setSend((ch, d) => { if (win && !win.isDestroyed()) win.webContents.send(ch, d); });
 // Keep Bladedeck over Steam's "launching" pop-ups until the game's own window arrives.
-ipcMain.handle('deck-focus', () => { if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } return true; });
+ipcMain.handle('deck-focus', () => { if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); Peek.focusDeck(); } return true; });
 ipcMain.handle('keep-on-top', (_e, on) => { if (win) win.setAlwaysOnTop(!!on, process.platform === 'win32' ? 'screen-saver' : 'floating'); return true; });
 // Windows has no KWin: bring a program to the front by its process.
 ipcMain.handle('focus-pid', (_e, pid) => new Promise((res) => {
