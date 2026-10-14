@@ -553,6 +553,22 @@ body[data-scene="bubbles"] #scene { z-index: 4; } /* bubbles float over the menu
 body[data-tabs="icons"] .tab-v .tab-ic, body[data-tabs="both"] .tab-v .tab-ic { display: block; }
 body[data-tabs="icons"] .tab-v .tab-tx { display: none; }
 body[data-tabs="icons"] .nav .tab-ic, body[data-tabs="both"] .nav .tab-ic { display: inline-block; width: 1.6em; text-align: center; }
+/* icon packs: line icons, and the same on glossy Aero orbs */
+.ico { width: 1em; height: 1em; display: block; }
+.tab-v .tab-ic .ico, .nav .tab-ic .ico { width: 26px; height: 26px; margin: 0 auto; }
+.nav .tab-ic .ico { width: 1.2em; height: 1.2em; display: inline-block; vertical-align: -.2em; }
+.art.sys.svg span { display: grid; place-items: center; width: 100%; height: 100%; }
+.art.sys.svg .ico { width: 44cqw; height: 44cqw; }
+body[data-icons="orbs"] .art.sys.svg .ico { width: 34cqw; height: 34cqw; color: #fff; padding: 11cqw; border-radius: 50%; box-sizing: content-box;
+  background: radial-gradient(circle at 50% 120%, color-mix(in srgb, var(--accent) 90%, #fff) 0%, var(--accent) 45%, color-mix(in srgb, var(--accent) 55%, #000) 100%);
+  box-shadow: inset 0 -.6cqw 2cqw rgba(0,0,0,.35), inset 0 1cqw 1cqw rgba(255,255,255,.35), 0 1.5cqw 4cqw rgba(0,0,0,.35);
+  filter: drop-shadow(0 0 .1px #fff); }
+body[data-icons="orbs"] .art.sys.svg span { position: relative; }
+body[data-icons="orbs"] .art.sys.svg span::after { content: ''; position: absolute; left: 50%; top: 50%; width: 40cqw; height: 22cqw; transform: translate(-50%, -88%);
+  border-radius: 50% 50% 45% 45%; background: linear-gradient(rgba(255,255,255,.75), rgba(255,255,255,.05)); pointer-events: none; }
+body[data-icons="orbs"] .tab-ic .ico { color: #fff; padding: 6px; border-radius: 50%; box-sizing: content-box;
+  background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--accent) 60%, #fff), var(--accent) 60%, color-mix(in srgb, var(--accent) 55%, #000));
+  box-shadow: inset 0 2px 2px rgba(255,255,255,.45), 0 2px 6px rgba(0,0,0,.35); }
 .icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
 .icon-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12.5px; }
 .icon-cell input { width: 64px; text-align: center; font-size: 24px; padding: 4px; }

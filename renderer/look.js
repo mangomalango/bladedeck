@@ -21,10 +21,13 @@ const Look = (() => {
       l.weight ? `.tab-v, .title-h, .item b, .detail h3 { font-weight: ${l.weight}; }` : ''
     ].join('\n');
     document.body.dataset.tabs = l.tabs || 'text';
+    document.body.dataset.icons = l.icons || 'emoji';
   }
 
   // The inside of a blade tab and a PC side button; CSS picks what shows from body[data-tabs].
-  const tab = (b) => `<i class="tab-ic">${esc(iconOf(b))}</i><span class="tab-tx">${esc(b.name)}</span>`;
+  // With an icon pack on, a blade keeps its own icon only if you changed it from the standard one.
+  const tabIc = (b) => ((!b.icon || b.icon === BLADE_ICONS[b.id]) && Icons.of(b.special === 'system' ? 'system' : b.id)) || esc(iconOf(b));
+  const tab = (b) => `<i class="tab-ic">${tabIc(b)}</i><span class="tab-tx">${esc(b.name)}</span>`;
 
   async function open() {
     const l = { ...cfg() };
@@ -39,11 +42,13 @@ const Look = (() => {
         <label>Letters<select name="letters">${LETTERS.map(([v, n]) => opt(v, n, l.letters || 'normal')).join('')}</select></label>
         <label>Weight<select name="weight">${[['', 'The theme\'s own'], ['200', 'Thin'], ['400', 'Regular'], ['600', 'Bold'], ['800', 'Heavy']].map(([v, n]) => opt(v, n, String(l.weight || ''))).join('')}</select></label>
         <label class="range-row">Size<input type="range" name="scale" min="0.85" max="1.3" step="0.05" value="${l.scale || 1}"></label>
+        <label>Icon pack<select name="icons">${Icons.PACKS.map(([v, n]) => opt(v, n, l.icons || 'emoji')).join('')}</select></label>
+        <p class="note">Line icons and Aero orbs are Bladedeck's own drawings, for the blade tabs and the System menu.</p>
         <label>Blade tabs<select name="tabs">${[['text', 'Names'], ['icons', 'Icons'], ['both', 'Icons and names']].map(([v, n]) => opt(v, n, l.tabs || 'text')).join('')}</select></label>
         <p class="note">Tab icons. Type or paste any emoji or symbol.</p>
         <div class="icon-grid">${blades.map((b, i) => `<label class="icon-cell"><input type="text" name="icon${i}" value="${esc(icons[i])}" maxlength="4"><span>${esc(b.name)}</span></label>`).join('')}</div>`,
       buttons: [
-        { label: 'Reset', left: true, onClick: (root) => { Object.assign(l, { font: '', letters: 'normal', weight: '', scale: 1, tabs: 'text' }); blades.forEach((b, i) => { $(`[name=icon${i}]`, root).value = BLADE_ICONS[b.id] || iconOf({ ...b, icon: '' }); }); sync(root); return false; } },
+        { label: 'Reset', left: true, onClick: (root) => { Object.assign(l, { font: '', letters: 'normal', weight: '', scale: 1, tabs: 'text', icons: 'emoji' }); blades.forEach((b, i) => { $(`[name=icon${i}]`, root).value = BLADE_ICONS[b.id] || iconOf({ ...b, icon: '' }); }); sync(root); return false; } },
         { label: 'Cancel' },
         { label: 'Save', primary: true, onClick: (root) => { read(root); S.lib.settings.look = l; blades.forEach((b, i) => { b.icon = $(`[name=icon${i}]`, root).value.trim(); }); save(); apply(l); rerender(); } }
       ],
@@ -56,10 +61,10 @@ const Look = (() => {
     });
     function read(root) {
       Object.assign(l, { font: $('[name=font]', root).value, letters: $('[name=letters]', root).value, weight: $('[name=weight]', root).value,
-        scale: +$('[name=scale]', root).value, tabs: $('[name=tabs]', root).value });
+        scale: +$('[name=scale]', root).value, tabs: $('[name=tabs]', root).value, icons: $('[name=icons]', root).value });
     }
     function sync(root) {
-      for (const k of ['font', 'letters', 'weight', 'scale', 'tabs']) $(`[name=${k}]`, root).value = l[k] ?? '';
+      for (const k of ['font', 'letters', 'weight', 'scale', 'tabs', 'icons']) $(`[name=${k}]`, root).value = l[k] ?? '';
       apply(l);
     }
   }

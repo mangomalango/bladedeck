@@ -102,9 +102,69 @@ const Sound = (() => {
     }
   };
 
+  /* Sound packs (Settings, Look and sound). Each replaces the menu's everyday sounds; anything a
+     pack leaves out keeps the Deep sea sound. All made here, from oscillators and noise.
+     - Aero glass: bright glassy chimes, a Frutiger Aero desktop.
+     - Blades: soft air whooshes and clicks, like a 2005 console dashboard.
+     - Dashboard: deep pads and crystal tones, a late-90s console's system menu.
+     - Your own: sound files in a folder (tick, blade, back, go, toast, error, pop, ... .ogg / .wav /
+       .mp3); free packs such as Kenney's public-domain interface sounds work once renamed. */
+  const chime = (f, when = 0, vol = 0.03, dur = 0.5) => { voice({ f0: f, dur, vol, when, rev: 1.1 }); voice({ f0: f * 2.01, dur: dur * 0.6, vol: vol * 0.35, when, rev: 1.3 }); voice({ f0: f * 3.98, dur: dur * 0.3, vol: vol * 0.15, when, rev: 1.4 }); };
+  const PACKS = {
+    aero: {
+      tick: () => chime(rnd(1560, 1640), 0, 0.016, 0.25),
+      blade: () => { chime(1046, 0, 0.022, 0.6); chime(1568, 0.06, 0.014, 0.6); },
+      back: () => { chime(988, 0, 0.02, 0.3); chime(740, 0.07, 0.016, 0.35); },
+      go: () => [784, 988, 1175, 1568].forEach((f, i) => chime(f, i * 0.07, 0.022, 0.8)),
+      toast: () => { chime(1318, 0, 0.018, 0.5); chime(1760, 0.09, 0.012, 0.5); },
+      error: () => { chime(622, 0, 0.025, 0.4); chime(554, 0.14, 0.025, 0.5); },
+      pop: () => { chime(880, 0, 0.022, 0.4); chime(1320, 0.08, 0.016, 0.5); }
+    },
+    blades: {
+      tick: () => { noiseBurst({ dur: 0.04, vol: 0.05, freq: 4200, q: 2, rev: 0.05 }); voice({ f0: 2400, f1: 2200, dur: 0.03, vol: 0.01, rev: 0.05 }); },
+      blade: () => { noiseBurst({ dur: 0.32, vol: 0.09, freq: 1400, q: 0.7, rev: 0.25 }); voice({ f0: 180, f1: 90, dur: 0.25, vol: 0.05, rev: 0.2, type: 'triangle' }); },
+      back: () => { noiseBurst({ dur: 0.2, vol: 0.07, freq: 900, q: 0.8, rev: 0.2 }); voice({ f0: 320, f1: 160, dur: 0.15, vol: 0.03, rev: 0.2 }); },
+      go: () => { noiseBurst({ dur: 0.6, vol: 0.1, freq: 700, q: 0.5, rev: 0.6, type: 'lowpass' }); voice({ f0: 110, f1: 220, dur: 0.5, vol: 0.06, rev: 0.6, type: 'triangle' }); voice({ f0: 1760, dur: 0.4, vol: 0.012, when: 0.2, rev: 0.8 }); },
+      toast: () => { voice({ f0: 1320, dur: 0.18, vol: 0.02, rev: 0.4 }); voice({ f0: 1760, dur: 0.22, vol: 0.016, when: 0.08, rev: 0.4 }); },
+      error: () => { voice({ f0: 220, dur: 0.2, vol: 0.05, type: 'square', filter: 900, rev: 0.2 }); voice({ f0: 196, dur: 0.25, vol: 0.05, type: 'square', filter: 900, when: 0.15, rev: 0.2 }); },
+      pop: () => { noiseBurst({ dur: 0.12, vol: 0.06, freq: 2600, q: 1.2, rev: 0.2 }); voice({ f0: 660, f1: 990, dur: 0.15, vol: 0.025, rev: 0.3 }); }
+    },
+    dash: {
+      tick: () => voice({ f0: 1975, dur: 0.18, vol: 0.012, rev: 1.6 }),
+      blade: () => { voice({ f0: 220, dur: 1.4, vol: 0.03, rev: 1.8, attack: 0.15, type: 'triangle', filter: 900 }); voice({ f0: 1318, dur: 0.9, vol: 0.01, when: 0.05, rev: 2 }); },
+      back: () => voice({ f0: 880, f1: 440, dur: 0.5, vol: 0.02, rev: 1.6 }),
+      go: () => { voice({ f0: 55, f1: 110, dur: 2.2, vol: 0.07, rev: 2, attack: 0.3, type: 'triangle', filter: 700 }); [1318, 1760, 2637].forEach((f, i) => voice({ f0: f, dur: 1.4, vol: 0.01, when: 0.4 + i * 0.2, rev: 2.2 })); },
+      toast: () => { voice({ f0: 1568, dur: 0.6, vol: 0.012, rev: 1.8 }); voice({ f0: 2093, dur: 0.6, vol: 0.008, when: 0.12, rev: 1.8 }); },
+      error: () => voice({ f0: 147, dur: 0.8, vol: 0.05, rev: 1.4, type: 'triangle', filter: 600 }),
+      pop: () => { voice({ f0: 330, f1: 660, dur: 0.6, vol: 0.03, rev: 1.6, attack: 0.05 }); voice({ f0: 1975, dur: 0.5, vol: 0.01, when: 0.2, rev: 2 }); }
+    }
+  };
+  const PACK_NAMES = [['', 'Deep sea (Bladedeck\'s own)'], ['aero', 'Aero glass'], ['blades', 'Blades'], ['dash', 'Dashboard'], ['custom', 'Your own sound files']];
+  // Your own pack: sound files in a folder, played as audio elements (the page may load local
+  // files as media, not fetch them).
+  let custom = { dir: '', buffers: {} };
+  async function loadCustom(dir) {
+    custom = { dir, buffers: {} };
+    if (!dir) return 0;
+    const files = await window.bladedeck.musicScan(dir).catch(() => []);
+    for (const f of files) {
+      const name = f.split(/[\\/]/).pop().replace(/\.[^.]+$/, '').toLowerCase();
+      const key = /tick|move|select|hover|cursor/.test(name) ? 'tick' : /blade|switch|tab|swipe/.test(name) ? 'blade' : /back|cancel|close/.test(name) ? 'back'
+        : /go|confirm|launch|start|accept/.test(name) ? 'go' : /toast|notif|message/.test(name) ? 'toast' : /error|deny|fail/.test(name) ? 'error' : /pop|open/.test(name) ? 'pop' : name;
+      if (custom.buffers[key]) continue;
+      custom.buffers[key] = fileUrl(f);
+    }
+    return Object.keys(custom.buffers).length;
+  }
+  function playBuffer(url) { const el = new Audio(url); el.volume = 0.6; if (want && el.setSinkId && ac?.sinkId) el.setSinkId(ac.sinkId).catch(() => {}); el.play().catch(() => {}); }
+
   function play(name) {
     if (!uiOn()) return;
-    try { ui[name]?.(); } catch { /* audio is optional */ }
+    try {
+      const pk = S.lib?.settings.soundPack || '';
+      if (pk === 'custom') { const dir = S.lib.settings.soundPackDir || ''; if (dir !== custom.dir) loadCustom(dir); if (custom.buffers[name]) { playBuffer(custom.buffers[name]); return; } }
+      (PACKS[pk]?.[name] || ui[name])?.();
+    } catch { /* audio is optional */ }
   }
 
   /* ---------------------------------------------------------------- ambience */
@@ -216,5 +276,5 @@ const Sound = (() => {
     } catch { return false; }
   }
 
-  return { play, startAmbient, stopAmbient, setAmbientLevel, duck, whale, setOutput, test, sync() { ambOn() ? (startAmbient(), setAmbientLevel(1, 0.5)) : stopAmbient(); } };
+  return { play, PACK_NAMES, loadCustom, startAmbient, stopAmbient, setAmbientLevel, duck, whale, setOutput, test, sync() { ambOn() ? (startAmbient(), setAmbientLevel(1, 0.5)) : stopAmbient(); } };
 })();

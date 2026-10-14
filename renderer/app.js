@@ -194,7 +194,7 @@ function genCover(title, type) {
   return `<div class="art gen" style="--h1:${h1};--h2:${h2}"><span>${esc(initials(title))}</span><em>${esc(TYPES[type]?.glyph || '')}</em></div>`;
 }
 function cover(e) {
-  if (e.glyph) return `<div class="art sys"><span>${esc(e.glyph)}</span></div>`;
+  if (e.glyph) { const ic = Icons.of(e.id); return `<div class="art sys${ic ? ' svg' : ''}"><span>${ic || esc(e.glyph)}</span></div>`; }
   // An emulator's tile: its icon on a glow, with the systems it plays.
   if (e.emuApp && !e.cover) return `<div class="art emuart">${e.icon ? `<img src="${fileUrl(e.icon)}" alt="">` : `<i>${esc(initials(e.title))}</i>`}<b>${esc(e.system || 'Emulator')}</b></div>`;
   if (e.cover) return `<img loading="lazy" src="${fileUrl(e.cover)}" data-t="${esc(e.title)}" data-ty="${esc(e.type)}" alt="">`;
@@ -1240,6 +1240,10 @@ function openSettings() {
         <label class="range-row">TV safe margin (overscan) <b class="safe-v">${st.tvSafe || 0}%</b><input type="range" name="tvSafe" min="0" max="10" step="0.5" value="${st.tvSafe || 0}"></label>
         <p class="note">On a TV, CRT or plasma that cuts off the edges, raise it until the corner marks are fully on screen.</p>
         <h4 class="set-sub">Sound</h4>
+        <div class="row2"><label>Sound pack<select name="soundPack">${Sound.PACK_NAMES.map(([v, n]) => `<option value="${v}" ${v === (st.soundPack || '') ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+          <div class="pl-acts" style="align-self:end"><button type="button" data-x="packPlay">▶ Preview</button></div></div>
+        <label class="pack-dir" ${st.soundPack === 'custom' ? '' : 'hidden'}>Folder of your own sounds (files named tick, blade, back, go, toast, error, pop)${row('soundPackDir', 'dir', st.soundPackDir)}</label>
+        <p class="note pack-dir" ${st.soundPack === 'custom' ? '' : 'hidden'}>Free packs to start from: Kenney's "Interface Sounds" and "UI Audio" (public domain, kenney.nl). Rename a few files to those names, or Bladedeck guesses from names like select, confirm and cancel.</p>
         <div class="checks"><label><input type="checkbox" name="sounds" ${st.sounds ? 'checked' : ''}> Menu sounds</label><label><input type="checkbox" name="ambient" ${st.ambient ? 'checked' : ''}> Deep-sea ambience</label><label><input type="checkbox" name="soundFollow" ${st.soundFollow !== false ? 'checked' : ''}> Sound follows a game to another screen (the TV's speakers when it moves to the TV)</label><label><input type="checkbox" name="hoverMusic" ${st.hoverMusic !== false ? 'checked' : ''}> Play a game's own music when it stays highlighted for 3 seconds</label></div>
         <label class="range-row">Ambience volume<input type="range" name="ambientVolume" min="0" max="1" step="0.05" value="${st.ambientVolume ?? 0.5}"></label>
         <h4 class="set-sub">Music</h4>
@@ -1310,6 +1314,7 @@ function openSettings() {
       st.liveAuto = chk(root, 'liveAuto');
       Object.assign(st, { screenType: val(root, 'screenType'), burnGuard: chk(root, 'burnGuard'), crtLook: chk(root, 'crtLook') });
       st.playingBg = chk(root, 'playingBg');
+      Object.assign(st, { soundPack: val(root, 'soundPack'), soundPackDir: val(root, 'soundPackDir') });
       Object.assign(st, { depth: chk(root, 'depth'), livingBg: chk(root, 'livingBg'), previewLoop: chk(root, 'previewLoop'), widget: chk(root, 'widget'), tvSafe: +val(root, 'tvSafe') || 0 });
       document.body.classList.toggle('depth', st.depth !== false); Atmos.apply();
       Object.assign(st, { prewarmSteam: chk(root, 'prewarmSteam'), shaderCache: chk(root, 'shaderCache'), gamemode: chk(root, 'gamemode'), padBackground: chk(root, 'padBackground'), soundFollow: chk(root, 'soundFollow'),
@@ -1323,7 +1328,7 @@ function openSettings() {
     } }],
     onOpen: (root) => {
       Capture.settingsOpen(root);
-      root.addEventListener('change', (ev) => { if (ev.target.name === 'screenType') Atmos.screenTips(root); });
+      root.addEventListener('change', (ev) => { if (ev.target.name === 'screenType') Atmos.screenTips(root); if (ev.target.name === 'soundPack') root.querySelectorAll('.pack-dir').forEach((x) => { x.hidden = ev.target.value !== 'custom'; }); });
       root.addEventListener('input', (ev) => { if (ev.target.name === 'tvSafe') { $('.safe-v', root).textContent = `${ev.target.value}%`; Atmos.calibrate(+ev.target.value); } });
       S.modalGone = () => Atmos.safe();
       root.querySelector('.dlg').classList.add('settings');
@@ -1337,6 +1342,15 @@ function openSettings() {
       const go = { emus: manageEmulators, emuget: () => Shop.open('emus'), sources: () => Roms.sources(), mc: () => Minecraft.open(), split: () => SplitScreen.open(), backup: () => Backup.open() }[x];
       if (go) { closeModal(); setTimeout(go, 0); return; }
       if (x === 'screenUse') { Atmos.screenUse(root); return; }
+      if (x === 'packPlay') {
+        // Hear the pack picked, before saving it.
+        const was = [st.soundPack, st.soundPackDir, st.sounds];
+        Object.assign(st, { soundPack: val(root, 'soundPack'), soundPackDir: val(root, 'soundPackDir'), sounds: true });
+        if (st.soundPack === 'custom') Sound.loadCustom(st.soundPackDir);
+        ['tick', 'tick', 'blade', 'pop', 'go'].forEach((n, i) => setTimeout(() => Sound.play(n), 200 + i * (i < 2 ? 180 : 650)));
+        setTimeout(() => { [st.soundPack, st.soundPackDir, st.sounds] = was; }, 3400);
+        return;
+      }
       if (x === 'liveforget') { S.lib.settings.liveAsked = {}; api.liveForget('*'); toast('The live view asks again the next time for each game.'); }
       const j = ev.target.closest('[data-jump]'); if (j) $('#' + j.dataset.jump, root)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       if (x === 'ratest') {
