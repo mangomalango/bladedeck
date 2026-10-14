@@ -19,8 +19,8 @@
   <div id="list"></div>
   <div class="scan" id="scan"></div>
   <h2>Or type its address</h2>
-  <div class="row"><input id="ip" placeholder="192.168.1.20" inputmode="decimal"><button class="go" id="go">Connect</button></div>
-  <p style="font-size:13px">On the PC: Bladedeck, System, Phone app shows the address and a pairing code.</p>
+  <div class="row"><input id="ip" placeholder="192.168.1.20 or 100.x.x.x" inputmode="decimal"><button class="go" id="go">Connect</button></div>
+  <p style="font-size:13px">On the PC: Bladedeck, System, This PC, Phone app shows the address and a pairing code. Away from home, or if your PC's firewall blocks the Wi-Fi, type its Tailscale address (100.x.x.x) below.</p>
 </main>
 <script>
   const PORT = 47616, list = document.getElementById('list');
@@ -54,6 +54,6 @@
     for (let i = 0; i < ips.length; i += 32) {
       await Promise.all(ips.slice(i, i + 32).map(async (ip) => { const pc = await hello(ip, 900); if (pc && !found.has(ip)) { found.set(ip, { ip, pc }); draw(); } }));
     }
-    document.getElementById('scan').textContent = found.size ? 'Tap your PC.' : 'No Bladedeck found. Turn on Phone app in Bladedeck (System, Phone app), or type its address.';
+    document.getElementById('scan').textContent = found.size ? 'Tap your PC.' : 'No Bladedeck found. Open Phone app in Bladedeck (System, This PC, Phone app), or type its address (its Tailscale one works anywhere).';
   })();
 </script></body></html>
