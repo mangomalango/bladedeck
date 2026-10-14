@@ -161,7 +161,7 @@ const Panels = (() => {
     let t = 0; try { t = Math.floor(+(new URL(u).searchParams.get('t') || 0)) || 0; } catch { /* no time */ }
     return `https://m.youtube.com/watch?v=${id}${t ? `&t=${t}` : ''}`;
   }
-  async function overGames(p) {
+  async function overGames(p, quiet) {
     const url = videoOf(p);
     if (!url) { toast('Play a video first, then float it over your games.', 'err'); return; }
     // Carry on from the same moment.
@@ -169,7 +169,7 @@ const Panels = (() => {
     try { p.wv.executeJavaScript('document.querySelectorAll("video").forEach((v) => v.pause()); 1'); } catch { /* fine */ }
     await api.pipToggle({ url: at ? `${url.replace(/&t=\d+/, '')}&t=${at}` : url, show: true });
     p.handed = true; minimize(p, true);
-    toast('The video floats over your games now. View + Y hides or shows it.');
+    if (!quiet) toast('The video floats over your games now. View + Y hides or shows it.');
   }
   // The YouTube panel's video, for View + Y.
   // (Not one already handed over: then View + Y just shows and hides the floating window.)
@@ -278,10 +278,44 @@ const Panels = (() => {
 
   // Bladedeck changed size: keep every panel on screen.
   addEventListener('resize', () => { for (const p of open.values()) place(p); });
-  // Games start: unpinned panels tuck away.
-  document.addEventListener('deck-away', (ev) => { if (!ev.detail) return; for (const p of open.values()) if (!p.pinned && !p.min) minimize(p, true); });
+  /* Games start: unpinned panels tuck away; a pinned one playing a video follows you into the game
+     (the same video, at the same moment, in the window that floats over games). Back in the menu,
+     it comes home to its panel and carries on there. */
+  document.addEventListener('deck-away', async (ev) => {
+    if (!ev.detail) { comeHome(); return; }
+    for (const p of open.values()) {
+      if (!p.pinned && !p.min) minimize(p, true);
+      else if (p.pinned && !p.min && !p.handed && videoOf(p)) {
+        let playing = false; try { playing = await p.wv.executeJavaScript('(() => { const v = document.querySelector("video"); return !!v && !v.paused; })()'); } catch { /* not ready */ }
+        if (playing) overGames(p, true);
+      }
+    }
+  });
+  async function comeHome() {
+    const p = [...open.values()].find((x) => x.handed); if (!p) return;
+    const r = await api.pipTake().catch(() => null);
+    p.handed = false;
+    if (r?.url) {
+      const id = (r.url.match(/[?&]v=([\w-]{11})/) || [])[1];
+      if (id) { if (!p.wv) wake(p); p.wv?.loadURL(`https://www.youtube.com/watch?v=${id}${r.t ? `&t=${r.t}s` : ''}`); }
+    }
+    // It comes back where it was (the mini player), without taking the controller.
+    if (r?.visible !== false) { p.min = false; p.el.hidden = false; wake(p); place(p); tell(); }
+  }
+  /* The walkthrough: in the menu, a mini player of its own (pinned, so it follows you into the
+     game); while a game has the screen, the floating window. */
+  function walkthroughPanel(q) {
+    const url = q ? `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}` : 'https://www.youtube.com';
+    let p = open.get('walkthrough');
+    if (p && !p.min && !q) { minimize(p); return 'hidden'; }
+    p = show({ kind: 'web', key: 'walkthrough', title: 'Walkthrough', icon: '📺', url });
+    if (q && p.wv) go(p, url);
+    if (p.snap !== MINI) mini(p);
+    if (!p.pinned) { p.pinned = true; p.el.classList.add('pinned'); place(p); }
+    return 'shown';
+  }
 
-  return { show, act, list, handle, leave, isOpen, video, overGames, active: () => !!focused, current: () => focused, has: (k) => open.has(k), focus: (k) => { const p = open.get(k); if (p) act(k, 'show'); } };
+  return { show, act, list, handle, leave, isOpen, video, overGames, walkthroughPanel, active: () => !!focused, current: () => focused, has: (k) => open.has(k), focus: (k) => { const p = open.get(k); if (p) act(k, 'show'); } };
 })();
 
 /* Files: Bladedeck's own file browser for the Files panel. Places on the left (Bladedeck's own

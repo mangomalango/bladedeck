@@ -165,8 +165,8 @@ function createWindow() {
       wc.setAudioMuted(true);
       return;
     }
-    // Links that open new windows stay in the panel.
-    wc.setWindowOpenHandler(({ url }) => { if (/^https?:/i.test(url)) wc.loadURL(url); return { action: 'deny' }; });
+    // Links that open new windows stay in the panel; a pop-up to another site (an ad) goes nowhere.
+    wc.setWindowOpenHandler(({ url }) => { if (/^https?:/i.test(url) && !require('./adblock').popupIsAd(wc.getURL(), url)) wc.loadURL(url); return { action: 'deny' }; });
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.once('ready-to-show', () => {
@@ -980,6 +980,7 @@ require('./finder').register();
 require('./minecraft').register();
 require('./backup').register({ getWin: () => win, libFile, dataDir });
 require('./discord').register({ settings: () => loadLib().settings });
+require('./adblock').register({ settings: () => loadLib().settings });
 
 // ---------------------------------------------------------------- running apps: freeze, web apps, focus
 const Procs = require('./procs');

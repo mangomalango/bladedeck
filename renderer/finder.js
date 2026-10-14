@@ -57,9 +57,13 @@ const WebDl = (() => {
 const Finder = (() => {
   const st = () => S.lib.settings;
   const IA = { id: 'ia', label: 'Internet Archive', icon: '🏛', where: 'https://archive.org' };
-  let src = null, q = '', items = [], item = null, mode = 'grid', busyMsg = '', panel = null, scrapeFor = null;
+  // Any website: the search bar is an address bar, and whatever page it opens becomes a catalogue.
+  const WEB = { id: 'web', label: 'Any website', icon: '🌐', where: '' };
+  let src = null, q = '', items = [], item = null, mode = 'grid', busyMsg = '', panel = null, scrapeFor = null, next = '', loadingMore = false;
+  const looksLikeUrl = (t) => /^https?:\/\//i.test(t) || /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(t);
+  const toUrl = (t) => (/^https?:\/\//i.test(t) ? t : `https://${t}`);
   const sites = () => (st().sources || []).filter((s) => s.kind === 'link');
-  const allSources = () => [IA, ...sites().map((s) => ({ id: s.id, label: s.label, icon: s.cat === 'emus' ? '◉' : s.cat === 'bios' ? '🧩' : '🌐', where: s.where, search: s.search || '', s }))];
+  const allSources = () => [IA, WEB, ...sites().map((s) => ({ id: s.id, label: s.label, icon: s.cat === 'emus' ? '◉' : s.cat === 'bios' ? '🧩' : '🌐', where: s.where, search: s.search || '', s }))];
   const FILE = /\.(zip|7z|rar|iso|chd|cso|rvz|wbfs|gcz|wua|wux|nsp|xci|nds|3ds|cia|gba|gbc|gb|nes|sfc|smc|n64|z64|v64|md|gen|cue|bin|pbp|m3u|apk|exe|msi|appimage|tar\.gz|tar\.xz|wad|xex|elf|vpk)(\?|$)/i;
   const size = (n) => (!n ? '' : n >= 1073741824 ? `${(n / 1073741824).toFixed(1)} GB` : `${Math.max(1, Math.round(n / 1048576))} MB`);
 
@@ -82,6 +86,8 @@ const Finder = (() => {
     p.wv = null; // the panel's own browser view is made when a website source needs it
     const input = $('.fd-q', p.body);
     input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); ev.stopPropagation(); run(input.value); } });
+    // The next page of a website's catalogue loads as you near the bottom: no page buttons to find.
+    $('.fd-grid', p.body).addEventListener('scroll', (ev) => { const g = ev.currentTarget; if (next && !loadingMore && mode === 'grid' && g.scrollTop + g.clientHeight > g.scrollHeight - 400) more(); }, { passive: true });
     p.body.addEventListener('click', (ev) => click(ev));
     chips(); grid(); WebDl.draw();
     if (q) input.value = q;
@@ -90,7 +96,7 @@ const Finder = (() => {
     const nav = $('.fd-src', panel.body);
     nav.innerHTML = allSources().map((x) => `<button type="button" class="fd-chip ${x.id === src?.id ? 'on' : ''}" data-src="${esc(x.id)}">${x.icon} ${esc(x.label)}</button>`).join('')
       + '<button type="button" class="fd-chip add" data-fd="sources">＋ Add a source</button>';
-    $('.fd-q', panel.body).placeholder = `Search ${src?.label || ''}`;
+    $('.fd-q', panel.body).placeholder = src?.id === 'web' ? 'Type any address, like example.com/games' : `Search ${src?.label || ''}, or press Search to browse it`;
   }
   function grid() {
     const g = $('.fd-grid', panel.body); if (!g) return;
@@ -98,7 +104,7 @@ const Finder = (() => {
     if (mode === 'item' && item) { g.innerHTML = itemHtml(); mark(); return; }
     g.innerHTML = items.length
       ? `<div class="fd-cards">${items.map((it, i) => `<button type="button" class="fd-card" data-i="${i}"><span class="fd-img">${it.img ? `<img src="${esc(it.img)}" loading="lazy" alt="" referrerpolicy="no-referrer">` : '<i>🎮</i>'}</span><b>${esc(it.title)}</b><small>${esc([it.sub, size(it.size)].filter(Boolean).join(' · '))}</small></button>`).join('')}</div>`
-      : `<div class="fd-empty"><b>${q ? 'Nothing found.' : `Search ${esc(src?.label || 'a source')}`}</b><p>${q ? 'Try other words, or another source.' : src?.id === 'ia' ? 'The Internet Archive holds old software, shareware, homebrew and manuals. Sign in once in the browser and items that need an account download too.' : 'Type what you are looking for. Bladedeck searches the site and shows what it finds here.'}</p></div>`;
+      : `<div class="fd-empty"><b>${q ? 'Nothing found.' : src?.id === 'web' ? 'Open any website' : `Search ${esc(src?.label || 'a source')}`}</b><p>${q ? 'Try other words, or another source. A page made of games (a catalogue, a list, search results) works best.' : src?.id === 'ia' ? 'The Internet Archive holds old software, shareware, homebrew and manuals. Sign in once in the browser and items that need an account download too.' : src?.id === 'web' ? 'Type the address of any page that lists games. Bladedeck turns what is on it into cards, finds the download links on each one, blocks ads and pop-ups, and loads the next page as you scroll.' : 'Type what you are looking for, or press Search with nothing typed to browse the site\'s front page.'}</p></div>`;
     mark();
   }
   function itemHtml() {
@@ -115,7 +121,8 @@ const Finder = (() => {
   async function click(ev) {
     const t = ev.target.closest('button'); if (!t) return;
     if (t.dataset.src) { src = allSources().find((x) => x.id === t.dataset.src) || IA; st().finderSource = src.id; save(); items = []; item = null; mode = 'grid'; chips(); hideWeb(); if (q) run(q); else grid(); return; }
-    if (t.dataset.fd === 'go') { const i = $('.fd-q', panel.body); if (S.pad && !i.value) { OSK.open(i); return; } run(i.value); return; }
+    if (t.dataset.fd === 'go') { const i = $('.fd-q', panel.body); if (S.pad && !i.value && src?.id !== 'web' && src?.id !== 'ia') { run(''); return; } if (S.pad && !i.value) { OSK.open(i); return; } run(i.value); return; }
+    if (t.dataset.fd === 'more') { more(); return; }
     if (t.dataset.fd === 'sources') { Roms.sources('roms'); return; }
     if (t.dataset.fd === 'back') { mode = 'grid'; item = null; hideWeb(); grid(); Sound.play('back'); return; }
     if (t.dataset.fd === 'page') { if (item) showWeb(item.url, ''); return; }
@@ -127,8 +134,14 @@ const Finder = (() => {
 
   /* -------------------------------------------------------------- searching */
   async function run(text) {
-    q = String(text || '').trim(); if (!q) return;
-    mode = 'grid'; item = null; items = []; busyMsg = `Searching ${src.label}…`; grid(); hideWeb();
+    q = String(text || '').trim();
+    // An address typed anywhere opens that page as a catalogue.
+    if (q && looksLikeUrl(q) && src.id !== 'ia') { openPage(toUrl(q)); return; }
+    // A website with nothing typed: its front page.
+    if (!q && src.id !== 'ia' && src.id !== 'web') { openPage(src.where); return; }
+    if (!q) return;
+    if (src.id === 'web') { openPage(`https://duckduckgo.com/html/?q=${encodeURIComponent(q + ' games')}`); return; }
+    mode = 'grid'; item = null; items = []; next = ''; busyMsg = `Searching ${src.label}…`; grid(); hideWeb();
     Sound.play('tick');
     if (src.id === 'ia') {
       const r = await api.finderIa({ q, software: true });
@@ -138,22 +151,41 @@ const Finder = (() => {
     if (!tpl) { busyMsg = ''; grid(); toast(`Bladedeck could not find ${src.label}'s search box. Give its search address in Sources (✎ on the site).`, 'err'); return; }
     scrape(tpl.replace('{q}', encodeURIComponent(q)), 'results');
   }
+  function openPage(url) {
+    mode = 'grid'; item = null; items = []; next = '';
+    let host = url; try { host = new URL(url).hostname.replace(/^www\./, ''); } catch { /* as typed */ }
+    busyMsg = `Opening ${host}…`; grid(); hideWeb(); Sound.play('tick');
+    const i = $('.fd-q', panel.body); if (i && src.id === 'web') i.value = url;
+    scrape(url, 'results');
+  }
+  // The next page of results, added below what is there.
+  function more() {
+    if (!next || loadingMore) return;
+    loadingMore = true; const url = next; next = '';
+    const g = $('.fd-grid', panel.body); g.insertAdjacentHTML('beforeend', '<p class="fd-note fd-more">Loading more…</p>');
+    scrapeFor = { kind: 'results', url, append: true }; load(url);
+    setTimeout(() => { if (loadingMore && scrapeFor?.url === url) { loadingMore = false; $('.fd-more', panel.body)?.remove(); } }, 30000);
+  }
 
   /* A website is read in the panel's own browser view, which stays hidden unless the site needs
      you (a captcha, a sign-in) or you open a page. */
-  function webview() {
+  function webview(first) {
     if (panel.wv) return panel.wv;
     const wv = document.createElement('webview');
     wv.setAttribute('partition', 'persist:webapps');
-    wv.setAttribute('src', 'about:blank');
+    wv.setAttribute('src', first || 'about:blank');
+    wv.addEventListener('dom-ready', () => { wv.__ready = true; }, { once: true });
     wv.addEventListener('did-stop-loading', () => { if (scrapeFor) setTimeout(() => readPage(), 600); });
     $('.fd-web', panel.body).appendChild(wv);
     panel.wv = wv;
     return wv;
   }
   async function load(url) {
-    const wv = webview();
     if (/^http:\/\//i.test(url)) await api.webAllow?.(new URL(url).origin);
+    // A new view starts straight on the page; one already open goes to it.
+    if (!panel.wv) { webview(url); return; }
+    const wv = panel.wv;
+    if (!wv.__ready) { wv.setAttribute('src', url); return; }
     try { wv.loadURL(url); } catch { wv.setAttribute('src', url); }
   }
   function showWeb(url, why) {
@@ -187,26 +219,50 @@ const Finder = (() => {
       || !!document.querySelector('#challenge-form, #challenge-running, .cf-turnstile, .g-recaptcha, .h-captcha, #px-captcha');
   })()`;
   const RESULTS = `(() => {
-    const out = new Map(), base = location.origin, here = location.href.split('#')[0];
+    const out = new Map(), here = location.href.split('#')[0];
+    // The whole site counts, subdomains too (itch.io's games live on name.itch.io).
+    const site = (h) => h.replace(/^www\\./, '').split('.').slice(-2).join('.');
+    const base = site(location.hostname);
+    const CARD = 'article, li, tr, [class*=game], [class*=card], [class*=item], [class*=post], [class*=product], [class*=result], [class*=tile], [class*=entry], [class*=cell], [class*=thumb]';
+    // A picture, however the page loads it (lazy attributes, a CSS background).
+    const picOf = (el) => {
+      if (!el) return '';
+      const im = el.querySelector('img');
+      const src = im && (im.currentSrc || im.getAttribute('src') || im.getAttribute('data-src') || im.getAttribute('data-lazy_src') || im.getAttribute('data-original') || im.getAttribute('data-lazy-src') || '');
+      if (src && !/^data:/.test(src)) return new URL(src, location.href).href;
+      const bg = [el, ...el.querySelectorAll('[style*=background]')].map((x) => (x.getAttribute('style') || '').match(/url\\(["']?([^"')]+)/)).find(Boolean);
+      return bg ? new URL(bg[1], location.href).href : '';
+    };
     let n = 0;
     for (const a of document.querySelectorAll('a[href]')) {
       let u; try { u = new URL(a.href); } catch { continue; }
-      if (u.origin !== base || u.pathname === '/' || u.href.split('#')[0] === here) continue;
-      if (a.closest('header, footer, nav, [role=navigation], .pagination, .pager, .menu, .navbar, .breadcrumb, .sidebar, #sidebar, .widget')) continue;
-      const card = a.closest('article, li, tr, .card, .item, .post, .result, .entry, .game, .product, .grid-item');
-      const img = a.querySelector('img') || (card && card.querySelector('img'));
-      let title = (a.getAttribute('title') || a.innerText || (img && img.alt) || '').replace(/\\s+/g, ' ').trim();
-      if (title.length < 3 || title.length > 160 || /^(next|prev(ious)?|home|log ?in|sign (in|up)|register|more|read more|page \\d+|\\d+|«|»|‹|›)$/i.test(title)) continue;
-      const score = (img ? 3 : 0) + (card ? 2 : 0) + Math.min(3, title.length / 18) + Math.min(2, u.pathname.split('/').filter(Boolean).length * 0.4);
-      const key = u.href.split('#')[0], old = out.get(key);
-      const pic = img ? (img.currentSrc || img.src || img.getAttribute('data-src') || '') : '';
-      if (!old) out.set(key, { url: key, title, img: pic, score, at: n++ });
-      else { if (title.length > old.title.length && title.length < 120) old.title = title; if (!old.img && pic) old.img = pic; old.score = Math.max(old.score, score); }
+      if (site(u.hostname) !== base || (u.pathname === '/' && u.hostname === location.hostname) || u.href.split('#')[0] === here) continue;
+      if (a.closest('header, footer, nav, [role=navigation], .pagination, .pager, .menu, .navbar, .breadcrumb, aside, .sidebar, #sidebar, form')) continue;
+      let card = a.closest(CARD);
+      // A card is a box around one game, not the whole list.
+      while (card && card.querySelectorAll('a[href]').length > 12 && card.parentElement) card = null;
+      const head = card && card.querySelector('h1, h2, h3, h4, h5, .title, [class*=title], [class*=name]');
+      let title = ((head && head.innerText) || a.getAttribute('title') || a.innerText || (card && card.querySelector('img') || {}).alt || '').replace(/\\s+/g, ' ').trim();
+      title = title.replace(/\\s*[:|–-]\\s*(screenshot|cover|thumbnail|image|logo)\\b.*$/i, '');
+      if (title.length < 2 || title.length > 160 || /^(next|prev(ious)?|home|log ?in|sign (in|up)|register|more|read more|page \\d+|\\d+|«|»|‹|›)$/i.test(title)) continue;
+      const sig = card ? card.tagName + '.' + [...card.classList].filter((c) => !/\\d/.test(c)).sort().join('.') : '';
+      const key = u.href.split('#')[0], pic = picOf(card || a), old = out.get(key);
+      if (!old) out.set(key, { url: key, title, img: pic, sig, at: n++ });
+      else { if (!old.img && pic) old.img = pic; if (title.length > old.title.length && title.length < 120 && !old.headed) old.title = title; if (!old.sig && sig) old.sig = sig; }
+      if (head && out.get(key)) out.get(key).headed = true;
     }
-    let l = [...out.values()];
-    const good = l.filter((x) => x.score >= 4.5);
-    l = (good.length >= 3 ? good : l.sort((a, b) => b.score - a.score).slice(0, 30)).sort((a, b) => a.at - b.at).slice(0, 60);
-    return l.map(({ url, title, img }) => ({ url, title, img: /^https?:/.test(img) ? img : '' }));
+    let all = [...out.values()];
+    // The catalogue is the box shape repeated most, with pictures: that is how lists of games look.
+    const groups = new Map();
+    for (const x of all) if (x.sig) { const g = groups.get(x.sig) || { n: 0, pics: 0 }; g.n++; if (x.img) g.pics++; groups.set(x.sig, g); }
+    const best = [...groups.entries()].map(([sig, g]) => [sig, g.n * (0.4 + g.pics / g.n)]).sort((a, b) => b[1] - a[1])[0];
+    let l = best && groups.get(best[0]).n >= 3 ? all.filter((x) => x.sig === best[0]) : all.filter((x) => x.img).concat(all.filter((x) => !x.img)).slice(0, 40);
+    l = l.sort((a, b) => a.at - b.at).slice(0, 80);
+    // The next page: rel=next, or a link that says Next / › / », or the page number after this one.
+    let nx = (document.querySelector('link[rel=next], a[rel=next]') || {}).href || '';
+    if (!nx) { const a = [...document.querySelectorAll('a[href]')].find((x) => /^(next|next page|older|more|load more|›|»|>|→)$/i.test((x.innerText || x.getAttribute('aria-label') || '').trim())); nx = a ? a.href : ''; }
+    if (!nx) { const cur = document.querySelector('.pagination .active, .pagination .current, [aria-current=page], .page-numbers.current'); const n = cur && parseInt(cur.innerText, 10); if (n) { const a = [...document.querySelectorAll('a[href]')].find((x) => x.innerText.trim() === String(n + 1)); nx = a ? a.href : ''; } }
+    return { items: l.map(({ url, title, img }) => ({ url, title, img: /^https?:/.test(img) ? img : '' })), next: nx && nx !== location.href ? nx : '' };
   })()`;
   const FILES = `(() => {
     const EXT = ${FILE.toString()};
@@ -237,6 +293,9 @@ const Finder = (() => {
 
   async function readPage() {
     const job = scrapeFor; if (!job || !panel?.wv) return;
+    // Its first moment is a blank page: wait for the real one.
+    let at = ''; try { at = panel.wv.getURL(); } catch { return; }
+    if (!at || at === 'about:blank') return;
     let captcha = false; try { captcha = await panel.wv.executeJavaScript(CAPTCHA); } catch { return; }
     if (captcha) { showWeb('', `${src.label} wants to check that you are a person. Do it here, and Bladedeck carries on by itself.`); return; }
     if (job.kind === 'detect') {
@@ -247,8 +306,15 @@ const Finder = (() => {
       job.res(guess); return;
     }
     if (job.kind === 'results') {
-      const l = await panel.wv.executeJavaScript(RESULTS).catch(() => []);
-      scrapeFor = null; hideWeb(); busyMsg = ''; items = l || []; grid(); return;
+      const r = await panel.wv.executeJavaScript(RESULTS).catch(() => ({ items: [], next: '' }));
+      scrapeFor = null; hideWeb(); busyMsg = '';
+      const fresh = (r.items || []).filter((x) => !items.some((y) => y.url === x.url));
+      items = job.append ? [...items, ...fresh] : r.items || [];
+      next = fresh.length ? r.next || '' : '';
+      loadingMore = false;
+      const g = $('.fd-grid', panel.body), keep = g ? g.scrollTop : 0;
+      grid(); if (job.append && g) g.scrollTop = keep;
+      return;
     }
     if (job.kind === 'item') {
       const r = await panel.wv.executeJavaScript(FILES).catch(() => null);

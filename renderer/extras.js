@@ -33,7 +33,7 @@ const Extras = (() => {
         state: [s.adguardApp ? 'On in Bladedeck' : '', sys?.adguard ? `On for this PC (${sys.connection})` : ''].filter(Boolean).join(' · ') || 'Off', on: !!(s.adguardApp || sys?.adguard),
         with: 'Bladedeck only covers its browser panels and web apps. This PC covers everything on the current Wi-Fi. For your phone, add the same servers in Tailscale\'s DNS settings.',
         btn: '', act: () => {},
-        extra: `<label class="ex-tog"><input type="checkbox" data-ex="dnsApp" ${s.adguardApp ? 'checked' : ''}> In Bladedeck (its browser and web apps)</label>${sys ? `<label class="ex-tog"><input type="checkbox" data-ex="dnsSys" ${sys.adguard ? 'checked' : ''}> For this whole PC (${esc(sys.connection)})</label>` : ''}` },
+        extra: `<label class="ex-tog"><input type="checkbox" data-ex="adblock" ${s.adblock !== false ? 'checked' : ''}> Block ads and pop-ups in Bladedeck's browser (a built-in list, no DNS change)</label><label class="ex-tog"><input type="checkbox" data-ex="dnsApp" ${s.adguardApp ? 'checked' : ''}> In Bladedeck (its browser and web apps)</label>${sys ? `<label class="ex-tog"><input type="checkbox" data-ex="dnsSys" ${sys.adguard ? 'checked' : ''}> For this whole PC (${esc(sys.connection)})</label>` : ''}` },
       { id: 'discord', icon: '💬', name: 'Discord', what: 'Your chats one press away in the dock, and Rich Presence to show what you play.',
         state: [discord ? 'In your dock' : 'Not in your dock', s.discordRpc === true && s.discordClientId ? 'sharing what you play' : ''].filter(Boolean).join(' · '), on: discord,
         with: 'To show what you play on your Discord profile: make an application at discord.com/developers/applications (New Application, call it Bladedeck), copy its Application ID here, and tick the box. Off until you do.',
@@ -86,6 +86,7 @@ const Extras = (() => {
         root.querySelector('.dlg').classList.add('extras');
         root.addEventListener('change', async (ev) => {
           const k = ev.target.dataset.ex;
+          if (k === 'adblock') { st().adblock = ev.target.checked; save(); toast(ev.target.checked ? 'Ads and pop-ups are blocked in Bladedeck\'s browser.' : 'Bladedeck\'s browser shows ads again.'); }
           if (k === 'dnsApp') { st().adguardApp = ev.target.checked; save(); await api.dnsApp(ev.target.checked); toast(ev.target.checked ? 'Bladedeck looks names up through AdGuard now.' : 'Bladedeck uses your normal DNS again.'); }
           if (k === 'dnsSys') {
             const want = ev.target.checked;

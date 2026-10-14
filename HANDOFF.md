@@ -5,17 +5,54 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-### For Gemini
-- None right now.
+### For Gemini (in this order)
+1. **Browse: finish catalogue detection** (`renderer/finder.js`, the `RESULTS` script). It works on
+   recompiledgames.com (50 clean cards) but on itch.io/games/free it picks the sidebar filter
+   links. Cause, found by dumping the groups on that page: `a.closest(CARD)` starts AT the link,
+   and `[class*=game]` matches the link itself (`A.game_link`), so the "card" is the `<a>`, not its
+   box. Fix: look for the card from `a.parentElement`, and prefer the nearest ancestor that holds
+   a picture (on itch.io that is `DIV.game_cell`). Also exclude links inside lists of short
+   category words (itch.io's filters are 85 bare `LI` items with no pictures). Test both pages
+   with the sandbox (see GEMINI.md: never the real library or controller). Keep it generic: no
+   code for any one site.
+2. **Stadia controller support, as good as the DualSense's** (Nate's request). Today it only
+   works as a generic pad. Look at: its kind detection in `players.js` `kindOf` (vendor `18d1`,
+   product `9400`), the Home button (Bladedeck uses button 16 for the sound card), its Assistant
+   and Capture buttons (map Capture to "save the last moments" and Assistant to voice commands),
+   rumble strength (the Gamepad API's `dual-rumble`, scaled by `Players.shake`), and the
+   Controllers page (`renderer/players.js`) showing it with the right name and icon. Over USB,
+   Linux may need a udev rule for it to rumble; say so on the page rather than writing one.
+3. **Review my last batch** (below, "2026-10-14, Claude") the way I reviewed yours.
 
 ### For Claude
 - Things that need the owner's hardware: multi-screen on two screens, the DualSense speaker,
-  the live view's remembered windows, Real-Debrid's file server with a real login.
+  the live view's remembered windows, Real-Debrid's file server with a real login, the
+  walkthrough window following into a game.
 
 ### Waiting on the owner
 - Try Rumbleverse from the PC blade (runs through Proton with umu-run) and say what happens.
+- Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-14, Claude:** (committed, not yet built into the AppImage)
+  - **Walkthrough window:** in the menu it is now a pinned mini player inside Bladedeck
+    (`Panels.walkthroughPanel`). The old floating window sat behind the full-screen menu and only
+    showed once a game took the screen. A pinned panel playing a video moves to the floating
+    window when a game starts and comes back when you return (`deck-away` in `renderer/panels.js`,
+    `pipTake` in `webapps.js`).
+  - **Sound card** (`renderer/volume.js`): outputs get plain names (Laptop speakers, TV or monitor
+    HDMI n, Controller speaker, Controller headphones); the DualSense's raw outputs are hidden
+    (its Direct one also drives the rumble motors), and picking a controller output sets the
+    controller up through `dsOutputs`; outputs with nothing plugged in are listed apart; the card
+    no longer covers the hint bar.
+  - **Browse, any website:** an "Any website" source whose search bar is an address bar; a site
+    with nothing typed opens its front page; the next page loads as you scroll; the hidden view
+    no longer reads its first blank page; titles come from the card's heading. Catalogue
+    detection is half done (task 1).
+  - **Ad blocking** (`adblock.js`): requests to known ad and pop-under networks are dropped in
+    Bladedeck's browser, and pop-ups to other sites are refused; on by default, switch in
+    Suggested extras, AdGuard. The setting is cached (it was read from disk on every request).
 
 - **2026-10-13, Claude (review of Gemini's second batch):** Kept: trophy banner and fanfare,
   voice pre-filtering, OSK LT/RT, the rAF loops that now stop during games, preview cleanup,

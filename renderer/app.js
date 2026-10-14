@@ -528,11 +528,16 @@ api.onPeek(async (ev) => {
   }
 });
 // The walkthrough window: a small YouTube over the game, searching for whatever is being played.
+/* In the menu it is a pinned mini player inside Bladedeck (a window of its own would sit behind the
+   full-screen menu and never show); while a game has the screen it is the window over the game,
+   and a pinned mini player playing a video follows you there by itself (panels.js). */
 function walkthrough(q) {
-  // A video playing in the YouTube panel goes over the game, rather than a search.
-  const vp = !q && Panels.video(); if (vp) return Panels.overGames(vp);
   const e = (S.playing && entryById(S.playing.id)) || (S.sel && !S.sel.run && S.sel.title ? S.sel : null);
-  return api.pipToggle({ query: q || (e ? `${e.title} walkthrough` : '') });
+  const query = q || (e ? `${e.title} walkthrough` : '');
+  if (deckFocused() && !away) return Panels.walkthroughPanel(q || (Panels.has('walkthrough') ? '' : query));
+  // A video playing in a panel goes over the game, rather than a search.
+  const vp = !q && Panels.video(); if (vp) return Panels.overGames(vp);
+  return api.pipToggle({ query });
 }
 api.onPeek((ev) => { if (ev.kind === 'pip') walkthrough(); });
 // A game running in the background (not the one in the now-playing panel) closed: its session ends.

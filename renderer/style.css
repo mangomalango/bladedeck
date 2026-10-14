@@ -1598,3 +1598,10 @@ body.dock-on.np-on #console, body.dock-on.run-on #console { left: calc(360px + v
   color: #fff;
   letter-spacing: 0.04em;
 }
+
+/* Sound card: above the hint bar; outputs with nothing plugged in sit apart, smaller. */
+#vol { bottom: calc(72px + var(--sy)); }
+#vol .outputs .vo-mid > small { display: block; color: var(--ink-dim); font-size: 12.5px; margin: 2px 0 8px; }
+#vol .vo-off { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; font-size: 12px; color: var(--ink-dim); }
+#vol .vo-off button { font-size: 12px; padding: 4px 10px; opacity: .7; }
+#vol .vo-chips button small { opacity: .8; }

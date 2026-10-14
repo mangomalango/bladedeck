@@ -98,6 +98,17 @@ function pipToggle({ query = '', show, url = '' } = {}) {
   return 'shown';
 }
 
+/* Coming back to the menu: the floating window hands its video back (which video, how far in, and
+   whether it was showing), pauses and hides, so the menu's own mini player carries on. */
+async function pipTake() {
+  const w = apps.get('walkthrough'); if (!w || w.isDestroyed()) return null;
+  const visible = w.isVisible() && !w.isMinimized();
+  let t = 0; try { t = Math.floor(await w.webContents.executeJavaScript("(() => { const v = document.querySelector('video'); if (v) v.pause(); return v ? v.currentTime : 0; })()")) || 0; } catch { /* no page */ }
+  const url = videoUrl(w.webContents.getURL());
+  w.hide(); tell();
+  return { visible, url, t };
+}
+
 function act(key, a) {
   const w = apps.get(key); if (!w || w.isDestroyed()) return false;
   if (a === 'close') w.close();
@@ -113,6 +124,7 @@ function register({ getDeck }) {
   ipcMain.handle('webapp-list', () => list());
   ipcMain.handle('webapp-act', (_e, key, a) => act(String(key), String(a)));
   ipcMain.handle('pip-toggle', (_e, o) => pipToggle(o || {}));
+  ipcMain.handle('pip-take', () => pipTake());
   ipcMain.on('webapp-key', (e, key) => {
     const w = BrowserWindow.fromWebContents(e.sender);
     if (!w || ![...apps.values()].includes(w)) return;

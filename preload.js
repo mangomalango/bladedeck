@@ -52,6 +52,7 @@ contextBridge.exposeInMainWorld('bladedeck', {
   webappList: () => ipcRenderer.invoke('webapp-list'),
   onWebapps: (fn) => ipcRenderer.on('webapps', (_e, d) => fn(d)),
   pipToggle: (o) => ipcRenderer.invoke('pip-toggle', o),
+  pipTake: () => ipcRenderer.invoke('pip-take'),
   deckFocus: () => ipcRenderer.invoke('deck-focus'),
   keepOnTop: (on) => ipcRenderer.invoke('keep-on-top', on),
   focusPid: (pid) => ipcRenderer.invoke('focus-pid', pid),

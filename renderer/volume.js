@@ -21,8 +21,40 @@ const Volume = (() => {
   const short = (o) => (o.port && !/^analog/i.test(o.port) ? o.port : o.label).replace(/ Output$/, '').replace(/^.*?(HDMI|DisplayPort)/, '$1');
 
   async function load() {
-    const r = await api.soundState();
-    sys = r.ok; state = r.ok ? r.data : null;
+    const [r, ds] = await Promise.all([api.soundState(), api.dsStatus?.().catch(() => ({})) ?? {}]);
+    sys = r.ok; state = r.ok ? r.data : null; dsState = ds || {};
+    if (state) state.choices = choicesOf(state.outputs);
+  }
+  /* What "Play sound on" offers: one plain choice per place sound can come out, named for where
+     it is (Laptop speakers, TV or monitor, Controller speaker). A DualSense's raw outputs (its
+     four-channel "Direct" one would also play into its rumble motors) are replaced by Controller
+     speaker and Controller headphones, which set the controller up when picked. Outputs with
+     nothing plugged in are listed apart, at the end. */
+  let dsState = {};
+  const isPad = (o) => /dualsense|sony.*wireless_controller|054c/i.test(`${o.name} ${o.label}`);
+  function nice(o) {
+    if (o.name === 'bladedeck_pad_speaker') return ['Controller speaker', '🎮'];
+    if (o.name === 'bladedeck_pad_jack') return ['Controller headphones', '🎧'];
+    const t = `${o.port} ${o.label}`;
+    const hdmi = /(HDMI|DisplayPort)\D*(\d+)/i.exec(t);
+    if (hdmi) return [`TV or monitor · HDMI ${hdmi[2]}`, '🖥'];
+    if (/bluez|bluetooth/i.test(o.name)) return [o.label, '🎧'];
+    if (/headphone|headset/i.test(o.port)) return ['Headphones (laptop jack)', '🎧'];
+    if (/speaker/i.test(o.port) || /analog/i.test(o.port)) return ['Laptop speakers', '🔈'];
+    return [short(o), outIcon(o)];
+  }
+  function choicesOf(outs) {
+    const list = [];
+    for (const o of outs) {
+      if (isPad(o) && !o.name.startsWith('bladedeck_pad_')) continue;
+      const [label, icon] = nice(o);
+      list.push({ ...o, nice: label, icon });
+    }
+    if (dsState.present && dsState.usb) {
+      if (!list.some((c) => c.name === 'bladedeck_pad_speaker')) list.push({ name: 'ds:speaker', nice: 'Controller speaker', icon: '🎮', virtual: 'speaker' });
+      if (!list.some((c) => c.name === 'bladedeck_pad_jack')) list.push({ name: 'ds:jack', nice: 'Controller headphones', icon: '🎧', virtual: 'jack' });
+    }
+    return list.sort((a, b) => (a.unplugged ? 1 : 0) - (b.unplugged ? 1 : 0));
   }
 
   // The rows the controller moves through, in order.
@@ -30,7 +62,7 @@ const Volume = (() => {
     const out = state?.outputs.find((o) => o.on);
     const list = [];
     if (out) list.push({ k: 'master', label: 'Volume', v: out.volume, m: out.mute, id: out.name });
-    if (state && state.outputs.length > 1) list.push({ k: 'outputs' });
+    if (state && state.choices.length > 1) list.push({ k: 'outputs' });
     if (state?.mic) list.push({ k: 'mic', label: 'Microphone', v: state.mic.volume, m: state.mic.mute, id: state.mic.name });
     for (const a of state?.apps || []) list.push({ k: 'app', label: a.label, sub: a.what !== a.label ? a.what : '', v: a.volume, m: a.mute, id: a.id });
     list.push({ k: 'music', label: 'Bladedeck music', v: Math.round((S.lib.settings.musicVolume ?? 0.7) * 100) });
@@ -46,11 +78,15 @@ const Volume = (() => {
         <div class="vo-mid"><b>${esc(r.label)}</b>${r.sub ? `<small>${esc(r.sub)}</small>` : ''}
           <input type="range" min="0" max="100" step="1" value="${Math.min(100, r.v)}" data-sl="${i}" aria-label="${esc(r.label)}" style="--v:${Math.min(100, r.v)}%" ${r.m ? 'class="muted"' : ''}></div>
         <span class="vo-n">${r.m ? 'Muted' : `${r.v}%`}</span></div>`;
-    const outs = state?.outputs || [];
+    const outs = state?.choices || [];
+    const now = outs.find((o) => o.on);
     const body = rs.map((r, i) => {
       if (r.k === 'outputs') {
-        return `<div class="vo-row outputs ${i === row ? 'hl' : ''}" data-r="${i}"><div class="vo-mid"><b>Play sound on</b>
-          <div class="vo-chips">${outs.map((o, j) => `<button type="button" class="${o.on ? 'on' : ''} ${o.unplugged ? 'off' : ''} ${i === row && j === chip ? 'cur' : ''}" data-out="${j}" title="${o.unplugged ? 'Nothing is plugged in here' : ''}"><i>${outIcon(o)}</i>${esc(short(o))}${o.unplugged ? '<small> · not connected</small>' : ''}</button>`).join('')}</div></div></div>`;
+        const chipHtml = (o, j) => `<button type="button" class="${o.on ? 'on' : ''} ${o.unplugged ? 'off' : ''} ${i === row && j === chip ? 'cur' : ''}" data-out="${j}"><i>${o.icon}</i>${esc(o.nice)}${o.on ? '<small> · playing</small>' : ''}</button>`;
+        const live = outs.map((o, j) => [o, j]).filter(([o]) => !o.unplugged), off = outs.map((o, j) => [o, j]).filter(([o]) => o.unplugged);
+        return `<div class="vo-row outputs ${i === row ? 'hl' : ''}" data-r="${i}"><div class="vo-mid"><b>Play sound on</b><small>${now ? `Playing on ${esc(now.nice)}` : 'Pick where sound comes out'} · ←→ pick, A to switch</small>
+          <div class="vo-chips">${live.map(([o, j]) => chipHtml(o, j)).join('')}</div>
+          ${off.length ? `<div class="vo-off"><span>Not connected:</span>${off.map(([o, j]) => chipHtml(o, j)).join('')}</div>` : ''}</div></div>`;
       }
       const head = r.k === 'app' && (i === 0 || rs[i - 1].k !== 'app') ? '<div class="vo-h">Apps playing sound</div>' : r.k === 'music' ? '<div class="vo-h">Bladedeck</div>' : '';
       return head + slider(r, i);
@@ -71,7 +107,7 @@ const Volume = (() => {
     p.t = setTimeout(async () => {
       delete pending[key];
       const res = await api.soundSet(p.o);
-      if (res.ok && !Object.keys(pending).length) { state = res.data; if (on) draw(); }
+      if (res.ok && !Object.keys(pending).length) { state = res.data; state.choices = choicesOf(state.outputs); if (on) draw(); }
     }, 60);
   }
   function setLevel(i, v) {
@@ -96,12 +132,22 @@ const Volume = (() => {
     Sound.play('tick'); draw();
   }
   async function useOutput(j) {
-    const o = state?.outputs[j]; if (!o || o.on) return;
+    let o = state?.choices[j]; if (!o || o.on) return;
     const was = state.outputs.find((x) => x.on);
-    if (o.unplugged && !(await confirmAsk({ title: `Nothing is plugged into ${short(o)}`, text: 'Sound would go nowhere until something is connected there. Use it anyway?', yes: 'Use it' }))) return;
+    if (o.unplugged && !(await confirmAsk({ title: `Nothing is plugged into ${o.nice}`, text: 'Sound would go nowhere until something is connected there. Use it anyway?', yes: 'Use it' }))) return;
+    // The controller's speaker or headphones: set the controller up first (Settings, Controllers).
+    if (o.virtual) {
+      const mode = S.lib.settings.dsMode === 'both' || (o.virtual === 'speaker' && S.lib.settings.dsMode === 'jack') || (o.virtual === 'jack' && S.lib.settings.dsMode === 'speaker') ? 'both' : o.virtual;
+      const r = await api.dsOutputs(mode, { speaker: S.lib.settings.dsSpeakerVol ?? 80, headphones: S.lib.settings.dsJackVol ?? 80 });
+      if (!r.ok) { toast(r.error, 'err'); return; }
+      S.lib.settings.dsMode = mode; save();
+      await new Promise((res) => setTimeout(res, 500)); await load();
+      o = state.choices.find((c) => c.name === (o.virtual === 'speaker' ? 'bladedeck_pad_speaker' : 'bladedeck_pad_jack'));
+      if (!o) { toast('The controller output did not appear. Is it connected by USB?', 'err'); draw(); return; }
+    }
     const res = await api.soundSet({ kind: 'default', id: o.name });
-    if (!res.ok) { toast(res.error || `Could not play sound on ${short(o)}.`, 'err'); return; }
-    state = res.data; Sound.play('pop'); draw();
+    if (!res.ok) { toast(res.error || `Could not play sound on ${o.nice}.`, 'err'); return; }
+    state = res.data; state.choices = choicesOf(state.outputs); Sound.play('pop'); draw();
     if (was) keepOrRevert(was, o);
   }
   /* Like a TV's picture settings: after switching, keep it only if you say so. Silence (a screen
@@ -114,11 +160,11 @@ const Volume = (() => {
       await load();
       // The old output can come back under another name when the card changed setup.
       const o = state?.outputs.find((x) => x.name === was.name) || state?.outputs.find((x) => x.label === was.label);
-      if (o && !o.on) { const r = await api.soundSet({ kind: 'default', id: o.name }); if (r.ok) state = r.data; }
-      toast(`Sound is back on ${short(was)}.`);
+      if (o && !o.on) { const r = await api.soundSet({ kind: 'default', id: o.name }); if (r.ok) { state = r.data; state.choices = choicesOf(state.outputs); } }
+      toast(`Sound is back on ${nice(was)[0]}.`);
       if (on) draw();
     };
-    const text = (n) => `Sound is playing on ${short(now)} now. If you can hear this, keep it. Otherwise it goes back to ${short(was)} in ${n} seconds.`;
+    const text = (n) => `Sound is playing on ${now.nice || nice(now)[0]} now. If you can hear this, keep it. Otherwise it goes back to ${nice(was)[0]} in ${n} seconds.`;
     confirmAsk({ title: 'Keep this output?', text: text(left), yes: 'Keep it', no: 'Go back' }).then((keep) => { clearInterval(t); if (!keep) back(); });
     Sound.play('fixed');
     t = setInterval(() => {
@@ -147,7 +193,7 @@ const Volume = (() => {
   /* -------------------------------------------------------------- open / close / input */
   async function open() {
     if (on) return;
-    on = true; row = 0; await load(); chip = Math.max(0, state?.outputs.findIndex((o) => o.on) ?? 0);
+    on = true; row = 0; await load(); chip = Math.max(0, state?.choices.findIndex((o) => o.on) ?? 0);
     draw(); el.hidden = false; requestAnimationFrame(() => el.classList.add('open'));
     Sound.play('pop');
     // Apps start and stop playing; keep the list current while it is open.
@@ -168,7 +214,7 @@ const Volume = (() => {
     else if (a === 'up') { row = Math.max(0, row - 1); Sound.play('tick'); draw(); }
     else if (a === 'down') { row = Math.min(rs.length - 1, row + 1); Sound.play('tick'); draw(); }
     else if (a === 'left' || a === 'right') {
-      if (r.k === 'outputs') { chip = Math.max(0, Math.min(state.outputs.length - 1, chip + (a === 'right' ? 1 : -1))); Sound.play('tick'); draw(); }
+      if (r.k === 'outputs') { chip = Math.max(0, Math.min(state.choices.length - 1, chip + (a === 'right' ? 1 : -1))); Sound.play('tick'); draw(); }
       else setLevel(row, r.v + (a === 'right' ? 5 : -5));
     }
     else if (a === 'lb' || a === 'rb') { if (r.k !== 'outputs') setLevel(row, r.v + (a === 'rb' ? 20 : -20)); }

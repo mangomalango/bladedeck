@@ -20,6 +20,7 @@
     "files": [
       "main.js",
       "discord.js",
+      "adblock.js",
       "online.js",
       "store.js",
       "wallpaper.js",
