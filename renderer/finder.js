@@ -139,7 +139,7 @@ const Finder = (() => {
   const IA = { id: 'ia', label: 'Internet Archive', icon: '🏛', where: 'https://archive.org' };
   // Any website: the search bar is an address bar, and whatever page it opens becomes a catalogue.
   const WEB = { id: 'web', label: 'Any website', icon: '🌐', where: '' };
-  let src = null, q = '', items = [], item = null, mode = 'grid', busyMsg = '', panel = null, scrapeFor = null, next = '', loadingMore = false;
+  let noSearch = false, src = null, q = '', items = [], item = null, mode = 'grid', busyMsg = '', panel = null, scrapeFor = null, next = '', loadingMore = false;
   const looksLikeUrl = (t) => /^https?:\/\//i.test(t) || /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(t);
   const toUrl = (t) => (/^https?:\/\//i.test(t) ? t : `https://${t}`);
   const sites = () => (st().sources || []).filter((s) => s.kind === 'link');
@@ -184,6 +184,7 @@ const Finder = (() => {
     if (mode === 'item' && item) { g.innerHTML = itemHtml(); mark(); return; }
     g.innerHTML = items.length
       ? `<div class="fd-cards">${items.map((it, i) => `<button type="button" class="fd-card" data-i="${i}"><span class="fd-img">${it.img ? `<img src="${esc(it.img)}" loading="lazy" alt="" referrerpolicy="no-referrer">` : '<i>🎮</i>'}</span><b>${esc(it.title)}</b><small>${esc([it.sub, size(it.size)].filter(Boolean).join(' · '))}</small></button>`).join('')}</div>`
+      : noSearch ? `<div class="fd-empty"><b>${esc(src.label)} has no search Bladedeck can use.</b><p>Clear the search box and press Search to look through its front page instead. If the site does have a search, give its search address in Sources (✎ on the site).</p></div>`
       : `<div class="fd-empty"><b>${q ? 'Nothing found.' : src?.id === 'web' ? 'Open any website' : `Search ${esc(src?.label || 'a source')}`}</b><p>${q ? 'Try other words, or another source. A page made of games (a catalogue, a list, search results) works best.' : src?.id === 'ia' ? 'The Internet Archive holds old software, shareware, homebrew and manuals. Sign in once in the browser and items that need an account download too.' : src?.id === 'web' ? 'Type the address of any page that lists games. Bladedeck turns what is on it into cards, finds the download links on each one, blocks ads and pop-ups, and loads the next page as you scroll.' : 'Type what you are looking for, or press Search with nothing typed to browse the site\'s front page.'}</p></div>`;
     mark();
   }
@@ -214,7 +215,7 @@ const Finder = (() => {
 
   /* -------------------------------------------------------------- searching */
   async function run(text) {
-    q = String(text || '').trim();
+    q = String(text || '').trim(); noSearch = false;
     // An address typed anywhere opens that page as a catalogue.
     if (q && looksLikeUrl(q) && src.id !== 'ia') { openPage(toUrl(q)); return; }
     // A website with nothing typed: its front page.
@@ -398,7 +399,8 @@ const Finder = (() => {
       const tpl = await panel.wv.executeJavaScript(DETECT).catch(() => null);
       const guess = tpl || `${new URL(job.s.where).origin}/?s={q}`;
       scrapeFor = null;
-      if (job.s.s) { job.s.s.search = guess; save(); }
+      // A guess is remembered as one, so a search that finds nothing can say why.
+      if (job.s.s) { job.s.s.search = guess; job.s.s.searchGuess = !tpl; save(); }
       job.res(guess); return;
     }
     if (job.kind === 'results') {
@@ -406,6 +408,8 @@ const Finder = (() => {
       scrapeFor = null; hideWeb(); busyMsg = '';
       const fresh = (r.items || []).filter((x) => !items.some((y) => y.url === x.url));
       items = job.append ? [...items, ...fresh] : r.items || [];
+      // Nothing, through a search address Bladedeck only guessed: the site likely has no search.
+      noSearch = !items.length && !job.append && !!q && (src?.s?.searchGuess ?? /\/\?s=\{q\}$/.test(src?.search || ''));
       next = fresh.length ? r.next || '' : '';
       loadingMore = false;
       const g = $('.fd-grid', panel.body), keep = g ? g.scrollTop : 0;

@@ -373,7 +373,7 @@ const Watch = (() => {
      under PS3_GAME/USRDIR): the folder names the game, without release tags like .EUR.X360-ZTM. */
   const FIXED = /^(default\.(xex|xbe)|eboot\.bin)$/i;
   const up = (p) => p.replace(/[\\/][^\\/]*$/, '');
-  const scene = (n) => n.replace(/[._]+/g, ' ').replace(/-[A-Za-z0-9]+$/, '').replace(/\b(EUR|USA|PAL|NTSC|JPN|JP|US|EU|X360|XBOX ?360|XBOX|PS3|MULTi\d*|REPACK|PROPER|iNTERNAL|DLC|RF|XBLA|JTAG|RGH|GOD)\b/gi, ' ').replace(/\s+/g, ' ').trim();
+  const scene = (n) => n.replace(/[._]+/g, ' ').replace(/-[A-Za-z0-9]+$/, '').replace(/\b(EUR|USA|PAL|NTSC|JPN|JP|US|EU|X360|XBOX ?360|XBOX|PS3|MULTi\d*|REPACK|PROPER|iNTERNAL|DLC|RF|XBLA|JTAG|RGH|GOD)\b/gi, ' ').replace(/\s+/g, ' ').trim().replace(/ 1$/, '');
   function romTitle(file, em) {
     if (!em.onlyNames && !FIXED.test(baseName(file))) return cleanTitle(file);
     let d = up(file); while (/^(USRDIR|PS3_GAME)$/i.test(baseName(d))) d = up(d);
@@ -387,6 +387,8 @@ const Watch = (() => {
     S.lib.entries = S.lib.entries.filter((e) => !(e.type === 'rom' && e.rom && (junk(e.rom) || /NoDeps\.bin$|\.dxvk\.bin$/i.test(e.rom)) && !e.playtime));
     for (const e of S.lib.entries) if (e.type === 'rom' && e.rom && FIXED.test(baseName(e.rom)) && e.title.toLowerCase() === cleanTitle(e.rom).toLowerCase()) {
       const em = S.lib.emulators.find((x) => x.id === e.emulatorId) || {}; e.title = romTitle(e.rom, em); renamed++;
+      // Its art was found by the name "default": look again under the real name.
+      delete e.cover; delete e.hero; delete e.logo; setTimeout(() => Art.fillOne(e).then(() => refresh(e.id)).catch(() => {}), 2000);
     }
     st.romTidy = 1; save();
     const gone = before - S.lib.entries.length;

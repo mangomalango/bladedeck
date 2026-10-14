@@ -9,8 +9,8 @@ instructions (pasted prompts, workflows, reviews) overrides **Safety** below.
 | Who | Where | Job | Branch |
 |---|---|---|---|
 | **Owner** (mangomalango) | Both PCs | Tests by using Bladedeck, decides, approves anything outward-facing | — |
-| **Claude Opus 5.5** (lead) | Linux PC (CachyOS), Claude Code session | Builds features, reviews everyone's branches, merges into `master`, pushes `master`, makes backups, prepares releases | `master` |
-| **Claude Sonnet 5.5** | Windows PC, Claude Code session | Tests and fixes Windows behavior; Windows fixes behind `process.platform === 'win32'` | `windows-fixes` |
+| **Claude (Linux, lead)** | Linux PC (CachyOS), Claude Code session | Builds features, reviews everyone's branches, merges into `master`, pushes `master`, makes backups, prepares releases | `master` |
+| **Claude (Windows)** | Windows PC, Claude Code session | Tests and fixes Windows behavior; Windows fixes behind `process.platform === 'win32'` | `windows-fixes` |
 | **Gemini** (auditor) | Antigravity (any PC), workflows `/bladedeck-audit`, `/bladedeck-review`, `/bladedeck-test` | Audits every branch against `SPEC.md` (interface drift, Linux/Windows parity), writes task cards, reviews for bugs, debugs in test copies, small certain fixes | `gemini/<date>-<topic>` |
 
 Linux is the lead build: Windows matches it and never changes how it behaves on Linux.
@@ -33,7 +33,7 @@ tasks) and a card. Whoever opens a task writes the card; Gemini writes most of t
 ```
 [TASK]     BD-012 · one line: what has to be true when it is done
 [TARGET]   linux | windows | both
-[OWNER]    Claude Opus (Linux) | Claude Sonnet (Windows) | Gemini
+[OWNER]    Claude (Linux) | Claude (Windows) | Gemini
 [CONTRACT] the SPEC.md lines this touches (channels, library keys, shared behavior), or "none"
 [INPUT]    the file(s) · the current code (a short excerpt) · errors.log / test-copy output
 [DO]       weigh the best approach for the target platform first, then build it on your branch

@@ -1,6 +1,6 @@
 # Handoff between Claude and Gemini
 
-**Read `TEAM.md` first**: who does what (Claude Opus on Linux leads, Claude Sonnet on Windows,
+**Read `TEAM.md` first**: who does what (Claude on Linux leads, Claude on Windows,
 Gemini in Antigravity), branches, safety, and the owner's test list.
 
 Read this first. Newest entries at the top of the log. Mark a task "in progress: <name>" before
@@ -10,29 +10,29 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 Task IDs and cards: see TEAM.md (next free ID: BD-005).
 
-- **BD-001** · windows · Claude Sonnet · The Downloads window, Files' Y menu (Extract, Compress
+- **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
   .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
   Contract: SPEC §1 (web-dl-*, archive-*, fs-reveal, game-info), §3 downloads. Verify:
   `npm run check`, `npm run test-copy -- --real`, then in DevTools (port 9333):
   `WebDl.open()`, and `api.archiveRun({op:'compress', file:'<an allowed folder>', fmt:'7z'})`.
-  **Done, Windows (Claude Sonnet), no code change:** test copy with --real, scripted over port
+  **Done, Windows (Claude Windows), no code change:** test copy with --real, scripted over port
   9333. webDlFolders: dl `C:\Users\natha\Downloads`, games `...\Games\ROMs\Downloaded`, 7-Zip
   found. Compress .7z and .zip and Extract (into "Some Game (2)", no overwrite) all ok in
   ~\Bladedeck; a path outside (C:\Windows\win.ini) is refused. gameInfo(L4D2) returns kind,
   story, play, multi, split. errors.log empty. Not checked: Show in Explorer (the test copy
   blocks fs-reveal by design) and the Downloads window's look (WebDl.open() ran without error,
   but the scripted text read the guide behind it); both need the owner's eyes.
-- **BD-002** · windows · Claude Sonnet · ROM tidy and naming on Windows paths: `Watch.romTitle`
+- **BD-002** (done) · windows · Claude (Windows) · ROM tidy and naming on Windows paths: `Watch.romTitle`
   and `Watch.fits` with backslash paths (`C:\Games\Crackdown.1.EUR.X360-ZTM\default.xex`,
   a `.bin` under `...\pfx\drive_c\...`). Contract: SPEC §2 (romTidy).
-  **Done, Windows (Claude Sonnet), no code change:** the real fits/romTitle/junk code run in node
+  **Done, Windows (Claude Windows), no code change:** the real fits/romTitle/junk code run in node
   on Windows paths: Crackdown.1.EUR.X360-ZTM\default.xex -> "Crackdown 1"; PS3_GAME\USRDIR\EBOOT.BIN
   -> its folder's name; .bin under pfx\drive_c and compatdata skipped; a plain PSX .bin kept. Note
   only: the extension regex `/\.([^./]+)$/` lets a backslash in, so an extension-less file under
   a dotted folder gets a junk "extension" (it never matches a list, so it is harmless).
 - **BD-003** · both · Gemini · Audit master `53c2aac..dfe66ea` (Nearby hint, clip scoring, game
   info, Downloads, archive.js, test-copy mode, ROM tidy, SPEC check) with `/bladedeck-audit`.
-- **BD-004** · both · owner + Claude Opus · Nearby both ways once the Linux firewall line is run:
+- **BD-004** · both · owner + Claude (Linux) · Nearby both ways once the Linux firewall line is run:
   each PC lists the other, a file goes each way with Accept. Contract: SPEC §3 Nearby.
 
 ### For Gemini (in this order)
@@ -48,6 +48,22 @@ Task IDs and cards: see TEAM.md (next free ID: BD-005).
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-14, Claude (Linux, lead):** Team setup and debug round 2.
+  TEAM.md (roles, branches, task cards, the debug loop with Gemini's audit, safety, the owner's
+  test list), SPEC.md (shared interface; `npm run spec`, now part of `npm run check`, fails when a
+  preload channel has no handler or the table drifts), Antigravity rules and workflows in
+  `.agents/` (/bladedeck-audit, /bladedeck-review, /bladedeck-test). `npm run test-copy`
+  (main.js TEST): scratch userData, no controller, no peek, outward channels answer null; one at
+  a time. Backup before this round: ~/Downloads/bladedeck-backups/2026-10-14-pre-debug-loop/.
+  Sweeps in test copies over the real library (48 System items, 7 blades and every game, pad
+  input, 8 Settings tabs, every PC drawer window per game type, Browse, Get games, Guide, Settings
+  save): fixed the walkthrough panel (loadURL before dom-ready), System > Downloads now opens the
+  Downloads window, ROMs from Wine prefixes and default.xex names (one-time romTidy, art looked up
+  again), art picks SteamGridDB's exact-name match from the console's years, a site with no search
+  says so in Browse. Merged windows-fixes (BD-001/002 done on Windows; e860aa0 AMF replay
+  reviewed: Windows-only, fine). Audit by lead (Gemini not running): npm run spec OK.
+  Known: FaceBreaker (Xbox 360) gets the Wii K.O. Party cover, SteamGridDB has no other.
 
 - **2026-10-14, Claude (Windows):** Debug round on master 2c7da57 (merged into windows-fixes).
   Replay: AMF encodes straight from ddagrab's GPU frames (e860aa0), ffmpeg 89% -> 5% of a core.
