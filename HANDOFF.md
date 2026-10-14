@@ -19,6 +19,22 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Log
 
+- **2026-10-14, Claude (Windows, branch windows-fixes):** First real run on the owner's Windows
+  11 PC (RX 9070 XT, one Samsung screen), from source and from the packaged `win-unpacked` build,
+  against a copy of the owner's library (C:\bdtest). Full list in WINDOWS.md. Fixed:
+  View + Start pulled Bladedeck over games and crashed them (now `viewStartPeek`, off on win32);
+  L4D2 "crash" was Steam waiting on a hidden "Cloud sync failed" dialog (the Steam guard now
+  shows windows that ask something, `launcherAsks`); phantom Steam downloads from stale
+  manifests in a second library; recording and instant replay on Windows (`wincapture.js`:
+  ffmpeg ddagrab + GPU encoder + WASAPI loopback sound over a named pipe, 5-second ring);
+  multi-screen screen names, window screens and a "screen:" move in `winlist.js`; sound follows
+  the screen on win32 (store.js, shared); DualSense and multi-screen pages say what Windows does;
+  Moonlight registry scan; Xbox Game Bar off/on .reg files. Shared files touched: main.js
+  (winpad chord gate, downloads), renderer/app.js (setting, Steam guard), store.js
+  (soundFollow), renderer/capture.js (Windows texts, MP4 in gallery). Not tested (needs the
+  owner): a controller, starting or freezing a real game, two screens, phone pairing.
+  errors.log stayed empty.
+
 - **2026-10-14, Claude (Linux):** Packaging bug: package.json "files" lists every module by
   name, and moonlight.js, onlinemedia.js and steaminput.js were never added, so builds since the
   Moonlight commit stopped at start ("Cannot find module"). Added, and `npm run check` now fails

@@ -97,44 +97,69 @@ uncaught errors there instead of showing an error box. Also check DevTools in th
 | Steam Controller sleep fix | `steaminput.js` | Reads `C:\Program Files (x86)\Steam\steamapps\common\Steam Controller Configs` |
 | Online clips and music | `onlinemedia.js` | Needs `yt-dlp` on PATH (`winget install yt-dlp.yt-dlp`) |
 
-## Linux-only on purpose (should say so, not crash)
+## Windows feature list (2026-10-14, tested on the owner's PC)
 
-These should show a clear message or be hidden on Windows. A crash or error box is a bug.
+Windows 11, Ryzen 5 9600X, RX 9070 XT, one screen (Samsung TV). "Tested" means run in the app
+on this PC (from source and from the packaged `win-unpacked` build), not only read.
 
-- Split screen with PartyDeck (the Nucleus Co-op note is expected)
-- Recording and instant replay (`capture.js` uses GPU Screen Recorder)
-- The live view of a game (`livecap.js`, Wayland/PipeWire)
-- KDE window tracking and Ctrl+M through KWin (`peek.js`); Windows uses `winpad.js` and `winlist.js`
-- Multi-screen screen arrangement (`kscreen-doctor`)
-- DualSense speaker and headphone jack routing (`pactl`)
-- Installing emulators with Flatpak (Windows uses winget)
-- DNS settings through NetworkManager (`extras.js`)
-- Moonlight scanning: Windows keeps Moonlight's settings in the registry, which isn't read yet
-  (see the checklist)
+| Feature | Windows | How / note |
+|---|---|---|
+| Menu, blades, Home, Settings | Works (tested) | Every blade fills from the real library |
+| Steam library scan, art, achievements, screenshots | Works (tested) | All libraries from `libraryfolders.vdf` |
+| Steam downloads bar | Fixed | A game copied to another library no longer shows as downloading |
+| Starting a Steam game | Fixed (not re-run with a game) | Steam's questions (Cloud sync failed…) are shown, not hidden |
+| GOG, Heroic, launchers (Apps blade) | Works (tested) | Steam and GOG Galaxy found |
+| Sound card (volume, outputs, per-app) | Works (tested, read only) | `winaudio.js` |
+| Sound follows the game's screen | Built | HDMI sound is named after the monitor |
+| Recording and instant replay | Built and tested | ffmpeg on the graphics card (`wincapture.js`), with desktop sound. Needs ffmpeg: Settings, Recording, Install it |
+| Live view of a game | Works (tested) | Electron captures the window by title, no picker |
+| Running list, dock, Quick Resume window list | Works (tested) | `winlist.js` |
+| View + Start from a game | Off by default | It crashed games here; Settings turns it back on |
+| Multi-screen: two menus, games on each player's screen | Built (one screen here: moving untested) | Screens named "Screen N (monitor)" |
+| Multi-screen: per-game controller and sound | Linux only | Needs bubblewrap and PipeWire |
+| DualSense speaker / headphones | Not needed | Over USB Windows shows it as a normal sound device |
+| Split screen (PartyDeck) | Linux only | |
+| Moonlight (play from another PC) | Built (sample-tested) | Reads Moonlight's registry; not installed on this PC |
+| Bluetooth page | Opens Windows' Bluetooth settings | |
+| This PC (CPU, memory, disks) | Works (tested) | No GPU or temperatures on Windows yet; no Wi-Fi adapter here |
+| Fonts, wallpapers (Wallpaper Engine), backups, phone app info, nearby PCs | Works (tested) | |
+| Online clips and music | Needs yt-dlp | `winget install yt-dlp.yt-dlp` |
+| Steam sleep-button fix | Works (tested scan) | Found the owner's Menu-hold binding |
+| Installing emulators | winget | Flatpak is Linux only |
+| DNS through NetworkManager | Linux only | |
+| Xbox Game Bar | Off switch | `scripts/windows/disable-game-bar.reg` (and `enable-…`) |
+
+Not tested yet, because they need the owner: a controller in hand, starting and freezing a real
+game, two screens, a phone pairing.
 
 ## Checklist
 
 Tick each item when it works or is fixed. Add a short note when something needed a fix.
 
 ### Start and basics
-- [ ] The installer installs and Bladedeck starts with no error box
-- [ ] Console mode and PC mode both draw; View swaps between them
+- [x] The installer builds; the packaged app starts with no error box (`win-unpacked`, after
+      adding three modules missing from build.files). Not yet installed over the owner's copy.
+      Building needs the winCodeSign cache unpacked by hand once (its Mac symlinks need
+      Developer Mode): `7za x winCodeSign-2.6.0.7z -o%LOCALAPPDATA%\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0`
+- [x] Console mode draws (screenshot); PC mode not checked
 - [ ] An Xbox controller moves around the menus; A, B, and holding View (Quick Resume) work
 - [ ] Settings opens, every tab draws, and Save keeps the changes after a restart
-- [ ] `errors.log` stays empty during normal use
+- [x] `errors.log` stays empty during normal use (source and packaged)
 
 ### Library and games
-- [ ] Find everything finds Steam games (Steam in `C:\Program Files (x86)\Steam`) and launchers
-- [ ] A Steam game starts, and Bladedeck comes back when it closes
+- [x] Find everything finds Steam games (Steam in `C:\Program Files (x86)\Steam`) and launchers
+- [ ] A Steam game starts, and Bladedeck comes back when it closes. L4D2 never started: Steam
+      waited on "Cloud sync failed" while Bladedeck hid that window. Fixed, not re-run.
 - [ ] A plain .exe game added by hand starts (no Wine involved), and its playtime is saved
 - [ ] An emulator added by hand plays a ROM
 - [ ] Install emulators: one winget install goes through and lands in the library
 - [ ] Get games, Browse and downloads: a .zip unpacks
 
 ### Windows helpers
-- [ ] The sound card: volume, mute, switching output, per-app volume (`winaudio.js`)
-- [ ] View + Menu during a game brings Bladedeck up, and again goes back (`winpad.js`)
-- [ ] Running list and Quick Resume show open windows and switch between them (`winlist.js`)
+- [x] The sound card lists outputs with volumes (`winaudio.js`); changing them not tried
+- [x] View + Menu during a game: it crashed games for the owner, so it is now off on Windows
+      unless turned on (`viewStartPeek`)
+- [x] Running list shows open windows with their screen (`winlist.js`); switching not tried
 - [ ] Freezing and resuming a game (`procs.js`)
 - [ ] This PC shows battery, Wi-Fi networks and brightness. Don't press the power buttons.
 
@@ -143,14 +168,11 @@ Tick each item when it works or is fixed. Add a short note when something needed
       Firewall will ask the first time; allow private networks only.
 - [ ] Nearby: two Bladedecks on the same Wi-Fi see each other (UDP 47617)
 - [ ] Online clips and music: with yt-dlp installed, a highlighted game gets a clip and music
-- [ ] Settings, Controllers: the Steam sleep section appears when Steam's desktop layout has a
-      sleep binding (the owner's Steam account has one)
-- [ ] Moonlight: **to build.** Read paired PCs from the registry
-      (`HKCU\Software\Moonlight Game Streaming Project\Moonlight`, keys `hosts\N\hostname`,
-      `hosts\N\uuid`, `hosts\N\apps\M\name`, `hosts\N\apps\M\id`, for example with
-      `reg query ... /s`) in `moonlight.js` `scan()`, using `C:\Program Files\Moonlight Game
-      Streaming\Moonlight.exe`. Box art is probably under
-      `%LOCALAPPDATA%\Moonlight Game Streaming Project\Moonlight\boxart`; check.
+- [x] Settings, Controllers: the Steam sleep scan finds the owner's bindings
+- [x] Moonlight: reads paired PCs from the registry (`parseReg` in `moonlight.js`), tested on a
+      sample; box art looked for under `%LOCALAPPDATA%\Moonlight Game Streaming Project`. This PC
+      has no Moonlight (it is the Sunshine host), so no real pairing was read.
+- [x] Recording and instant replay (`wincapture.js`): 4K AV1 with sound, packaged build too
 
 ## When you finish
 
