@@ -13,7 +13,7 @@ const DEFAULT_BLADES = [
   { id: 'games',  name: 'Games',     filter: {} },
   { id: 'steam',  name: 'Steam',     filter: { types: ['steam'] } },
   { id: 'emu',    name: 'Emulation', filter: { types: ['rom'] } },
-  { id: 'pc',     name: 'PC',        filter: { types: ['exe', 'recomp', 'gog'] } },
+  { id: 'pc',     name: 'PC',        filter: { types: ['exe', 'recomp', 'gog', 'stream'] } },
   { id: 'apps',   name: 'Apps',      filter: { types: ['app'] } },
   { id: 'system', name: 'System',    special: 'system' }
 ];
@@ -83,6 +83,8 @@ function loadLib() {
   // Libraries made before GOG support: GOG games belong on the PC blade too.
   const pc = lib.settings.blades.find((b) => b.id === 'pc');
   if (pc && pc.filter && Array.isArray(pc.filter.types) && pc.filter.types.includes('exe') && !pc.filter.types.includes('gog')) pc.filter.types.push('gog');
+  // And games streamed from another PC through Moonlight.
+  if (pc && pc.filter && Array.isArray(pc.filter.types) && pc.filter.types.includes('exe') && !pc.filter.types.includes('stream')) pc.filter.types.push('stream');
   return lib;
 }
 
@@ -990,6 +992,7 @@ require('./livecap').register();
 require('./webdl').register({ getWin: () => win });
 require('./finder').register();
 require('./minecraft').register();
+require('./moonlight').register();
 require('./backup').register({ getWin: () => win, libFile, dataDir });
 require('./discord').register({ settings: () => loadLib().settings });
 require('./adblock').register({ settings: () => loadLib().settings });

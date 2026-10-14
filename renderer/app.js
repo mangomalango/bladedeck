@@ -13,6 +13,7 @@ const TYPES = {
   exe:    { label: 'PC game',      glyph: '▶' },
   recomp: { label: 'Native port',  glyph: '⟲' },
   gog:    { label: 'GOG',          glyph: 'G' },
+  stream: { label: 'Streamed',     glyph: '☾' },
   rom:    { label: 'Emulated',     glyph: '◉' },
   app:    { label: 'App',          glyph: '◆' }
 };
@@ -287,7 +288,7 @@ function systemGroups() {
   ];
   return [
     { id: 'grp-lib', title: 'Games and library', sub: 'Add, scan, find art, get games, sources', glyph: '▦', children: [
-      { id: 'sys-quick', title: 'Find everything', sub: 'Steam, GOG, Heroic and store launchers in one go', glyph: '✦', run: findEverything },
+      { id: 'sys-quick', title: 'Find everything', sub: 'Steam, GOG, Heroic, Moonlight and store launchers in one go', glyph: '✦', run: findEverything },
       { id: 'sys-add', title: 'Add a game or app', sub: 'Pick a program, Steam ID or game file', glyph: '+', run: () => editEntry() },
       { id: 'sys-romfile', title: 'Open a game file', sub: 'Play any ROM or disc image right away, full screen', glyph: '💿', run: () => Roms.pickAndPlay() },
       { id: 'sys-get', title: 'Get games', sub: 'Free games, homebrew and emulators', glyph: '⬇', run: () => Shop.open() },
@@ -295,6 +296,7 @@ function systemGroups() {
       { id: 'sys-sources', title: 'Sources', sub: 'Your places for ROMs, emulators and BIOS files', glyph: '🧭', run: () => Roms.sources() },
       { id: 'sys-steam', title: 'Scan Steam library', sub: 'Find installed Steam games', glyph: 'S', run: () => scanSteam() },
       { id: 'sys-gog', title: 'Scan GOG games', sub: 'Find GOG installs and Heroic games', glyph: 'G', run: () => scanGog() },
+      { id: 'sys-moon', title: 'Moonlight streaming', sub: 'Play games streamed from your other PCs', glyph: '☾', run: () => moonlightMenu() },
       { id: 'sys-art', title: 'Find missing art', sub: 'Covers and backgrounds from Steam and SteamGridDB', glyph: '🖼', run: () => Art.fillAll() },
       { id: 'sys-dl', title: 'Downloads', sub: 'What is downloading, and what finished', glyph: '⬇', run: () => Notify.open() }] },
     { id: 'grp-soft', title: 'Gaming software', sub: 'Emulators, launchers, Minecraft and extras', glyph: '◉', children: [
@@ -874,7 +876,7 @@ function editEntry(existing, preset = {}) {
       <label>Name<input type="text" name="title" value="${esc(e.title)}"></label>
       <label>Type<select name="type">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}" ${e.type === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></label>
       <div data-for="steam"><label>Steam app ID<input type="text" name="appid" value="${esc(e.appid || '')}" placeholder="Found in the store page URL, for example 620"></label></div>
-      <div data-for="exe recomp app gog" style="display:flex;flex-direction:column;gap:12px">
+      <div data-for="exe recomp app gog stream" style="display:flex;flex-direction:column;gap:12px">
         <label>Program${row('exe', 'exe', e.exe)}</label>
         <label>Arguments<input type="text" name="args" value="${esc(e.args || '')}"></label>
         <label>Start in folder${row('cwd', 'dir', e.cwd, "Defaults to the program's folder")}</label>
@@ -1039,6 +1041,35 @@ async function scanGog(quiet) {
   return added;
 }
 
+// Moonlight: one entry per app on each PC Moonlight has paired. Pairing itself is done in Moonlight.
+async function scanMoonlight(quiet) {
+  const r = await api.moonlightScan();
+  if (!r.installed) { if (!quiet) toast(r.windows ? 'Moonlight was not found. Install it from moonlight-stream.org.' : 'Moonlight is not installed. Get it from Flathub (com.moonlight_stream.Moonlight).', 'err'); return 0; }
+  let added = 0;
+  for (const g of r.games) {
+    const ex = S.lib.entries.find((e) => e.type === 'stream' && e.streamKey === g.key);
+    if (ex) { Object.assign(ex, { exe: g.exe, args: g.args }); if (!ex.cover && g.cover) ex.cover = g.cover; continue; }
+    S.lib.entries.push({ id: uid(), type: 'stream', title: g.title, streamKey: g.key, system: g.host, exe: g.exe, args: g.args, cover: g.cover, added: Date.now(), playtime: 0 });
+    added++;
+  }
+  save(); refresh();
+  if (!quiet) toast(added ? `Added ${added} streamed game${added > 1 ? 's' : ''} to PC` : r.games.length ? 'Your Moonlight PCs are already here' : r.windows ? 'On Windows, add each Moonlight game by hand for now (Add a game, type Streamed).' : 'No paired PCs yet. Pair one in Moonlight first.');
+  return added;
+}
+function moonlightMenu() {
+  openModal({
+    title: 'Moonlight streaming',
+    html: `<p>Play games running on another PC, streamed here. That PC runs <b>Sunshine</b> (or has an NVIDIA card with GameStream).</p>
+      <ol><li>Open Moonlight and pick the PC. It shows a PIN.</li><li>Type the PIN into Sunshine on that PC (its web page, port 47990).</li><li>Come back and press Add streamed games. Each app the PC offers lands on the PC blade.</li></ol>
+      <p class="note">Your PCs and games are read from Moonlight, so apps added in Sunshine show up after Moonlight has seen them once. The stream uses Moonlight's own quality settings.</p>`,
+    buttons: [
+      { label: 'Open Moonlight', left: true, onClick: () => { api.moonlightOpen(); } },
+      { label: 'Close' },
+      { label: 'Add streamed games', primary: true, onClick: () => { scanMoonlight(); } }
+    ]
+  });
+}
+
 async function addLaunchers(quiet) {
   const found = await api.findLaunchers();
   let added = 0;
@@ -1054,8 +1085,8 @@ async function addLaunchers(quiet) {
 
 async function findEverything() {
   toast('Looking for games and launchers');
-  const st = await scanSteam(true), gog = await scanGog(true), la = await addLaunchers(true);
-  const parts = [st?.added && `${st.added} Steam`, gog && `${gog} GOG`, la && `${la} launcher${la > 1 ? 's' : ''}`].filter(Boolean);
+  const st = await scanSteam(true), gog = await scanGog(true), ml = await scanMoonlight(true), la = await addLaunchers(true);
+  const parts = [st?.added && `${st.added} Steam`, gog && `${gog} GOG`, ml && `${ml} streamed`, la && `${la} launcher${la > 1 ? 's' : ''}`].filter(Boolean);
   toast(parts.length ? `Found ${parts.join(', ')}. All set!` : 'Everything is already here.', 'fun');
   if (parts.length) { FX.ripple(null); Sound.play('ripple'); }
 }

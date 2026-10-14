@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('bladedeck', {
   openCss: () => ipcRenderer.invoke('open-css'),
   pathForFile: (f) => webUtils.getPathForFile(f),
   scanGog: (dirs) => ipcRenderer.invoke('scan-gog', dirs),
+  moonlightScan: () => ipcRenderer.invoke('moonlight-scan'),
+  moonlightOpen: () => ipcRenderer.invoke('moonlight-open'),
   downloads: () => ipcRenderer.invoke('downloads'),
   minimize: () => ipcRenderer.invoke('minimize'),
   findLaunchers: () => ipcRenderer.invoke('find-launchers'),

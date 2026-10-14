@@ -75,7 +75,7 @@ function drawNow() {
 /* -------------------------------------------------------------- Library */
 async function drawLibrary() {
   if (!lib) { view.innerHTML = '<p class="empty">Loading your games…</p>'; lib = await api('library').catch(() => []); }
-  const F = { all: () => true, fav: (e) => e.favorite, recent: (e) => e.last, steam: (e) => e.type === 'steam', emu: (e) => e.type === 'rom', pc: (e) => ['exe', 'gog', 'recomp'].includes(e.type), apps: (e) => e.type === 'app' };
+  const F = { all: () => true, fav: (e) => e.favorite, recent: (e) => e.last, steam: (e) => e.type === 'steam', emu: (e) => e.type === 'rom', pc: (e) => ['exe', 'gog', 'recomp', 'stream'].includes(e.type), apps: (e) => e.type === 'app' };
   let list = lib.filter(F[libFilter]).filter((e) => !libQ || e.title.toLowerCase().includes(libQ.toLowerCase()));
   list = libFilter === 'recent' ? list.sort((a, b) => b.last - a.last).slice(0, 30) : list.sort((a, b) => a.title.localeCompare(b.title));
   const chips = [['all', 'All'], ['fav', '★'], ['recent', 'Recent'], ['steam', 'Steam'], ['emu', 'Emulation'], ['pc', 'PC'], ['apps', 'Apps']];

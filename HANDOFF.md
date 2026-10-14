@@ -19,6 +19,15 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Log
 
+- **2026-10-14, Claude:** Moonlight streaming (`moonlight.js`). System, Gaming software,
+  Moonlight streaming (also part of Find everything) reads the PCs Moonlight has paired and each
+  one's apps from Moonlight's settings file (Flatpak or native; matched by uuid, so a renamed PC
+  in an old settings file is skipped), with Moonlight's cached box art, and adds each app as a
+  `stream` entry on the PC blade (`moonlight stream <PC> <app>`, through the normal launch path).
+  Pairing stays in Moonlight (Open Moonlight button). Windows keeps Moonlight's settings in the
+  registry, so there the scan finds nothing yet; entries can be added by hand (type Streamed).
+  Not tried with a live stream yet.
+
 - **2026-10-14, Claude (version 0.2.0):** the last open features from the Project Tracker.
   Game background while playing (`renderer/atmos.js` `playingBg`: a blurred clip, or a still
   picture when the processor is over 60%); console through a capture card (`renderer/hdmi.js`,
