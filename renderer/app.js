@@ -399,7 +399,7 @@ async function launch(e) {
   Sound.play('go');
   el?.classList.add('charging');
   // Steam and Heroic show their own "launching" pop-ups; stay on top of them until the game arrives.
-  const cover = e.type === 'steam' || (e.type === 'gog' && !e.exe);
+  let cover = e.type === 'steam' || (e.type === 'gog' && !e.exe);
   if (cover) { api.keepOnTop(true); guardSteam(); }
   const player = await Players.launchOpts();
   if (player && (e.type === 'steam' || (e.type === 'gog' && !e.exe))) toast(`${e.title} starts through ${e.type === 'steam' ? 'Steam' : 'Heroic'}, so it sees every controller.`);
@@ -407,13 +407,15 @@ async function launch(e) {
   const pending = api.launch({ entry: __state ? { ...plain, stateFile: __state } : plain, emulator, settings: S.lib.settings, player });
   const arrived = FX.tracers(el);
   const r = await pending;
+  // Started through Steam (Steam Input): Steam's launch pop-ups get the same cover as a Steam game.
+  if (r.ok && r.viaSteam && !cover) { cover = true; api.keepOnTop(true); guardSteam(); }
   if (!r.ok) { el?.classList.remove('charging'); FX.fizzle(el); toast(r.error, 'err'); launching = false; if (cover) { api.keepOnTop(false); steamGuard = null; } return; }
   await arrived;
   el?.classList.remove('charging');
   FX.ripple(el); Sound.play('ripple');
   Intro.play(e);
   e.lastPlayed = Date.now(); markDay(e); save();
-  S.playing = { id: e.id, t: Date.now(), pid: r.pid, tracked: !(e.type === 'steam' || (e.type === 'gog' && !e.exe)), covered: cover };
+  S.playing = { id: e.id, t: Date.now(), pid: r.pid, tracked: !(e.type === 'steam' || (e.type === 'gog' && !e.exe) || r.viaSteam), covered: cover, steamIds: r.steamIds || null };
   if (opened) { const p0 = S.playing, o = opened; isGameWindow(p0, o).then((ok) => { if (ok && !p0.winPid) { p0.winPid = o.pid; uncoverSteam(p0); } }); }
   // Every game started this run, so several can run at once (see Quick Resume).
   S.sessions = [...S.sessions.filter((x) => x.id !== e.id), S.playing];
@@ -489,10 +491,12 @@ async function isGameWindow(p, ev) {
   const e = p && S.lib.entries.find((x) => x.id === p.id);
   if (!e || !ev || !ev.pid || steamWin(ev.cls)) return false;
   if (p.winPid && ev.pid === p.winPid) return true;
+  // A game started through Steam (Steam Input) carries its non-Steam shortcut's ids instead.
+  const ids = p.steamIds || [];
   const app = String(ev.cls || '').match(/^steam_app_(\d+)$/i);
-  if (app) return e.type === 'steam' && String(e.appid) === app[1];
+  if (app) { if (ids.includes(app[1])) return true; if (!ids.length) return e.type === 'steam' && String(e.appid) === app[1]; }
   const info = await api.pidInfo(ev.pid).catch(() => null);
-  if (info?.appId) return e.type === 'steam' && String(e.appid) === String(info.appId);
+  if (info?.appId) { if (ids.includes(String(info.appId))) return true; if (!ids.length) return e.type === 'steam' && String(e.appid) === String(info.appId); }
   if (p.pid && (ev.pid === p.pid || info?.ancestors?.includes(p.pid))) return true;
   const c = normTitle(ev.caption), t = normTitle(e.title);
   return t.length > 3 && c.length > 3 && (c.includes(t) || t.includes(c));
@@ -1356,6 +1360,7 @@ function openSettings() {
       <section class="set-sec" data-sec="games">
         <nav class="set-jump">${[['g-run', 'Launching'], ['g-emu', 'Emulators'], ['g-fast', 'Faster starts'], ['g-where', 'Steam, GOG and Windows games'], ['g-watch', 'Watched folders']].map(([id, n]) => `<button type="button" data-jump="${id}">${n}</button>`).join('')}</nav>
         <h4 class="set-sub" id="g-run">Launching</h4>
+        <div class="checks"><label><input type="checkbox" name="steamInput" ${st.steamInput !== false ? 'checked' : ''}> Start games through Steam, so Steam Input works with every controller (Bladedeck adds them to Steam as non-Steam games, and opens itself through Steam too)</label></div>
         <div class="checks"><label><input type="checkbox" name="hideOnLaunch" ${st.hideOnLaunch ? 'checked' : ''}> Minimize Bladedeck while a game runs</label><label><input type="checkbox" name="autoFreeze" ${st.autoFreeze ? 'checked' : ''}> Pause games when I switch away</label><label><input type="checkbox" name="quietWhilePlaying" ${st.quietWhilePlaying ? 'checked' : ''}> Silence desktop pop-ups while playing</label><label><input type="checkbox" name="peekMinimize" ${st.peekMinimize ? 'checked' : ''}> Minimize the game when peeking with Ctrl+M</label><label><input type="checkbox" name="viewStartPeek" ${viewStartPeek() ? 'checked' : ''}> View + Start in a game brings up Bladedeck (off on Windows by default: switching away crashes some games)</label><label><input type="checkbox" name="achClips" ${st.achClips !== false ? 'checked' : ''}> Keep a clip of every achievement you unlock (30 seconds before to 5 after), shown behind the game</label></div>
         <h4 class="set-sub" id="g-emu">Emulators</h4>
         <div class="checks"><label><input type="checkbox" name="askStates" ${st.askStates !== false ? 'checked' : ''}> When an emulated game has save states, offer to continue from one</label><label><input type="checkbox" name="romsFullscreen" ${st.romsFullscreen !== false ? 'checked' : ''}> Emulated games always fill the screen (Xenia, PCSX2, Dolphin and the rest)</label></div>
@@ -1419,7 +1424,7 @@ function openSettings() {
       Object.assign(st, { soundPack: val(root, 'soundPack'), soundPackDir: val(root, 'soundPackDir') });
       Object.assign(st, { depth: chk(root, 'depth'), livingBg: chk(root, 'livingBg'), previewLoop: chk(root, 'previewLoop'), widget: chk(root, 'widget'), tvSafe: +val(root, 'tvSafe') || 0 });
       document.body.classList.toggle('depth', st.depth !== false); Atmos.apply();
-      Object.assign(st, { prewarmSteam: chk(root, 'prewarmSteam'), shaderCache: chk(root, 'shaderCache'), gamemode: chk(root, 'gamemode'), padBackground: chk(root, 'padBackground'), soundFollow: chk(root, 'soundFollow'),
+      Object.assign(st, { steamInput: chk(root, 'steamInput'), prewarmSteam: chk(root, 'prewarmSteam'), shaderCache: chk(root, 'shaderCache'), gamemode: chk(root, 'gamemode'), padBackground: chk(root, 'padBackground'), soundFollow: chk(root, 'soundFollow'),
         sgdbKey: val(root, 'sgdbKey'), raUser: val(root, 'raUser'), raKey: val(root, 'raKey') });
       Boot.setOn(st.bootAnim !== false); Guide.readSettings(root); Watch.readSettings(root); Capture.readSettings(root); Players.readControllers(root); Players.readMulti(root); Running.refresh();
       if (peekWas !== st.peekMinimize) api.peekConfig({ minimize: st.peekMinimize });

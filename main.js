@@ -225,7 +225,11 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
 else {
   app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
-  app.whenReady().then(() => { ensureUserFiles(); createWindow(); setTimeout(prewarmSteam, 3000); require('./bluetooth').startup(loadLib().settings).catch(() => {}); });
+  app.whenReady().then(async () => {
+    // Opened outside Steam: go again through Steam, so Steam gives the controller a gamepad layout.
+    if (await require('./steamlink').startThroughSteam(loadLib().settings).catch(() => false)) { app.quit(); return; }
+    ensureUserFiles(); createWindow(); setTimeout(prewarmSteam, 3000); require('./bluetooth').startup(loadLib().settings).catch(() => {});
+  });
   /* A helper program that is missing (more likely on Windows) or a bug in a background job must
      not stop Bladedeck with an error box: it goes to errors.log in Bladedeck's folder instead,
      which is the file to send when something misbehaves. */
@@ -326,10 +330,83 @@ function prewarmSteam() {
   }
 }
 
+/* How a library entry runs: program, arguments, folder and environment, the same for a start from
+   Bladedeck and for the launch script Steam uses (steamlink.js). Returns { error } when it cannot
+   run, or { open } for a shortcut file the system opens itself. */
+async function command(entry, emulator, settings, player) {
+  let exe, args, cwd;
+  const sub = (t) => t
+    .replaceAll('{rom}', entry.rom || '')
+    .replaceAll('{romdir}', entry.rom ? path.dirname(entry.rom) : '')
+    .replaceAll('{title}', entry.title || '');
+
+  if (entry.type === 'rom') {
+    if (!emulator) return { error: 'This game has no emulator. Open Edit and pick one.' };
+    if (!entry.rom || !fs.existsSync(entry.rom)) return { error: `Game file not found: ${entry.rom || '(none)'}` };
+    exe = emulator.exe;
+    args = splitArgs(emulator.args).map(sub);
+    // Starting from a save state: the emulator's own option, for a state found for this game.
+    if (entry.stateFile) args = await require('./savestates').withState(args, entry, emulator, String(entry.stateFile));
+    cwd = path.dirname(exe || '.');
+  } else {
+    exe = entry.exe;
+    args = splitArgs(entry.args).map(sub);
+    cwd = entry.cwd || path.dirname(exe || '.');
+  }
+
+  if (!exe || !fs.existsSync(exe)) return { error: `Program not found: ${exe || '(none)'}. Check the path in Edit.` };
+
+  const ext = path.extname(exe).toLowerCase();
+  if (ext === '.lnk' || ext === '.url') return { open: exe };
+
+  // Windows programs can't run directly on Linux/macOS, so hand them to Wine.
+  if (process.platform !== 'win32' && (ext === '.exe' || ext === '.msi')) {
+    args = ext === '.msi' ? ['msiexec', '/i', exe, ...args] : [exe, ...args];
+    exe = (settings && settings.wineCommand) || 'wine';
+  }
+
+  /* Games and emulators only read the controller while their window is in front, so pressing
+     buttons in Bladedeck's menu does not also play the game behind it. Many emulators ask SDL
+     for background input; the environment variable overrides that. A Flatpak needs it passed in. */
+  const padEnv = (settings && settings.padBackground) || (player && player.multi) ? {} : { SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS: '0' };
+  if (padEnv.SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS && path.basename(exe) === 'flatpak') {
+    const r = args.indexOf('run');
+    if (r >= 0) args.splice(r + 1, 0, '--env=SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=0');
+  }
+  // GameMode asks the system for full speed while the game runs.
+  const gm = settings && settings.gamemode && process.platform === 'linux' && onPath('gamemoderun');
+  if (gm) { args = [exe, ...args]; exe = gm; }
+  // Older games that freeze on many cores (The Suffering and other early-2000s engines): one core.
+  if (entry.oneCore && process.platform === 'linux' && onPath('taskset')) { args = ['-c', '0', exe, ...args]; exe = 'taskset'; }
+  // Multi-screen: the player's own controller only, their sound, and input while unfocused.
+  let playerEnv = {};
+  if (player && player.multi && process.platform === 'linux') {
+    const w = require('./players').wrapForPlayer(exe, args, player);
+    exe = w.exe; args = w.args; playerEnv = w.env;
+  }
+  // A game's own environment (Edit, Environment): KEY=value lines, such as WINEDLLOVERRIDES.
+  const ownEnv = {};
+  for (const line of String(entry.env || '').split(/\r?\n/)) {
+    const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line);
+    if (m) ownEnv[m[1]] = m[2].trim().replace(/^"(.*)"$/, '$1').replace(/^~(?=\/)/, os.homedir());
+  }
+  return { exe, args, cwd, ext, env: { ...(settings && settings.shaderCache === false ? {} : SHADER_ENV), ...padEnv, ...playerEnv, ...ownEnv } };
+}
+
 ipcMain.handle('launch', async (_e, { entry, emulator, settings, player }) => {
   // Whoever asked hears when the game ends: the main menu, or Player 2's.
   const asker = _e.sender;
   try {
+    // Through Steam, so Steam Input drives the controller (steamlink.js); not in multi-screen,
+    // where each game gets only its player's controller.
+    if (settings && settings.steamInput !== false && !(player && player.multi)) {
+      const v = await require('./steamlink').launch(entry, emulator, settings).catch(() => null);
+      if (v) {
+        if (settings.quietWhilePlaying) quiet(true);
+        require('./discord').setActivity({ title: entry.title, system: emulator?.name || entry.system || '', type: entry.type, started: Date.now() });
+        return v;
+      }
+    }
     if (entry.type === 'steam') {
       await shell.openExternal(`steam://rungameid/${encodeURIComponent(entry.appid)}`);
       if (settings && settings.quietWhilePlaying) quiet(true);
@@ -343,70 +420,15 @@ ipcMain.handle('launch', async (_e, { entry, emulator, settings, player }) => {
       return { ok: true };
     }
 
-    let exe, args, cwd;
-    const sub = (t) => t
-      .replaceAll('{rom}', entry.rom || '')
-      .replaceAll('{romdir}', entry.rom ? path.dirname(entry.rom) : '')
-      .replaceAll('{title}', entry.title || '');
-
-    if (entry.type === 'rom') {
-      if (!emulator) return { ok: false, error: 'This game has no emulator. Open Edit and pick one.' };
-      if (!entry.rom || !fs.existsSync(entry.rom)) return { ok: false, error: `Game file not found: ${entry.rom || '(none)'}` };
-      exe = emulator.exe;
-      args = splitArgs(emulator.args).map(sub);
-      // Starting from a save state: the emulator's own option, for a state found for this game.
-      if (entry.stateFile) args = await require('./savestates').withState(args, entry, emulator, String(entry.stateFile));
-      cwd = path.dirname(exe || '.');
-    } else {
-      exe = entry.exe;
-      args = splitArgs(entry.args).map(sub);
-      cwd = entry.cwd || path.dirname(exe || '.');
-    }
-
-    if (!exe || !fs.existsSync(exe)) return { ok: false, error: `Program not found: ${exe || '(none)'}. Check the path in Edit.` };
-
-    const ext = path.extname(exe).toLowerCase();
-    if (ext === '.lnk' || ext === '.url') {
-      const err = await shell.openPath(exe);
-      return err ? { ok: false, error: err } : { ok: true };
-    }
-
-    // Windows programs can't run directly on Linux/macOS, so hand them to Wine.
-    if (process.platform !== 'win32' && (ext === '.exe' || ext === '.msi')) {
-      args = ext === '.msi' ? ['msiexec', '/i', exe, ...args] : [exe, ...args];
-      exe = (settings && settings.wineCommand) || 'wine';
-    }
-
-    /* Games and emulators only read the controller while their window is in front, so pressing
-       buttons in Bladedeck's menu does not also play the game behind it. Many emulators ask SDL
-       for background input; the environment variable overrides that. A Flatpak needs it passed in. */
-    const padEnv = (settings && settings.padBackground) || (player && player.multi) ? {} : { SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS: '0' };
-    if (padEnv.SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS && path.basename(exe) === 'flatpak') {
-      const r = args.indexOf('run');
-      if (r >= 0) args.splice(r + 1, 0, '--env=SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=0');
-    }
+    const c = await command(entry, emulator, settings, player);
+    if (c.error) return { ok: false, error: c.error };
+    if (c.open) { const err = await shell.openPath(c.open); return err ? { ok: false, error: err } : { ok: true }; }
+    const { exe, args, cwd, ext } = c;
     const started = Date.now();
-    // GameMode asks the system for full speed while the game runs.
-    const gm = settings && settings.gamemode && process.platform === 'linux' && onPath('gamemoderun');
-    if (gm) { args = [exe, ...args]; exe = gm; }
-    // Older games that freeze on many cores (The Suffering and other early-2000s engines): one core.
-    if (entry.oneCore && process.platform === 'linux' && onPath('taskset')) { args = ['-c', '0', exe, ...args]; exe = 'taskset'; }
-    // Multi-screen: the player's own controller only, their sound, and input while unfocused.
-    let playerEnv = {};
-    if (player && player.multi && process.platform === 'linux') {
-      const w = require('./players').wrapForPlayer(exe, args, player);
-      exe = w.exe; args = w.args; playerEnv = w.env;
-    }
-    // A game's own environment (Edit, Environment): KEY=value lines, such as WINEDLLOVERRIDES.
-    const ownEnv = {};
-    for (const line of String(entry.env || '').split(/\r?\n/)) {
-      const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line);
-      if (m) ownEnv[m[1]] = m[2].trim().replace(/^"(.*)"$/, '$1').replace(/^~(?=\/)/, os.homedir());
-    }
     const child = spawn(exe, args, {
       cwd, detached: true, stdio: 'ignore',
       shell: ext === '.bat' || ext === '.cmd',
-      env: { ...process.env, ...(settings && settings.shaderCache === false ? {} : SHADER_ENV), ...padEnv, ...playerEnv, ...ownEnv }
+      env: { ...process.env, ...c.env }
     });
     await new Promise((res, rej) => { child.once('spawn', res); child.once('error', rej); });
     child.unref();
@@ -1017,6 +1039,7 @@ require('./moonlight').register();
 require('./onlinemedia').register(() => loadLib().settings);
 require('./steaminput').register();
 require('./bluetooth').register();
+require('./steamlink').register({ command, loadLib });
 require('./backup').register({ getWin: () => win, libFile, dataDir });
 require('./discord').register({ settings: () => loadLib().settings });
 require('./adblock').register({ settings: () => loadLib().settings });

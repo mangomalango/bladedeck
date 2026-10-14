@@ -172,6 +172,8 @@ contextBridge.exposeInMainWorld('bladedeck', {
   btScan: () => ipcRenderer.invoke('bt-scan'),
   btPair: (mac) => ipcRenderer.invoke('bt-pair', mac),
   btSettings: () => ipcRenderer.invoke('bt-settings'),
+  steamlinkSync: () => ipcRenderer.invoke('steamlink-sync'),
+  steamlinkRestart: () => ipcRenderer.invoke('steamlink-restart'),
   saveStates: (e) => ipcRenderer.invoke('save-states', e),
   rdAccount: () => ipcRenderer.invoke('rd-account'),
   rdList: () => ipcRenderer.invoke('rd-list'),

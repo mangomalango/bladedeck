@@ -57,6 +57,7 @@
       "onlinemedia.js",
       "steaminput.js",
       "bluetooth.js",
+    "steamlink.js",
       "preload.js",
       "renderer/**",
       "themes/**"

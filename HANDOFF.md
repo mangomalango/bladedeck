@@ -19,6 +19,22 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Log
 
+- **2026-10-14, Claude (Linux):** Steam Input for every game (`steamlink.js`, `renderer/steamlink.js`,
+  Settings, Games, "Start games through Steam", on by default). Every exe/recomp/gog/rom entry becomes a
+  non-Steam game tagged "Bladedeck" in Steam's shortcuts.vdf (binary VDF; round-trip byte-identical on
+  the owner's file; the player's own shortcuts untouched; ids from the library id, so renames keep
+  them). Each points at a launch script in userData/steam-launch made by main.js `command()` (the
+  launch command, now shared with Bladedeck's own start), rewritten before every start. Steam only
+  takes new entries while closed: written at once when it is, else the menu asks once to restart
+  Steam (steam -shutdown, write, steam -silent). A copy of shortcuts.vdf is kept per day. Games whose
+  drive is unplugged keep their entry. Bladedeck itself is added too and, when opened outside Steam
+  while Steam runs, reopens through Steam (--via-steam / SteamGameId stop loops; one try a minute),
+  so Steam gives it a gamepad layout instead of the desktop one (Start/Back were Task View and the
+  keyboard on Windows). Launches through Steam return steamIds; isGameWindow matches them.
+  Tested: scratch runs over the owner's real library (9 games, second pass no changes), build
+  start-test with it off. Not yet tried: an actual start through Steam, and Windows (.cmd scripts
+  only when a game has its own environment, else Steam runs the exe directly).
+
 - **2026-10-14, Claude (Windows):** Released v0.2.2 (owner's go-ahead): the Windows work above,
   Bluetooth, and the packaging fix. AppImage and exe from this commit's CI run; the phone app is
   v0.2.1's (Android 1.2, unchanged). Installed on the owner's Windows PC.
