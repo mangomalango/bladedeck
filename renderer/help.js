@@ -1,6 +1,7 @@
 'use strict';
 /* Help: "Confused? Start here." One place for everything that helps: the quick start, the tour by
    topic, the controls, the guide, voice control (on, off, and what to say), the browser, settings
+   every add-on (Tailscale, RetroAchievements, AdGuard, Discord, backups…) to set up at any time,
    and the answers to the questions people ask most. Opens from ❓ in the top bar, System, or F1.
    Uses S, api, esc, toast, openModal, closeModal, save, Tour, Guide, Voice, Panels and $ at call time. */
 const Help = (() => {
@@ -28,6 +29,8 @@ const Help = (() => {
         <button type="button" data-h="browser" class="hp-tile"><i>🌐</i><b>Browser</b><small>The web, inside Bladedeck</small></button>
         <button type="button" data-h="settings" class="hp-tile"><i>⚙</i><b>Settings</b><small>With a search to find any setting</small></button>
       </div>
+      <div class="side-h">Add-ons you can set up any time</div>
+      <div class="hp-extras"><p class="note">Looking at what is set up…</p></div>
       <div class="side-h">The tour, by topic</div>
       <div class="hp-chaps">${chapters}</div>
       <div class="side-h">Voice control</div>
@@ -41,12 +44,24 @@ const Help = (() => {
       <div class="hp-faq">${FAQ.map(([q, a, acts], k) => `<details${k ? '' : ' open'}><summary>${esc(q)}</summary><p>${esc(a)}</p>${acts.length ? `<div class="btns">${acts.map(([l], j) => `<button type="button" data-faq="${k}:${j}">${esc(l)}</button>`).join('')}</div>` : ''}</details>`).join('')}</div>
     </div>`;
   }
+  /* Every extra (Tailscale, RetroAchievements, AdGuard, Discord, backups, updates, replay, voice,
+     the phone app, GameMode) and the cover art key, each with whether it is set up. A press opens
+     that one, ready to set up. */
+  async function fillExtras(root) {
+    const box = $('.hp-extras', root);
+    const l = await Extras.list().catch(() => []);
+    if (!box?.isConnected) return;
+    const sgdb = { id: 'sgdb', icon: '🖼', name: 'Cover art (SteamGridDB)', what: 'Hundreds more covers and backgrounds with a free key.', on: !!st().sgdbKey, state: st().sgdbKey ? 'Key added' : 'No key yet' };
+    box.innerHTML = [...l, sgdb].map((x) => `<button type="button" class="hp-ext ${x.on ? 'on' : ''}" data-ext="${esc(x.id)}" title="${esc(x.what)}"><i>${x.icon}</i><span><b>${esc(x.name)}</b><small>${x.on ? '✓ ' : ''}${esc(x.state || (x.on ? 'On' : 'Not set up'))}</small></span></button>`).join('')
+      || '<p class="note">Suggested extras could not be read. They are in System, Gaming software, Suggested extras.</p>';
+  }
   // Leave Help, then open the thing (after the modal has gone).
   const go = (fn) => { closeModal(); setTimeout(fn, 60); };
   function open() {
     openModal({
       title: '❓ Help', wide: true, className: 'help', html: html(), buttons: [{ label: 'Close', primary: true }],
       onOpen: (root) => {
+        fillExtras(root);
         root.addEventListener('change', (ev) => {
           const v = ev.target.dataset.v; if (!v) return;
           st()[v] = ev.target.checked; save(); Voice.syncWake?.();
@@ -54,7 +69,8 @@ const Help = (() => {
           toast(v === 'voice' ? (st().voice ? 'Voice control is on. Tap 🎤 or press Space and talk.' : 'Voice control is off.') : (st().voiceWake ? 'Listening for "Hey Blade".' : 'Not listening for "Hey Blade".'));
         });
         root.addEventListener('click', (ev) => {
-          const b = ev.target.closest('[data-h], [data-chap], [data-faq]'); if (!b) return;
+          const b = ev.target.closest('[data-h], [data-chap], [data-faq], [data-ext]'); if (!b) return;
+          if (b.dataset.ext) { const id = b.dataset.ext; go(() => (id === 'sgdb' ? openSettingsAt('online') : Extras.open(id))); return; }
           if (b.dataset.chap) { go(() => Tour.chapter(b.dataset.chap)); return; }
           if (b.dataset.faq) { const [k, j] = b.dataset.faq.split(':').map(Number); go(FAQ[k][2][j][1]); return; }
           ({

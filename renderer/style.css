@@ -1759,6 +1759,13 @@ body.hdmi-on > #top, body.hdmi-on > #hints { opacity: 0; pointer-events: none; }
 .hp-chap small { color: var(--ink-dim); }
 #modal .hp-voice > label.row { display: flex; flex-direction: row; text-align: left; align-items: center; justify-content: space-between; }
 .hp-voice > .note, .hp-voice > .btns { padding: 4px 16px 12px; margin: 0; }
+.hp-extras { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.hp-ext { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; text-align: left; }
+.hp-ext i { font-style: normal; font-size: 22px; flex: none; }
+.hp-ext span { display: grid; gap: 1px; min-width: 0; }
+.hp-ext small { color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hp-ext.on small { color: var(--ok, #7ddc7a); }
+.ex-card.ex-focus { outline: 3px solid var(--accent-hi); outline-offset: 2px; }
 .hp-say { display: inline-block; margin: 2px 4px 2px 0; padding: 2px 10px; border-radius: 99px; background: rgba(255,255,255,.08); }
 .hp-faq details { border-radius: 12px; background: rgba(255,255,255,.05); margin-bottom: 6px; padding: 10px 14px; }
 .hp-faq summary { cursor: pointer; font-weight: 600; font-size: 15px; }

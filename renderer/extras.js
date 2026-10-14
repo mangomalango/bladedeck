@@ -72,7 +72,9 @@ const Extras = (() => {
     ];
   }
 
-  async function open() {
+  // Help lists every extra too, so any of them can be set up at any time.
+  async function list() { return (await cards()).map(({ id, icon, name, what, on, state }) => ({ id, icon, name, what, on, state })); }
+  async function open(focus) {
     const list = await cards();
     const html = `<p class="note">Optional extras that make Bladedeck better. Each one is off until you turn it on, and you can change your mind any time here (System, Suggested extras).</p>
       <div class="ex-grid">${list.map((c) => `<div class="ex-card ${c.on ? 'on' : ''}" data-id="${c.id}">
@@ -84,6 +86,9 @@ const Extras = (() => {
       buttons: [{ label: 'Done', primary: true, onClick: (root) => { read(root); } }],
       onOpen: (root) => {
         root.querySelector('.dlg').classList.add('extras');
+        // Opened for one extra (from Help): that card, in view and lit up.
+        const card = focus && root.querySelector(`.ex-card[data-id="${focus}"]`);
+        if (card) { card.classList.add('ex-focus'); setTimeout(() => card.scrollIntoView({ block: 'center', behavior: 'smooth' }), 120); card.querySelector('input, button')?.focus(); }
         root.addEventListener('change', async (ev) => {
           const k = ev.target.dataset.ex;
           if (k === 'adblock') { st().adblock = ev.target.checked; save(); toast(ev.target.checked ? 'Ads and pop-ups are blocked in Bladedeck\'s browser.' : 'Bladedeck\'s browser shows ads again.'); }
@@ -141,5 +146,5 @@ const Extras = (() => {
     if (s.updateRepo && s.updateCheck && Date.now() - (s.lastUpdateCheck || 0) > DAY) setTimeout(() => checkUpdate(false), 30000);
   }
 
-  return { open, boot, backupNow, checkUpdate };
+  return { open, list, boot, backupNow, checkUpdate };
 })();
