@@ -150,14 +150,32 @@ function withScreens(out) {
   }
   return l;
 }
+/* Windows tells nobody when a window opens or closes, which KWin's script does on KDE. Comparing
+   one list with the next gives the same "opened" and "gone" events, so the menu can tell when a
+   game's window has arrived (and stop waiting) or closed. */
+let known = null, onEvent = () => {};
+function diff(l) {
+  if (process.platform !== 'win32') return;
+  const ids = new Map(l.map((w) => [w.id, w]));
+  if (known) {
+    for (const [id, w] of ids) if (!known.has(id)) onEvent({ kind: 'opened', caption: w.caption, pid: w.pid, cls: w.cls });
+    for (const [id, w] of known) if (!ids.has(id)) onEvent({ kind: 'gone', caption: w.caption, pid: w.pid, cls: w.cls });
+  }
+  known = ids;
+}
 async function poll() {
   const out = x11 ? await x11List() : await ask('list');
-  if (out !== last) { last = out; const l = withScreens(out); if (l) send(l); }
+  if (out !== last) { last = out; const l = withScreens(out); if (l) { diff(l); send(l); } }
+}
+// The window in front right now (not Bladedeck's): what Ctrl+M on Windows peeks away from.
+async function foreground() {
+  if (process.platform !== 'win32' || !proc) return null;
+  try { return JSON.parse(await ask('list')).find((w) => w.active) || null; } catch { return null; }
 }
 
 // mode is the peek mode; with KWin the script already sends windows.
-function start({ dir, mode, onList }) {
-  send = onList;
+function start({ dir, mode, onList, onWindowEvent }) {
+  send = onList; if (onWindowEvent) onEvent = onWindowEvent;
   if (mode === 'kwin' || timer) return false;
   if (process.platform === 'win32') startWin(dir);
   else if (process.platform === 'linux' && process.env.DISPLAY && process.env.XDG_SESSION_TYPE !== 'wayland') {
@@ -195,4 +213,4 @@ async function act(id, a) {
 
 function stop() { clearInterval(timer); timer = 0; if (proc) { try { proc.stdin.end(); proc.kill(); } catch { /* gone */ } proc = null; } }
 
-module.exports = { start, act, stop };
+module.exports = { start, act, stop, foreground };

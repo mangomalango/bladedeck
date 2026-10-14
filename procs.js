@@ -176,4 +176,31 @@ function info(pid) {
   return { ancestors, appId };
 }
 
-module.exports = { init, freeze, isFrozen, list, thawAll, info, isOwn };
+/* Windows: no /proc. The process's program and its parents come from WMI, and a Steam game is
+   known by where its program lives: steamapps\common\<installdir>, which the app's manifest names. */
+function steamInstallDirs() {
+  const roots = [path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Steam')];
+  const libs = new Set(roots);
+  for (const r of roots) { try { for (const m of fs.readFileSync(path.join(r, 'steamapps', 'libraryfolders.vdf'), 'utf8').matchAll(/"path"\s+"([^"]+)"/g)) libs.add(m[1].replace(/\\\\/g, '\\')); } catch { /* one library */ } }
+  const map = new Map();
+  for (const lib of libs) {
+    let files; try { files = fs.readdirSync(path.join(lib, 'steamapps')); } catch { continue; }
+    for (const f of files) {
+      const id = (/^appmanifest_(\d+)\.acf$/.exec(f) || [])[1]; if (!id) continue;
+      try { const d = (fs.readFileSync(path.join(lib, 'steamapps', f), 'utf8').match(/"installdir"\s+"([^"]+)"/) || [])[1]; if (d) map.set(path.join(lib, 'steamapps', 'common', d).toLowerCase(), id); } catch { /* mid-write */ }
+    }
+  }
+  return map;
+}
+function infoWin(pid) {
+  pid = +pid; if (!pid) return Promise.resolve({ ancestors: [], appId: '' });
+  const ps = `$p = Get-CimInstance Win32_Process -Filter "ProcessId=${pid}"; $a = @(); $q = $p.ParentProcessId; for ($i = 0; $i -lt 20 -and $q; $i++) { $a += $q; $q = (Get-CimInstance Win32_Process -Filter "ProcessId=$q").ParentProcessId }; @{ path = [string]$p.ExecutablePath; anc = $a } | ConvertTo-Json -Compress`;
+  return new Promise((res) => require('child_process').execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], { windowsHide: true, timeout: 8000 }, (err, out) => {
+    let j = {}; try { j = JSON.parse(String(out)); } catch { /* gone */ }
+    const exe = String(j.path || '').toLowerCase(); let appId = '';
+    if (exe.includes('\\steamapps\\common\\')) for (const [dir, id] of steamInstallDirs()) if (exe.startsWith(dir + '\\')) { appId = id; break; }
+    res({ ancestors: [].concat(j.anc || []).map(Number).filter(Boolean), appId });
+  }));
+}
+
+module.exports = { init, freeze, isFrozen, list, thawAll, info, infoWin, isOwn };

@@ -177,7 +177,9 @@ function createWindow() {
       .then((m) => {
         if (win) win.webContents.send('peek', { kind: 'mode', mode: m });
         // Without KWin, list windows another way (Windows, or Linux on X11 with wmctrl).
-        require('./winlist').start({ dir: dataDir(), mode: m, onList: (l) => { if (win && !win.isDestroyed()) win.webContents.send('peek', { kind: 'windows', caption: JSON.stringify(l), pid: 0, cls: '' }); } });
+        require('./winlist').start({ dir: dataDir(), mode: m, onList: (l) => { if (win && !win.isDestroyed()) win.webContents.send('peek', { kind: 'windows', caption: JSON.stringify(l), pid: 0, cls: '' }); },
+          // Windows: windows opening and closing, as KWin reports them on KDE.
+          onWindowEvent: (ev) => { if (win && !win.isDestroyed()) win.webContents.send('peek', ev); const p2 = require('./players').p2(); if (p2 && !p2.isDestroyed()) p2.webContents.send('peek', ev); } });
       });
     if (process.platform === 'win32') require('./winpad').start(dataDir(), () => { if (loadLib().settings.viewStartPeek === true) peekToggle(); }, (kind = 'pip') => { if (win) win.webContents.send('peek', { kind, caption: '', pid: 0, cls: '' }); });
   });
@@ -1024,7 +1026,7 @@ const Procs = require('./procs');
 app.whenReady().then(() => Procs.init(dataDir()));
 ipcMain.handle('proc-freeze', (_e, pid, on) => Procs.freeze(pid, !!on));
 ipcMain.handle('proc-frozen', () => Procs.list());
-ipcMain.handle('pid-info', (_e, pid) => Procs.info(pid));
+ipcMain.handle('pid-info', (_e, pid) => (process.platform === 'win32' ? Procs.infoWin(pid) : Procs.info(pid)));
 const WebApps = require('./webapps').register({ getDeck: () => win });
 WebApps.setSend((ch, d) => { if (win && !win.isDestroyed()) win.webContents.send(ch, d); });
 // Keep Bladedeck over Steam's "launching" pop-ups until the game's own window arrives.

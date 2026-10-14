@@ -143,7 +143,8 @@ async function start(w, { dataDir, minimize, handler }) {
   if (helper) { helper.kill(); helper = null; }
   // Fallback: Ctrl+M shows Bladedeck, and from Bladedeck it minimizes it to reveal the game.
   try {
-    globalShortcut.register('CommandOrControl+M', electronToggle);
+    // Another app holding Ctrl+M leaves it dead with no sign; say so in errors.log.
+    if (!globalShortcut.register('CommandOrControl+M', electronToggle)) logProblem('Ctrl+M is taken by another app, so peeking with it does not work.');
     for (const [k, kind] of [['CommandOrControl+Alt+Y', 'pip'], ['CommandOrControl+Alt+R', 'rec'], ['CommandOrControl+Alt+S', 'clip'], ['CommandOrControl+Alt+V', 'voice']]) {
       try { globalShortcut.register(k, () => onEvent({ kind, caption: '', pid: 0, cls: '' })); } catch { /* taken */ }
     }
@@ -152,17 +153,20 @@ async function start(w, { dataDir, minimize, handler }) {
   return mode;
 }
 
-function electronToggle() {
+function logProblem(msg) { try { fs.appendFileSync(path.join(path.dirname(scriptFile), 'errors.log'), `${new Date().toISOString()} peek: ${msg}\n`); } catch { /* no log */ } }
+
+async function electronToggle() {
   if (!win) return;
-  if (win.isFocused()) onEvent({ kind: 'want-back' });
-  else {
-    win.restore(); win.show();
-    // Windows does not let a background app take the screen from a game with focus() alone;
-    // being on top for a moment gets it there.
-    if (process.platform === 'win32') { win.setAlwaysOnTop(true, 'screen-saver'); win.moveTop(); win.focus(); setTimeout(() => { if (win) win.setAlwaysOnTop(false); }, 300); }
-    else win.focus();
-    onEvent({ kind: 'peek', caption: '', pid: 0, cls: '' });
-  }
+  if (win.isFocused()) { onEvent({ kind: 'want-back' }); return; }
+  // Windows: name the window being peeked away from (the game), as KWin does, so the menu shows
+  // that game and "back" returns to it instead of an empty "Your game".
+  const from = process.platform === 'win32' ? await require('./winlist').foreground().catch(() => null) : null;
+  win.restore(); win.show();
+  // Windows does not let a background app take the screen from a game with focus() alone;
+  // being on top for a moment gets it there.
+  if (process.platform === 'win32') { win.setAlwaysOnTop(true, 'screen-saver'); win.moveTop(); win.focus(); setTimeout(() => { if (win) win.setAlwaysOnTop(false); }, 300); }
+  else win.focus();
+  onEvent({ kind: 'peek', caption: from?.caption || '', pid: from?.pid || 0, cls: from?.cls || '' });
 }
 
 // The same as pressing Ctrl+M, for the controller.

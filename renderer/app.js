@@ -418,16 +418,7 @@ async function launch(e) {
   // Every game started this run, so several can run at once (see Quick Resume).
   S.sessions = [...S.sessions.filter((x) => x.id !== e.id), S.playing];
   Players.launched(S.playing, e, player); Roms.launched(S.playing, e); AchClips.session(S.playing, e);
-  if (S.playing.covered) {
-    const p0 = S.playing;
-    setTimeout(() => {
-      if (!p0.covered) return;
-      // Still no game: Steam is probably asking something. Show it.
-      const asked = steamGuard && steamGuard.hidden.size;
-      if (!p0.winPid && asked) { revealSteam(); toast('Steam seems to need you. Bladedeck will wait for the game.'); }
-      uncoverSteam(p0);
-    }, 25000);
-  }
+  { const p0 = S.playing; setTimeout(() => slowStart(p0, e), 20000); }
   Tasks.sync(e);
   if (e.recordNext) { e.recordNext = false; save(); Capture.recordFor(e, 300); }
   Capture.sessionStarted();
@@ -435,9 +426,9 @@ async function launch(e) {
     launching = false;
     syncAway();
     const p = S.playing;
-    // On KDE we see the game's window arrive, so stay up until it does instead of dropping to the
-    // desktop while Steam is still getting the game ready.
-    if (p && !p.winPid && NowPlaying.mode() === 'kwin') {
+    // On KDE and Windows we see the game's window arrive, so stay up until it does instead of
+    // dropping to the desktop while Steam is still getting the game ready.
+    if (p && !p.winPid && seesWindows()) {
       p.waiting = true; toast(cover ? `Starting ${e.title}… Press X if Steam needs you.` : `Starting ${e.title}…`);
       setTimeout(() => { if (p.waiting) { p.waiting = false; uncoverSteam(p); } }, 180000);
       return;
@@ -447,6 +438,42 @@ async function launch(e) {
     // Let the intro finish before tucking Bladedeck away.
     if (S.lib.settings.hideOnLaunch && !Players.on()) setTimeout(() => { Sound.duck(true); api.minimize(); }, Intro.playing() ? 3000 : 0);
   }, fxOn() ? 1500 : 0);
+}
+
+// Where Bladedeck sees windows open and close: KWin's script on KDE, winlist.js on Windows.
+const seesWindows = () => NowPlaying.mode() === 'kwin' || navigator.userAgent.includes('Windows');
+
+/* 20 seconds and still no game: Steam may be asking something behind the cover (Cloud sync
+   failed waits for an answer, and Steam ignores new starts of that game until it gets one), or
+   the game is just slow. The player chooses instead of Bladedeck guessing. Same on every system. */
+let slowBox = false;
+function slowStart(p, e) {
+  if (!p || p.winPid || !(S.sessions || []).includes(p)) return;
+  if (!seesWindows()) {
+    // Without a window list there is no telling whether the game came: only show what was hidden.
+    if (p.covered && steamGuard && steamGuard.hidden.size) { revealSteam(); toast('Steam seems to need you. Bladedeck will wait for the game.'); }
+    uncoverSteam(p); return;
+  }
+  if (slowBox || S.modal) return;
+  slowBox = true; api.deckFocus();
+  const store = e.type === 'steam' ? 'Steam' : e.type === 'gog' && !e.exe ? 'Heroic' : '';
+  openModal({
+    title: `${e.title} is taking longer than expected`,
+    html: `<p class="note">${store ? `${store} may be asking something, like "Cloud sync failed", and waits for an answer before the game starts.` : 'The game may still be loading, or it may not have started.'} Bladedeck stays here until the game's window opens.</p>`,
+    buttons: [
+      { label: 'Stop waiting', left: true, onClick: () => { slowBox = false; p.waiting = false; uncoverSteam(p); } },
+      { label: 'Keep waiting', onClick: () => { slowBox = false; setTimeout(() => slowStart(p, e), 30000); } },
+      ...(store ? [{ label: `Show ${store}`, primary: true, onClick: () => { slowBox = false; showLauncher(p); setTimeout(() => slowStart(p, e), 60000); } }] : [])
+    ]
+  });
+}
+// Everything Steam (or Heroic) has open comes to the front, hidden by the guard or not (a question
+// left from an earlier start counts too), and Bladedeck steps back while the player answers.
+function showLauncher(p) {
+  revealSteam(); uncoverSteam(p);
+  const ws = Dock.windows().filter((w) => launcherWin(w.cls));
+  ws.forEach((w) => api.winAct(w.id, 'show'));
+  if (!ws.length) toast('No Steam window is open. Steam may still be starting.', 'err');
 }
 
 /* Is this window really the game a session is for? Steam games: the window's class names the
@@ -535,6 +562,8 @@ api.onPeek(async (ev) => {
   if (!(await isGameWindow(p, ev))) return;
   p.winPid = ev.pid;
   uncoverSteam(p);
+  // The game arrived while "taking longer than expected" was asking: that question is answered.
+  if (slowBox) { slowBox = false; closeModal(); }
   if (p.waiting) {
     p.waiting = false;
     if (S.lib.settings.hideOnLaunch) { Sound.duck(true); api.minimize(); }
@@ -622,8 +651,9 @@ api.onEnded(({ id, seconds }) => {
 // Steam and Heroic games run outside our process, so their session lasts until the player comes back.
 api.onReturned(() => {
   Sound.duck(false); setTimeout(flushToasts, 400);
-  // With the KDE peek helper, coming back can be a quick peek, so sessions end when the game window closes.
-  if (NowPlaying.mode() === 'kwin') return;
+  // With the KDE peek helper, coming back can be a quick peek, so sessions end when the game window
+  // closes. On Windows too, once the game's window is known; until then, coming back ends it as before.
+  if (NowPlaying.mode() === 'kwin' || (seesWindows() && S.playing?.winPid)) return;
   if (Recorder.busy() && Recorder.since() > 20000) Recorder.stop();
   const p = S.playing;
   if (p && !p.tracked && Date.now() - p.t > 15000) {
