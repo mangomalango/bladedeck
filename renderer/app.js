@@ -1152,7 +1152,8 @@ const CONTROLS = [
     ['Sound card (volume, where sound plays, mic, every app)', 'Home button (Stadia, PS or Xbox)', 'V, or the 🔊 at the top'],
     ['Choose and change', 'up and down, then left and right (LB / RB for big steps)', 'arrows, or drag'],
     ['Mute what is chosen', 'A', 'Enter, or click its icon'],
-    ['Volume down or up from anywhere', '', '- and =']
+    ['Volume down or up from anywhere', '', '- and ='],
+    ['Stadia controller: sound card, voice, save the moment (hold: record)', 'Stadia, Assistant, Capture buttons', '']
   ]],
   ['Extras', [
     ['Get games: free games, homebrew and emulators', 'System, Get games', 'Get games in PC mode'],
@@ -1508,6 +1509,17 @@ function bindInput() {
     if (st.back && st.rb && !paired) { paired = true; Capture.saveReplay(); }
     // LB + RB + Y: the wrecking ball (an alpha draft of another interface).
     if (st.lb && st.rb && st.y && !st.back && !paired && (Players.inMenu() ?? deckFocused())) { paired = true; Wreck.start(); }
+    // A Stadia controller's own buttons (Chrome maps them to 17 and 18): Assistant asks by voice,
+    // Capture saves the last moments, or held for half a second starts or stops recording. In games too.
+    const stadia = ps.find((g) => /18d1.*9400|stadia/i.test(g.id));
+    if (stadia) {
+      const as = !!stadia.buttons[17]?.pressed, cp = !!stadia.buttons[18]?.pressed;
+      if (as && !prev.sdAssist) Voice.listen();
+      if (cp && !prev.sdCap) prev.sdCapAt = now;
+      if (cp && prev.sdCapAt && now - prev.sdCapAt > 550) { prev.sdCapAt = 0; Capture.toggleRecord(); }
+      if (!cp && prev.sdCap && prev.sdCapAt) { prev.sdCapAt = 0; Capture.saveReplay(); }
+      prev.sdAssist = as; prev.sdCap = cp;
+    }
     // View + LB: a voice command.
     if (st.back && st.lb && !paired) { paired = true; Voice.listen(); }
     if (!S.pad && deckFocused()) for (const k in st) if (st[k]) { S.pad = true; break; }

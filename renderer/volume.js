@@ -35,6 +35,7 @@ const Volume = (() => {
   function nice(o) {
     if (o.name === 'bladedeck_pad_speaker') return ['Controller speaker', '🎮'];
     if (o.name === 'bladedeck_pad_jack') return ['Controller headphones', '🎧'];
+    if (/stadia|google.*controller/i.test(`${o.name} ${o.label}`)) return ['Controller headphones (Stadia)', '🎧'];
     const t = `${o.port} ${o.label}`;
     const hdmi = /(HDMI|DisplayPort)\D*(\d+)/i.exec(t);
     if (hdmi) return [`TV or monitor · HDMI ${hdmi[2]}`, '🖥'];

@@ -62,7 +62,7 @@ const Voice = (() => {
     try {
       let mic;
       if (S.lib.settings.padMic) {
-        try { mic = (await navigator.mediaDevices.enumerateDevices()).find((d) => d.kind === 'audioinput' && /dualsense|wireless controller|sony/i.test(d.label))?.deviceId; } catch { /* default */ }
+        try { mic = (await navigator.mediaDevices.enumerateDevices()).find((d) => d.kind === 'audioinput' && /dualsense|wireless controller|sony|stadia/i.test(d.label))?.deviceId; } catch { /* default */ }
       }
       wakeStream = await navigator.mediaDevices.getUserMedia({ audio: { ...(mic ? { deviceId: { exact: mic } } : {}), channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
       wakeCtx = new AudioContext({ sampleRate: 16000 });
@@ -168,7 +168,7 @@ const Voice = (() => {
     let stream;
     // The controller's microphone (a DualSense over USB), if that is picked in Settings, Controllers.
     let mic;
-    if (S.lib.settings.padMic) { try { mic = (await navigator.mediaDevices.enumerateDevices()).find((d) => d.kind === 'audioinput' && /dualsense|wireless controller|sony/i.test(d.label))?.deviceId; } catch { /* default */ } }
+    if (S.lib.settings.padMic) { try { mic = (await navigator.mediaDevices.enumerateDevices()).find((d) => d.kind === 'audioinput' && /dualsense|wireless controller|sony|stadia/i.test(d.label))?.deviceId; } catch { /* default */ } }
     try { stream = await navigator.mediaDevices.getUserMedia({ audio: { ...(mic ? { deviceId: { exact: mic } } : {}), channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
     catch { listening = false; toast('No microphone was found, or it is turned off.', 'err'); setTimeout(syncWake, 400); return; }
     api.voiceWarm();

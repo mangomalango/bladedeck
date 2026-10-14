@@ -28,6 +28,7 @@ function kindOf(v, p, name) {
   if (v === '057e') return /pro/i.test(name) ? 'Switch Pro' : 'Nintendo';
   if (v === '2dc8' || /8bitdo/i.test(name)) return '8BitDo';
   if (v === '28de') return 'Steam';
+  if ((v === '18d1' && p === '9400') || /stadia/i.test(name)) return 'Stadia';
   return id === '0000:0000' ? 'Controller' : 'Controller';
 }
 // Every joystick: from /proc/bus/input/devices, with sysfs for its battery.
@@ -164,6 +165,17 @@ async function loaded() {
   return out.split('\n').filter((l) => /sink_name=bladedeck_pad_/.test(l)).map((l) => ({ id: l.split('\t')[0], which: /bladedeck_pad_speaker/.test(l) ? 'speaker' : 'jack' }));
 }
 let dsMode = '';
+/* The Stadia controller: over USB it rumbles (Linux's hid-google-stadiaff driver) and is a sound
+   card with a headphone jack and a microphone. Over Bluetooth (after Google's 2023 update) Linux
+   gives it buttons only: no rumble, no sound. */
+function stadiaStatus() {
+  if (process.platform !== 'linux') return { present: false };
+  const p = pads().find((x) => x.kind === 'Stadia');
+  if (!p) return { present: false };
+  const usb = p.conn === 'USB cable';
+  const driver = fs.existsSync('/sys/module/hid_google_stadiaff') || /hid[-_]google[-_]stadiaff/.test(read('/proc/modules'));
+  return { present: true, usb, bt: p.conn === 'Bluetooth', rumble: usb && driver, driver, battery: p.battery };
+}
 async function dsStatus() {
   if (process.platform !== 'linux') return { present: false };
   const card = await dsCard(), h = dsHid();
@@ -336,6 +348,7 @@ function register(d) {
   ipcMain.handle('pads-list', () => pads());
   ipcMain.handle('pads-claim', () => claim());
   ipcMain.handle('ds-status', () => dsStatus());
+  ipcMain.handle('stadia-status', () => stadiaStatus());
   ipcMain.handle('ds-outputs', (_e, mode, vol) => dsOutputs(mode, vol || {}));
   ipcMain.handle('ds-set', (_e, o) => dsWrite(o || {}));
   ipcMain.handle('ms-displays', () => displays());

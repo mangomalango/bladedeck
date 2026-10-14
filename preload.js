@@ -172,6 +172,7 @@ contextBridge.exposeInMainWorld('bladedeck', {
   extrasUpdate: (repo) => ipcRenderer.invoke('extras-update', repo),
   padsClaim: () => ipcRenderer.invoke('pads-claim'),
   dsStatus: () => ipcRenderer.invoke('ds-status'),
+  stadiaStatus: () => ipcRenderer.invoke('stadia-status'),
   dsOutputs: (mode, vol) => ipcRenderer.invoke('ds-outputs', mode, vol),
   dsSet: (o) => ipcRenderer.invoke('ds-set', o),
   msDisplays: () => ipcRenderer.invoke('ms-displays'),

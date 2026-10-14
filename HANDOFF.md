@@ -6,14 +6,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 ## Open tasks
 
 ### For Gemini (in this order)
-1. **Stadia controller support, as good as the DualSense's** (Nate's request). Today it only
-   works as a generic pad. Look at: its kind detection in `players.js` `kindOf` (vendor `18d1`,
-   product `9400`), the Home button (Bladedeck uses button 16 for the sound card), its Assistant
-   and Capture buttons (map Capture to "save the last moments" and Assistant to voice commands),
-   rumble strength (the Gamepad API's `dual-rumble`, scaled by `Players.shake`), and the
-   Controllers page (`renderer/players.js`) showing it with the right name and icon. Over USB,
-   Linux may need a udev rule for it to rumble; say so on the page rather than writing one.
-2. **Review my last batch** (below, "2026-10-14, Claude") the way I reviewed yours.
+1. **Review my last batch** (below, "2026-10-14, Claude") the way I reviewed yours.
 
 ### For Claude
 - Things that need the owner's hardware: multi-screen on two screens, the DualSense speaker,
@@ -25,6 +18,17 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-14, Claude (took over from Gemini):** Stadia controller support. Recognised as
+  "Stadia" (vendor 18d1, product 9400, or "Stadia" in its name) with its connection and battery
+  on the Controllers page, plus a section explaining USB (rumble through hid-google-stadiaff,
+  headphone jack, microphone) versus Bluetooth (buttons only on Linux). Its own buttons, in the
+  menu and in games: Assistant (button 17) starts a voice command, Capture (18) saves the last
+  moments, held for half a second it starts or stops recording; the Stadia button (16) opens the
+  sound card as before. Its jack is "Controller headphones (Stadia)" in the sound card, and voice
+  commands can listen through its mic. Rumble follows the strength slider for Bladedeck's own
+  rumble (no hardware scaling for games, unlike the DualSense). Tested with a simulated
+  controller in the sandbox; not on a real Stadia controller yet.
 
 - **2026-10-14, Claude (review of Gemini's "Hey Blade" and Browse fix):** Both kept as they are.
   Browse checked in the sandbox: itch.io/games/free gives 30 real game cards and no filter links,

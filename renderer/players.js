@@ -178,9 +178,9 @@ const Players = (() => {
   addEventListener('gamepadconnected', (ev) => { if (/054c/i.test(ev.gamepad.id) && me === 1) setTimeout(applyPad, 1500); });
 
   /* -------------------------------------------------------------- Settings: Controllers */
-  const ICON = { DualSense: '🎮', 'DualSense Edge': '🎮', 'DualShock 4': '🎮', Xbox: '🎮', 'Xbox-style': '🎮', 'Switch Pro': '🕹', Nintendo: '🕹', '8BitDo': '🕹', Steam: '🎮', Controller: '🎮' };
+  const ICON = { DualSense: '🎮', 'DualSense Edge': '🎮', 'DualShock 4': '🎮', Xbox: '🎮', 'Xbox-style': '🎮', 'Switch Pro': '🕹', Nintendo: '🕹', '8BitDo': '🕹', Steam: '🎮', Stadia: '🎮', Controller: '🎮' };
   async function drawControllers(box) {
-    const [all0, ds] = await Promise.all([api.padsList().catch(() => []), api.dsStatus().catch(() => ({}))]);
+    const [all0, ds, sd] = await Promise.all([api.padsList().catch(() => []), api.dsStatus().catch(() => ({})), api.stadiaStatus?.().catch(() => ({})) ?? {}]);
     const list = all0.filter((p) => !p.aux);
     const c = cfg(), st = S.lib.settings;
     const who = (p) => (c.p1?.pad === p.id ? 'Player 1' : c.p2?.pad === p.id ? 'Player 2' : '');
@@ -194,6 +194,9 @@ const Players = (() => {
       <label class="range-row">Rumble strength <b class="rs-v">${st.rumbleStrength ?? 100}%</b><input type="range" name="rumbleStrength" min="0" max="100" step="12.5" value="${st.rumbleStrength ?? 100}"></label>
       <p class="note">Bladedeck's own rumble follows it on every controller. A DualSense also rumbles this hard in games (and its adaptive triggers push this hard), wired or Bluetooth.</p>
       <div class="checks"><label><input type="checkbox" name="padRumble" ${st.padRumble ? 'checked' : ''}> Rumble a little when moving through the menu</label></div>
+      ${sd?.present ? `<h4 class="set-sub">Stadia controller</h4>
+        <p class="note">${sd.usb ? `Connected by USB: buttons, ${sd.rumble ? 'rumble' : 'rumble (once Linux loads its driver, hid-google-stadiaff, which happens by itself when it is plugged in)'}, its headphone jack and its microphone work.` : 'Connected over Bluetooth: every button works. Linux gives it no rumble or sound over Bluetooth; a USB cable adds both.'}</p>
+        <p class="note">Its own buttons: <b>Stadia</b> opens the sound card, <b>Assistant</b> asks Bladedeck by voice, <b>Capture</b> saves the last moments (hold it to start or stop recording). They work in games too. The headphone jack shows up in Sound as "Controller headphones".</p>` : ''}
       <h4 class="set-sub">DualSense sound and microphone</h4>
       ${ds.present && ds.usb ? `<p class="note">Connected by USB: its speaker, headphone jack and microphone work.</p>
         <label>Sound from the controller<select name="dsMode">
@@ -206,7 +209,7 @@ const Players = (() => {
         <div class="pl-acts"><button type="button" data-pl="dstest">Play a test sound on the controller</button></div>
         <p class="note">They show up in Sound as "Controller speaker" and "Controller headphones", and can be a player's sound in Multi-screen. With "Both", headphones play in mono.</p>
         <div class="checks"><label><input type="checkbox" name="padMenuSounds" ${st.padMenuSounds ? 'checked' : ''}> Play menu sounds from the controller's speaker</label>
-        <label><input type="checkbox" name="padMic" ${st.padMic ? 'checked' : ''}> Voice commands listen through the controller's microphone</label></div>`
+        <label><input type="checkbox" name="padMic" ${st.padMic ? 'checked' : ''}> Voice commands listen through the controller's microphone (a Stadia controller's too)</label></div>`
         : ds.present ? '<p class="note">Your DualSense is connected over Bluetooth: buttons, touchpad and rumble work (rumble strength too). Its speaker, headphone jack and microphone need a <b>USB cable</b> on Linux.</p>'
         : '<p class="note">No DualSense is connected. Its speaker, headphone jack and microphone work over a <b>USB cable</b>; over Bluetooth or a dongle Linux gives it buttons and rumble, but no sound.</p>'}`;
   }
