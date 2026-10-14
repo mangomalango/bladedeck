@@ -54,6 +54,17 @@ here.
 
 ## Ground rules
 
+**Linux is the lead build (the owner's decision, 2026-10-14).** Bladedeck on CachyOS is the
+reference for how everything should behave. Windows matches it; it never changes it.
+- A Windows fix must not change Linux behavior. If shared code has to change (renderer/app.js,
+  main.js, preload.js, store.js), say so in HANDOFF.md, and the Linux session reviews it before it
+  reaches `master`.
+- `master` only gets code that passes `npm run check` and whose Linux build has been started and
+  checked by the Linux session. Releases are cut from that.
+- Before a release, the Linux session makes a backup in `~/Downloads/bladedeck-backups/<date>-v<version>/`
+  (source with .git, AppImage, Windows installer, APK, library.json, README) and pushes a
+  `backup/<date>-v<version>` tag.
+
 - **Work on a branch:** `git switch -c windows-fixes`, commit as you go, push that branch. Don't
   push to `master`. The Linux session reviews and merges it.
 - **Don't break Linux.** Put Windows fixes behind `process.platform === 'win32'`, or in the
