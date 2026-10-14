@@ -144,6 +144,10 @@ body[data-mode="pc"] #pc { display: grid; }
 body.np-on .info h3, body.run-on .info h3 { font-size: clamp(22px, 2.1vw, 40px); }
 .info .sub { margin-top: 12px; color: var(--ink-dim); font-size: 16px; }
 .info .stat { margin-top: 4px; color: var(--ink-dim); font-size: 14px; }
+.ginfo { margin-top: 10px; max-width: 46ch; display: grid; gap: 3px; font-size: 13.5px; line-height: 1.35; color: var(--ink-dim); }
+.ginfo p { margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ginfo b { color: var(--ink); font-weight: 600; }
+#drawer .ginfo { max-width: none; margin: 8px 0; }
 .info .cta { margin-top: 26px; font-size: 15px; }
 @media (max-width: 1100px) { .poster { display: none; } .body { grid-template-columns: 1fr; } .detail { display: none; } }
 
@@ -1105,6 +1109,8 @@ body.np-on .poster, body.run-on .poster { width: clamp(150px, 12vw, 220px); flex
 .nb-who span, .nb-both { opacity: .8; font-size: .92em; }
 .nb-both button, .nb-act button { margin: 4px 6px 0 0; padding: 6px 12px; border-radius: 999px; }
 .nb-inv { text-align: center; }
+.nb-fw { margin-top: 12px; padding: 12px 16px; border-radius: 14px; background: rgba(255,170,60,.12); border: 1px solid rgba(255,170,60,.35); }
+.nb-fw code { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 8px; background: rgba(0,0,0,.35); font-size: .85em; user-select: all; overflow-wrap: anywhere; }
 .nb-art img, .nb-art .ph-art { max-width: 220px; border-radius: 12px; }
 
 /* Night Drive */
@@ -1347,6 +1353,27 @@ body.p2 #run, body.p2 #dock, body.p2 #np, body.p2 #qr-btn { display: none !impor
 .wd-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.15); overflow: hidden; display: block; }
 .wd-bar b { display: block; height: 100%; background: var(--accent); transition: width .3s; }
 .wd-row.completed .wd-bar b { background: var(--ok, #7ddc7a); }
+.wd-t small.wd-note, .dlw-t small.wd-note { color: #ffb36b; }
+.wd-all { justify-self: start; margin-top: 2px; padding: 4px 10px; font-size: 12px; border-radius: 999px; }
+.dlw-list { display: grid; gap: 8px; max-height: 46vh; overflow-y: auto; }
+.dlw-row { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.06); }
+.dlw-ic { font-size: 22px; text-align: center; }
+.dlw-t { min-width: 0; display: grid; gap: 2px; font-size: 13px; }
+.dlw-t b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dlw-t small { color: var(--ink-dim); overflow-wrap: anywhere; }
+.dlw-t .wd-bar { margin-top: 4px; }
+.dlw-row .wd-acts, .dlw-fb { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.dlw-wh { display: grid; gap: 8px; }
+.dlw-f { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.06); }
+.dlw-f > div:first-child { display: grid; gap: 2px; min-width: 0; font-size: 13px; }
+.dlw-f small { color: var(--ink-dim); overflow-wrap: anywhere; }
+.dlw-f small.ok { color: var(--ok, #7ddc7a); }
+.dlw-f small.warn { color: #ffb36b; }
+.dlw-7z code { padding: 2px 6px; border-radius: 6px; background: rgba(0,0,0,.35); user-select: all; }
+.fl-acts { display: grid; gap: 8px; }
+.fl-acts button { text-align: left; padding: 10px 14px; }
+.fl-acts button:disabled { opacity: .45; }
+.fl-path[data-busy]::after { content: attr(data-busy); margin-left: auto; color: var(--accent-hi); }
 .wd-acts { display: flex; gap: 4px; }
 .wd-acts button { padding: 3px 9px; font-size: 12px; }
 .nc-dl.done { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 8px; }

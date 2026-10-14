@@ -1032,11 +1032,13 @@ require('./realdebrid').register({ getWin: () => win, settings: () => loadLib().
   app.on('will-quit', () => require('./lan').stop()); }
 require('./companion').register({ getWin: () => win, loadLib: () => loadLib() });
 require('./livecap').register();
-require('./webdl').register({ getWin: () => win });
+require('./webdl').register({ getWin: () => win, getSettings: () => loadLib().settings });
+require('./archive').register({ getWin: () => win });
 require('./finder').register();
 require('./minecraft').register();
 require('./moonlight').register();
 require('./onlinemedia').register(() => loadLib().settings);
+require('./gameinfo').register(() => loadLib().settings);
 require('./steaminput').register();
 require('./bluetooth').register();
 require('./steamlink').register({ command, loadLib });

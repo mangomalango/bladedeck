@@ -55,6 +55,8 @@
       "net.js",
       "moonlight.js",
       "onlinemedia.js",
+      "gameinfo.js",
+      "archive.js",
       "steaminput.js",
       "bluetooth.js",
     "steamlink.js",

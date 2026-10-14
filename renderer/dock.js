@@ -42,6 +42,10 @@ const DOCK_APPS = [
     { id: 'slack', name: 'Slack', icon: '#', match: 'slack', apps: [{ cmd: 'slack', flat: 'com.slack.Slack' }], url: 'https://app.slack.com' },
     { id: 'teamspeak', name: 'TeamSpeak', icon: '🎙', match: 'teamspeak', apps: [{ cmd: 'teamspeak3', flat: 'com.teamspeak.TeamSpeak' }] }
   ]],
+  ['Bladedeck', [
+    { id: 'finder', name: 'Browse', icon: '🔎', match: '$^', own: true, label: 'Browse your sources (find and install games)' },
+    { id: 'downloads', name: 'Downloads', icon: '⬇', match: '$^', own: true, label: 'Downloads (what, where, extract)' }
+  ]],
   ['Tools', [
     { id: 'files', name: 'Files', icon: '🗂', match: 'dolphin|nautilus|thunar|nemo|pcmanfm|caja|explorer', apps: [{ cmd: 'dolphin' }, { cmd: 'nautilus' }, { cmd: 'thunar' }, { cmd: 'nemo' }, { cmd: 'pcmanfm' }], home: true, label: 'Files (your file manager)' },
     { id: 'browser', name: 'Browser', icon: '🌐', match: '$^', url: 'https://duckduckgo.com', label: 'Web browser (a Bladedeck panel)' },
@@ -77,6 +81,8 @@ const Dock = (() => {
     const st = S.lib.settings;
     if (!st.dock) st.dock = { on: true, slots: DOCK_DEFAULTS.map(fromPreset) };
     // The first dock had fixed apps; give those slots their place in the catalogue.
+    // Browse and Downloads came later: added once to docks that have room, and can be removed in Edit dock.
+    if (!st.dock.addedOwn) { st.dock.addedOwn = true; for (const id of ['finder', 'downloads']) if (st.dock.slots.length < 6 && !st.dock.slots.some((x) => x.pick === id)) st.dock.slots.push(fromPreset(id)); }
     for (const [k, sl] of st.dock.slots.entries()) if (!sl.pick) st.dock.slots[k] = ({ YouTube: fromPreset('youtube'), Music: fromPreset('music'), Discord: fromPreset('discord'), Files: fromPreset('files') })[sl.name] || { ...sl, pick: 'custom' };
     return st.dock;
   };
@@ -115,7 +121,7 @@ const Dock = (() => {
       const ws = windowsOf(i), w = ws.find((x) => x.active) || ws[0];
       const state = !w ? '' : w.active ? 'up' : w.min ? 'min' : 'open';
       // The title is the interesting part: "Song — Strawberry" reads as just the song.
-      const what = w ? tidy(w.caption, s) : live ? 'Not open' : s.web || !(s.apps || []).length ? 'Opens in your browser' : 'Open';
+      const what = s.pick === 'downloads' ? WebDl.summary() : s.pick === 'finder' && !w ? 'Find and install games' : w ? tidy(w.caption, s) : live ? 'Not open' : s.web || !(s.apps || []).length ? 'Opens in your browser' : 'Open';
       return `<button type="button" class="dk ${state} ${i === focus ? 'hl' : ''}" data-i="${i}" aria-label="${esc(s.name)}">
         <i class="dk-ic">${esc(s.icon || s.name[0])}</i>${ws.length > 1 ? `<em class="dk-n">${ws.length}</em>` : ''}
         <span class="dk-card"><b>${esc(s.name)}</b><span>${esc(what)}</span>
@@ -157,6 +163,9 @@ const Dock = (() => {
     Sound.play('tick');
     if (a === 'min') { if (w) winAct(w.id, a); return; }
     if (a === 'close') { if (w) Resume.closeApp({ w, e: null, pid: w.pid || 0, title: s.name }); return; }
+    // Bladedeck's own: Browse your sources (a panel) and the Downloads window.
+    if (s.pick === 'downloads') { WebDl.open(); return; }
+    if (s.pick === 'finder' && !w) { Finder.open(); return; }
     if (!w) {
       // Files opens Bladedeck's own file browser panel, unless that is turned off.
       if (s.pick === 'files' && cfg().filesPanel !== false) { Panels.show({ kind: 'files', key: keyOf(s), title: 'Files', icon: s.icon || '🗂' }); return; }
@@ -212,7 +221,7 @@ const Dock = (() => {
     const have = await installed();
     const list = slots().map((s) => ({ ...s }));
     const c = { on: cfg().on !== false, browser: browserId(), appWindow: !!cfg().appWindow, ytTv: cfg().ytTv !== false };
-    const appOpt = (p, cur) => `<option value="${p.id}" ${p.id === cur ? 'selected' : ''}>${esc(p.label || p.name)}${have.app[p.id] ? '  ✓' : ''}${!p.apps && p.url ? '  (web)' : ''}</option>`;
+    const appOpt = (p, cur) => `<option value="${p.id}" ${p.id === cur ? 'selected' : ''}>${esc(p.label || p.name)}${have.app[p.id] || p.own ? '  ✓' : ''}${!p.apps && p.url ? '  (web)' : ''}</option>`;
     const rowHtml = (s, i) => {
       const p = DOCK_PRESET[s.pick] || DOCK_PRESET.custom, custom = p.id === 'custom';
       const both = !custom && p.apps && p.url;
@@ -274,5 +283,8 @@ const Dock = (() => {
 
   // Open (or bring up) a dock app by name, for voice commands.
   const openByName = (name) => { const n = String(name).toLowerCase(); const i = slots().findIndex((s) => s.name.toLowerCase() === n || (s.pick && s.pick === n)); if (i >= 0) act(i, null); return i >= 0; };
-  return { draw, edge, handle, edit, browser, current: () => (focus < 0 ? null : focus === count() - 1 ? { edit: true } : { open: windowsOf(focus).length > 0 }), openByName, names: () => slots().map((s) => s.name), windows: () => [...pans, ...webs, ...wins], slotFor: (w) => slots().find((s, i) => windowsOf(i).includes(w)), active: () => focus >= 0 };
+  // A download moved on: redraw only when the Downloads slot's words change.
+  let dlWas = '';
+  function downloads() { if (!S.lib || !on() || !slots().some((x) => x.pick === 'downloads')) return; const t = WebDl.summary(); if (t !== dlWas) { dlWas = t; draw(); } }
+  return { draw, downloads, edge, handle, edit, browser, current: () => (focus < 0 ? null : focus === count() - 1 ? { edit: true } : { open: windowsOf(focus).length > 0 }), openByName, names: () => slots().map((s) => s.name), windows: () => [...pans, ...webs, ...wins], slotFor: (w) => slots().find((s, i) => windowsOf(i).includes(w)), active: () => focus >= 0 };
 })();

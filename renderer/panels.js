@@ -320,8 +320,9 @@ const Panels = (() => {
 
 /* Files: Bladedeck's own file browser for the Files panel. Places on the left (Bladedeck's own
    folder and the folders you allowed), the folder's contents on the right; A opens a folder or a
-   file (with its usual app), X (or right-click) sends a file, B goes up a folder. Pictures show
-   as thumbnails. Bladedeck sees no other folders unless you allow them (fsaccess.js). */
+   file (with its usual app), X sends a file, Y (or right-click) shows what you can do with it
+   (send, extract or compress with 7-Zip, show in your own file manager), B goes up a folder.
+   Pictures show as thumbnails. Bladedeck sees no other folders unless you allow them (fsaccess.js). */
 const Files = (() => {
   const IMG = /\.(png|jpe?g|gif|webp|bmp|avif)$/i;
   const icon = (it) => (it.dir ? '📁' : IMG.test(it.name) ? '' : /\.(mp4|webm|mkv|mov|avi)$/i.test(it.name) ? '🎬' : /\.(mp3|flac|ogg|opus|m4a|wav)$/i.test(it.name) ? '🎵'
@@ -345,7 +346,7 @@ const Files = (() => {
       const f = ev.target.closest('[data-file]'); if (f) openItem(p, p.items[+f.dataset.file]);
     });
     p.body.addEventListener('dblclick', (ev) => ev.preventDefault());
-    p.body.addEventListener('contextmenu', (ev) => { const f = ev.target.closest('[data-file]'); const it = f && p.items[+f.dataset.file]; if (it && !it.dir) { ev.preventDefault(); Transfer.open(it.path); } });
+    p.body.addEventListener('contextmenu', (ev) => { const f = ev.target.closest('[data-file]'); const it = f && p.items[+f.dataset.file]; if (it) { ev.preventDefault(); actions(p, it); } });
     load(p, p.startPath || p.places[0]?.path);
   }
   async function load(p, dir) {
@@ -368,12 +369,47 @@ const Files = (() => {
     const ok = await api.fsOpen(it.path);
     toast(ok ? `Opening ${it.name}…` : `Nothing on this PC opens ${it.name}.`, ok ? 'ok' : 'err');
   }
+  // What you can do with one file or folder.
+  const ARCH = /\.(zip|7z|rar|tar|tgz|gz|xz|bz2|zst|cab)$/i;
+  async function actions(p, it) {
+    const z = await api.archiveTool();
+    const zipNote = z.found ? '' : `<p class="note">Extract and Compress need 7-Zip. Install it ${esc(z.install)}.</p>`;
+    openModal({
+      title: it.name,
+      html: `<div class="fl-acts">
+        <button type="button" data-fa="open">${it.dir ? '📂 Open the folder' : '▶ Open'}</button>
+        ${it.dir ? '' : '<button type="button" data-fa="send">📤 Send to my phone or a friend…</button>'}
+        ${!it.dir && ARCH.test(it.name) ? `<button type="button" data-fa="extract" ${z.found ? '' : 'disabled'}>🗜️ Extract here (into a new folder "${esc(it.name.replace(/\.(tar\.)?[^.]+$/, ''))}")</button>` : ''}
+        <button type="button" data-fa="zip" ${z.found ? '' : 'disabled'}>🗜️ Compress to .zip (works everywhere)</button>
+        <button type="button" data-fa="7z" ${z.found ? '' : 'disabled'}>🗜️ Compress to .7z (smaller)</button>
+        <button type="button" data-fa="reveal">🗂 Show in my own file manager</button></div>${zipNote}`,
+      buttons: [{ label: 'Close' }],
+      onOpen: (root) => root.addEventListener('click', async (ev) => {
+        const b = ev.target.closest('[data-fa]'); if (!b || b.disabled) return;
+        const a = b.dataset.fa; closeModal();
+        if (a === 'open') { openItem(p, it); return; }
+        if (a === 'send') { Transfer.open(it.path); return; }
+        if (a === 'reveal') { if (!(await api.fsReveal(it.path))) toast('Could not open your file manager.', 'err'); return; }
+        const op = a === 'extract' ? 'extract' : 'compress';
+        toast(`${op === 'extract' ? 'Extracting' : 'Compressing'} ${it.name}…`);
+        p.body.querySelector('.fl-path').dataset.busy = `${op === 'extract' ? 'Extracting' : 'Compressing'} ${it.name}…`;
+        const r = await api.archiveRun({ op, file: it.path, fmt: a });
+        delete p.body.querySelector('.fl-path').dataset.busy;
+        if (!r.ok) { toast(r.error, 'err'); return; }
+        toast(`${op === 'extract' ? 'Extracted into' : 'Made'} ${r.out.split(/[\\/]/).pop()}.`, 'fun');
+        if (p.dir) load(p, p.dir);
+      })
+    });
+  }
+  window.bladedeck.onArchiveProgress?.((ev) => { for (const el of document.querySelectorAll('.fl-path[data-busy]')) el.dataset.busy = el.dataset.busy.replace(/( \d+%)?$/, ` ${ev.pct}%`); });
   function focus(p) { const first = p.body.querySelector('.fl-it') || p.body.querySelector('.fl-pl'); if (first && !p.body.querySelector('.pad-hl')) PadNav.mark(first); }
   function up(p) { if (p.parent) load(p, p.parent); }
   function handle(p, a) {
     if (a === 'b') { if (p.parent) { up(p); Sound.play('back'); } else Panels.leave(); return true; }
     // X on a file: send it (to the phone or a friend nearby).
     if (a === 'x') { const hl = p.body.querySelector('.fl-it.pad-hl'); const it = hl && p.items[+hl.dataset.file]; if (it && !it.dir) { Transfer.open(it.path); return true; } }
+    // Y on a file or folder: what you can do with it.
+    if (a === 'y') { const hl = p.body.querySelector('.fl-it.pad-hl'); const it = hl && p.items[+hl.dataset.file]; if (it) { actions(p, it); return true; } }
     if (a === 'lt' || a === 'rt' || a === 'music' || a === 'vol' || a === 'guide') return false;
     return PadNav.input(p.body, a) || true;
   }

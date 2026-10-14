@@ -5,8 +5,11 @@
    goes to the page for the download bar, the notification center and the guide's quick menu.
    A finished archive installed from Browse is unpacked next to itself and the archive goes to the
    trash, so the game inside joins the library. Downloads use the browser's own session, so sites
-   you signed in to (the Internet Archive) let you download what they let you download. */
-const { app, ipcMain, session, Notification, shell } = require('electron');
+   you signed in to (the Internet Archive) let you download what they let you download.
+   Both folders can be changed (Downloads window, Where downloads go); a folder picked there may
+   be used by Files too. Each download says what kind of file it is and where it went, and a
+   finished archive can be extracted with 7-Zip (archive.js). */
+const { app, ipcMain, session, Notification, shell, dialog } = require('electron');
 const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -16,7 +19,20 @@ let send = () => {};
 const items = new Map(); // id -> { rec, item }
 const expect = new Map(); // url -> { dir, unpack, title }
 const ARCHIVE = /\.(zip|7z|rar)$/i;
-const romsDir = () => path.join(os.homedir(), 'Games', 'ROMs', 'Downloaded');
+let settings = () => ({});
+const chosen = {}; // folders picked this run, before the library is saved
+const romsDir = () => chosen.games || settings().gamesDir || path.join(os.homedir(), 'Games', 'ROMs', 'Downloaded');
+const dlDir = () => chosen.dl || settings().dlDir || app.getPath('downloads');
+// What a file is, from its name, in a word the download list can show.
+const KINDS = [
+  [/\.(iso|chd|cso|rvz|wbfs|gcz|wua|wux|nsp|xci|cue|bin|pbp|m3u|wad|xex|vpk)$/i, 'Disc image', '💿'],
+  [/\.(nds|3ds|cia|gba|gbc|gb|nes|sfc|smc|n64|z64|v64|md|gen|sms|gg|pce|a26|lnx|ws|wsc|ngp)$/i, 'Game cartridge', '👾'],
+  [/\.(zip|7z|rar|tar|tgz|gz|xz|bz2|zst)$/i, 'Archive', '🗜️'],
+  [/\.(exe|msi|appimage|deb|rpm|flatpakref|apk|sh|run|pkg\.tar\.zst)$/i, 'Program', '⚙️'],
+  [/\.(mp4|mkv|webm|mov|avi)$/i, 'Video', '🎬'], [/\.(mp3|flac|ogg|opus|m4a|wav)$/i, 'Music', '🎵'],
+  [/\.(png|jpe?g|gif|webp|avif|bmp)$/i, 'Picture', '🖼️'], [/\.(pdf|txt|docx?|odt|epub|md)$/i, 'Document', '📄']
+];
+const kindOf = (name) => { const k = KINDS.find(([re]) => re.test(name)); return k ? { label: k[1], icon: k[2] } : { label: 'File', icon: '📄' }; };
 
 const clean = (n) => String(n || 'download').replace(/[\\/:*?"<>|\x00-\x1f]+/g, '_').replace(/^\.+/, '').slice(0, 180) || 'download';
 function uniq(dir, name) {
@@ -25,7 +41,7 @@ function uniq(dir, name) {
   while (fs.existsSync(f)) f = path.join(dir, `${base} (${i++})${ext}`);
   return f;
 }
-const pub = (r) => ({ id: r.id, name: r.name, file: r.file, dir: path.dirname(r.file), total: r.total, got: r.got, state: r.state, paused: r.paused, speed: r.speed, from: r.from, at: r.at, unpacked: r.unpacked || '', title: r.title || '', note: r.note || '' });
+const pub = (r) => ({ id: r.id, name: r.name, file: r.file, dir: path.dirname(r.file), what: r.game ? { label: `Game for your library (${kindOf(r.name).label.toLowerCase()})`, icon: '🎮' } : kindOf(r.name), archive: ARCHIVE.test(r.name), game: !!r.game, total: r.total, got: r.got, state: r.state, paused: r.paused, speed: r.speed, from: r.from, at: r.at, unpacked: r.unpacked || '', title: r.title || '', note: r.note || '' });
 let last = 0, pending = false;
 function tell(now) {
   if (!now && Date.now() - last < 250) { if (!pending) { pending = true; setTimeout(() => { pending = false; tell(true); }, 260); } return; }
@@ -45,8 +61,7 @@ function unpack(rec) {
     tell(true);
     send('web-dl-done', pub(rec));
   };
-  const z7 = process.platform === 'win32' ? [path.join(process.env.ProgramFiles || 'C:\\Program Files', '7-Zip', '7z.exe'), '7z.exe'].find((p) => { try { fs.accessSync(p); return true; } catch { return false; } }) || '7z' : '7z';
-  execFile(z7, ['x', '-y', `-o${dest}`, rec.file], { timeout: 3600000, maxBuffer: 1 << 24 }, (err) => {
+  execFile(require('./archive').bin() || '7z', ['x', '-y', `-o${dest}`, rec.file], { timeout: 3600000, maxBuffer: 1 << 24 }, (err) => {
     if (err && /\.zip$/i.test(rec.file)) execFile('tar', ['-xf', rec.file, '-C', dest], { timeout: 3600000 }, (tErr) => finish(tErr));
     else finish(err);
   });
@@ -59,12 +74,12 @@ function attach(ses) {
     const chain = [item.getURL(), ...(item.getURLChain?.() || []), ...(pageUrl ? [pageUrl] : [])];
     const want = chain.map((u) => expect.get(u)).find(Boolean);
     chain.forEach((u) => expect.delete(u));
-    const dir = want?.dir || app.getPath('downloads');
+    const dir = want?.dir || dlDir();
     try { fs.mkdirSync(dir, { recursive: true }); } catch { /* the save fails and says so */ }
     const file = uniq(dir, clean(item.getFilename()));
     item.setSavePath(file);
     let from = ''; try { from = new URL(pageUrl || item.getURL()).hostname.replace(/^www\./, ''); } catch { /* none */ }
-    const rec = { id: Math.random().toString(36).slice(2, 10), name: path.basename(file), file, total: item.getTotalBytes(), got: 0, state: 'progressing', paused: false, speed: 0, from, at: Date.now(), unpack: !!want?.unpack, title: want?.title || '' };
+    const rec = { id: Math.random().toString(36).slice(2, 10), name: path.basename(file), file, total: item.getTotalBytes(), got: 0, state: 'progressing', paused: false, speed: 0, from, at: Date.now(), unpack: !!want?.unpack, game: !!want?.unpack, title: want?.title || '' };
     items.set(rec.id, { rec, item });
     let t0 = Date.now(), g0 = 0;
     tell(true);
@@ -87,7 +102,8 @@ function attach(ses) {
   });
 }
 
-function register({ getWin }) {
+function register({ getWin, getSettings }) {
+  settings = getSettings || settings;
   send = (ch, d) => { const w = getWin(); if (w && !w.isDestroyed()) w.webContents.send(ch, d); const p2 = require('./players').p2(); if (p2 && !p2.isDestroyed()) p2.webContents.send(ch, d); };
   app.whenReady().then(() => { attach(session.fromPartition('persist:webapps')); attach(session.defaultSession); });
   ipcMain.handle('web-dl-list', () => [...items.values()].map((x) => pub(x.rec)));
@@ -97,7 +113,7 @@ function register({ getWin }) {
     if (!/^https?:$/.test(u.protocol)) return { ok: false, error: 'Only web downloads.' };
     if (kind === 'game') expect.set(u.href, { dir: romsDir(), unpack: true, title: String(title).slice(0, 120) });
     session.fromPartition('persist:webapps').downloadURL(u.href);
-    return { ok: true, dir: kind === 'game' ? romsDir() : app.getPath('downloads') };
+    return { ok: true, dir: kind === 'game' ? romsDir() : dlDir() };
   });
   // The next download that comes from this address (a link clicked on a page) is installed as a game.
   ipcMain.handle('web-dl-expect', (_e, { url, title = '' } = {}) => { try { expect.set(new URL(String(url)).href, { dir: romsDir(), unpack: true, title: String(title).slice(0, 120) }); return true; } catch { return false; } });
@@ -108,10 +124,34 @@ function register({ getWin }) {
     else if (act === 'resume' && item) { if (item.canResume()) item.resume(); rec.paused = false; }
     else if (act === 'cancel' && item) item.cancel();
     else if (act === 'open' && rec.state === 'completed') shell.openPath(rec.unpacked || rec.file);
+    // Show it in the system's own file manager (Dolphin, Explorer), which needs no folder allowed.
+    else if (act === 'reveal' && rec.state === 'completed') { if (rec.unpacked) shell.openPath(rec.unpacked); else shell.showItemInFolder(rec.file); }
+    else if (act === 'extract' && rec.state === 'completed' && !rec.unpacked && ARCHIVE.test(rec.file) && fs.existsSync(rec.file)) {
+      rec.state = 'unpacking'; rec.note = ''; tell(true);
+      require('./archive').extract(rec.file, rec.id).then((r) => { rec.state = 'completed'; if (r.ok) rec.unpacked = r.out; else rec.note = r.error; tell(true); send('web-dl-done', pub(rec)); });
+    }
     else if (act === 'forget' && !item) items.delete(rec.id);
     tell(true); return true;
   });
   ipcMain.handle('web-dl-roms', () => romsDir());
+  // Where downloads go, and whether Bladedeck's Files may look there.
+  const FA = require('./fsaccess');
+  const folders = () => ({ dl: dlDir(), games: romsDir(), dlOk: FA.allowed(dlDir()), gamesOk: FA.allowed(romsDir()), z7: !!require('./archive').bin(), z7Install: process.platform === 'win32' ? 'winget install 7zip.7zip' : 'sudo pacman -S 7zip' });
+  ipcMain.handle('web-dl-folders', () => folders());
+  ipcMain.handle('web-dl-pick', async (_e, which) => {
+    const key = which === 'games' ? 'games' : 'dl';
+    const r = await dialog.showOpenDialog(getWin(), { title: key === 'games' ? 'Folder for games installed from Browse' : 'Folder for downloads', defaultPath: key === 'games' ? romsDir() : dlDir(), properties: ['openDirectory', 'createDirectory'] });
+    if (r.canceled || !r.filePaths[0]) return { ok: false, ...folders() };
+    chosen[key] = r.filePaths[0];
+    FA.grantPickedFolder(r.filePaths[0]);
+    return { ok: true, path: r.filePaths[0], ...folders() };
+  });
+  ipcMain.handle('web-dl-allow', async (_e, which) => {
+    const games = which === 'games', d = games ? romsDir() : dlDir();
+    try { fs.mkdirSync(d, { recursive: true }); } catch { /* the question still makes sense */ }
+    const r = await FA.allowFolder(d, games ? 'Games you install from Browse your sources land here.' : 'Files you download in Bladedeck land here.');
+    return { ...r, ...folders() };
+  });
 }
 
 module.exports = { register };

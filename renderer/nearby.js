@@ -57,10 +57,14 @@ const Nearby = (() => {
           ${b ? `<div class="nb-both">${b.length ? `${b.length} games you both have: ${b.slice(0, 8).map((e) => `<button type="button" data-inv="${esc(e.id)}">${esc(e.title)}</button>`).join('')}` : 'No games in common yet.'}</div>` : '<div class="nb-both note">They keep their game list to themselves.</div>'}
           <div class="nb-act">${g ? `<button type="button" data-join="${esc(g.id)}">Join their game</button>` : ''}${S.playing ? '<button type="button" data-inv="playing">Invite to my game</button>' : ''}<button type="button" data-poke>👉 Poke</button><button type="button" data-file>📄 Send a file</button></div></div>`;
       }).join('') : '<p class="note">Nobody nearby yet. Other Bladedecks on this Wi-Fi show up here within a few seconds.</p>';
+    // They can see us while we cannot see them: this PC's firewall drops what they send.
+    if (st.lanOn !== false && fw) root.insertAdjacentHTML('beforeend', `<div class="nb-fw"><b>This PC's firewall (${esc(fw.name)}) blocks other Bladedecks.</b><p class="note">They can see you, but you will not see them, and files they send never ask you. To let them in from your home network, run this once in a terminal:</p><code>${esc(fw.fix)}</code></div>`);
   }
 
+  let fw = null;
   async function open() {
     peers = await api.lanPeers().catch(() => []);
+    fw = await api.lanFirewall?.().catch(() => null);
     openModal({
       title: 'Nearby', wide: true,
       html: '<div class="nb"></div><p class="note">Bladedecks on the same network. Nothing leaves your home network, and invites only ever ask.</p>',

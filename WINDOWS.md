@@ -184,6 +184,9 @@ Tick each item when it works or is fixed. Add a short note when something needed
       sample; box art looked for under `%LOCALAPPDATA%\Moonlight Game Streaming Project`. This PC
       has no Moonlight (it is the Sunshine host), so no real pairing was read.
 - [x] Recording and instant replay (`wincapture.js`): 4K AV1 with sound, packaged build too
+- [ ] 7-Zip (`archive.js`): with 7-Zip installed, Files' Y menu extracts and compresses, and a
+      finished download's Extract works; Show opens Explorer on the file
+- [ ] Game info under a game's details (Steam and Wikipedia), and the Downloads window
 
 ## When you finish
 

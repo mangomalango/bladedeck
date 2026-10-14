@@ -66,6 +66,30 @@ async function grant() {
   return { ok: true, path: p };
 }
 
+// One folder Bladedeck names itself (where downloads go): the same system-drawn question, for
+// that folder only, with why it is asked.
+async function allowFolder(p0, why) {
+  const p = real(p0);
+  if (allowed(p)) return { ok: true, path: p };
+  if (p === path.parse(p).root || p === real(os.homedir())) return { ok: false, error: 'That is a whole drive or your whole home folder. Pick a smaller folder for downloads (Change folder…).' };
+  const ask = await dialog.showMessageBox(getWin(), {
+    type: 'question', buttons: ['Not now', 'Let Bladedeck see it'], defaultId: 1, cancelId: 0, noLink: true,
+    title: 'Let Bladedeck see this folder?', message: `Let Bladedeck see ${p}?`,
+    detail: `${why} The Files panel could then show and open everything in it. You can take this back in Files at any time.`
+  });
+  if (ask.response !== 1) return { ok: false };
+  if (!grants.some((g) => g.path === p)) { grants.push({ path: p, at: Date.now() }); persist(); }
+  return { ok: true, path: p };
+}
+// A folder you picked yourself in the system's folder picker for a job (where downloads go) is
+// allowed with it: picking it there was the choice. Not a whole drive or the whole home folder.
+function grantPickedFolder(p0) {
+  const p = real(p0);
+  if (p === path.parse(p).root || p === real(os.homedir()) || allowed(p)) return allowed(p);
+  grants.push({ path: p, at: Date.now() }); persist();
+  return true;
+}
+
 function register({ getWin: gw }) {
   getWin = gw;
   grantsFile = path.join(app.getPath('userData'), 'fs-grants.json');
@@ -98,6 +122,7 @@ function register({ getWin: gw }) {
     const root = rootOf(d), up = path.dirname(d);
     return { dir: d, parent: root && real(d) !== real(root) && up !== d ? up : null, items: out.slice(0, 2000) };
   });
+  ipcMain.handle('fs-reveal', (_e, p) => { const f = path.resolve(String(p)); if (!allowed(f)) return false; shell.showItemInFolder(f); return true; });
   ipcMain.handle('fs-open', async (_e, p) => { const f = path.resolve(String(p)); if (!allowed(f)) return false; return !(await shell.openPath(f)); });
   ipcMain.handle('fs-grant', () => grant());
   ipcMain.handle('fs-revoke', (_e, p) => { const n = grants.length; grants = grants.filter((g) => g.path !== String(p)); persist(); return grants.length < n; });
@@ -117,4 +142,4 @@ function register({ getWin: gw }) {
   ipcMain.handle('fs-root', () => ({ root: ROOT, mods: dir('mods'), fromPhone: dir('fromPhone'), toPhone: dir('toPhone') }));
 }
 
-module.exports = { register, allowed, allowForSession, allowPicked, wasPicked, real, inside, dir, ROOT, ensure };
+module.exports = { register, allowFolder, grantPickedFolder, allowed, allowForSession, allowPicked, wasPicked, real, inside, dir, ROOT, ensure };

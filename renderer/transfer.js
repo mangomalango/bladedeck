@@ -56,6 +56,8 @@ const Transfer = (() => {
   // From friends: ask first.
   window.bladedeck.onLanEvent(async (ev) => {
     if (ev.kind === 'got') { toast(`🤝 ${ev.from} got ${ev.name}.`, 'fun'); return; }
+    if (ev.kind === 'sending') { toast(`🤝 ${ev.to} accepted. Sending ${ev.name}…`); return; }
+    if (ev.kind === 'unanswered') { toast(`${ev.to} has not answered about ${ev.name}. If no question showed on their screen, their firewall may be blocking Bladedeck (their Nearby says how to fix it). The offer stays open 10 minutes.`, 'err'); return; }
     if (ev.kind === 'progress') { const s = $('.xf-prog'); if (s) s.textContent = `${ev.pct}%`; return; }
     if (ev.kind !== 'offer') return;
     Sound.play('secret');
