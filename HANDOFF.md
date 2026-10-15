@@ -190,6 +190,12 @@ Task IDs and cards: see TEAM.md (next free ID: BD-032 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15, Claude (Windows), lead: nightly check-up (owner: "looks perfect, works, has Gemini's changes, built").**
+  All Gemini code is in nightly (BD-020/021/022 fixes via 4e6b248; its bd024/bd029 branches are review notes only, joined
+  earlier). Screens in a test copy at 1280x720 and 1920x1080: Home, System, Controls, PC mode draw cleanly, no page
+  errors (at 1280x720 the preview card is cut at the blade edge; at 1080p it shows whole). GitHub Build passed for every
+  nightly push up to 75f9dfd. BD-030 still waits for its audit (BD-031).
+
 - **2026-10-15, Claude (Windows), lead: music play/pause is now HOLD the right stick in (owner: keep sort on the right
   stick, put music somewhere more comfortable).** Console mode: right stick click = sort the game lists; holding it in
   half a second = play/pause (fires once while held, nothing on let-go). PC mode and over a dialog: a click is play/pause
