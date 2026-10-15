@@ -177,7 +177,7 @@ function saveRing(dir, secs, to) {
   const take = parts.slice(-(Math.ceil(secs / 5) + 1));
   if (!take.length) return Promise.resolve(false);
   const list = path.join(dir, 'join.txt');
-  fs.writeFileSync(list, take.map((p) => `file '${p.f.replace(/'/g, "'\\''")}'`).join('\n'));
+  fs.writeFileSync(list, take.map((p) => `file '${p.f.replace(/\\/g, '/').replace(/'/g, "'\\''")}'`).join('\n'));
   return new Promise((res) => execFile(ff, ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', '-movflags', '+faststart', to], { timeout: 60000, windowsHide: true }, (err) => res(!err && fs.existsSync(to))));
 }
 

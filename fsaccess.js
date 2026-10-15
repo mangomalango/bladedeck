@@ -14,9 +14,8 @@ const path = require('path');
 const { ipcMain, dialog, shell, app } = require('electron');
 
 const ROOT = path.join(os.homedir(), 'Bladedeck');
-const GAMES = path.join(os.homedir(), 'Games');
-const SUB = { mods: 'Mods', fromPhone: 'From phone', toPhone: 'To phone', fromFriends: 'From friends' };
-let grantsFile = '', grants = [], getWin = () => null;
+const SUB = { mods: 'Mods', fromPhone: 'From phone', toPhone: 'To phone', fromFriends: 'From friends', shared: 'Shared games' };
+let grantsFile = '', grants = [], getWin = () => null, getLib = () => ({ entries: [] });
 const session = new Set(), picked = new Set();
 
 const dir = (k) => path.join(ROOT, SUB[k] || '');
@@ -34,7 +33,7 @@ function real(p) {
   }
 }
 const inside = (p, root) => { const r = real(root), q = real(p); const rel = path.relative(r, q); return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel)); };
-const roots = () => [ROOT, ...(fs.existsSync(GAMES) ? [GAMES] : []), ...grants.map((g) => g.path), ...session];
+const roots = () => [ROOT, ...grants.map((g) => g.path), ...session];
 function allowed(p) { return !!p && roots().some((r) => inside(p, r)); }
 function rootOf(p) { return roots().filter((r) => inside(p, r)).sort((a, b) => b.length - a.length)[0] || null; }
 
@@ -91,8 +90,44 @@ function grantPickedFolder(p0) {
   return true;
 }
 
-function register({ getWin: gw }) {
-  getWin = gw;
+// What sharing a game copies, worked out from the library on disk: a ROM is its file (a .cue or
+// .m3u with the tracks it names, from its own folder); a PC game is the folder its program is in,
+// unless that folder holds more than one game (home, Desktop, Program Files, a drive's root...).
+const BROAD = () => [os.homedir(), ROOT, process.env.ProgramFiles, process.env['ProgramFiles(x86)'], process.env.SystemRoot,
+  ...['Desktop', 'Documents', 'Downloads', 'Pictures', 'Music', 'Videos', 'Games', 'Applications'].map((n) => path.join(os.homedir(), n))].filter(Boolean).map(real);
+function tooBroad(d) { const r = real(d); return path.parse(r).root === r || BROAD().includes(r) || inside(r, ROOT); }
+function gameSource(e) {
+  if (!e || !['rom', 'exe', 'gog', 'recomp'].includes(e.type)) return null;
+  const f = e.type === 'rom' ? e.rom : e.exe;
+  if (!f || typeof f !== 'string') return null;
+  const file = path.resolve(f);
+  try { if (!fs.lstatSync(file).isFile()) return null; } catch { return null; }
+  if (e.type !== 'rom') { const d = path.dirname(file); return tooBroad(d) ? null : { file, dir: d }; }
+  const files = [file];
+  if (/\.(cue|m3u)$/i.test(file)) {
+    let text = ''; try { text = fs.readFileSync(file, 'utf8'); } catch { /* just the sheet */ }
+    const names = /\.cue$/i.test(file) ? [...text.matchAll(/^\s*FILE\s+"([^"]+)"/gim)].map((m) => m[1]) : text.split(/\r?\n/).filter((l) => l.trim() && !l.startsWith('#'));
+    for (const n of names) { const t = path.join(path.dirname(file), path.basename(n.trim())); try { if (fs.lstatSync(t).isFile() && !files.includes(t)) files.push(t); } catch { /* missing track */ } }
+  }
+  return { file, dir: null, files };
+}
+const notLink = (p) => { try { return !fs.lstatSync(p).isSymbolicLink(); } catch { return false; } };
+function sizeOf(src) {
+  if (!src.dir) return src.files.reduce((n, f) => n + (fs.statSync(f).size || 0), 0);
+  let n = 0; const walk = (d) => { for (const x of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, x.name); if (x.isSymbolicLink()) continue; if (x.isDirectory()) walk(p); else if (x.isFile()) n += fs.statSync(p).size; } };
+  try { walk(src.dir); } catch { /* partly unreadable */ }
+  return n;
+}
+const fmt = (n) => (n >= 1073741824 ? `${(n / 1073741824).toFixed(1)} GB` : n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+const safeName = (t) => String(t || 'game').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/[. ]+$/, '').trim().slice(0, 80) || 'game';
+function uniqName(d, name) {
+  const ext = path.extname(name), stem = name.slice(0, name.length - ext.length);
+  let n = name; for (let i = 2; fs.existsSync(path.join(d, n)); i++) n = `${stem} (${i})${ext}`;
+  return n;
+}
+
+function register({ getWin: gw, getLib: gl }) {
+  getWin = gw; if (gl) getLib = gl;
   grantsFile = path.join(app.getPath('userData'), 'fs-grants.json');
   load(); ensure();
 
@@ -104,6 +139,7 @@ function register({ getWin: gw }) {
       { icon: '📲', name: 'From phone', path: dir('fromPhone'), own: true },
       { icon: '📤', name: 'To phone', path: dir('toPhone'), own: true },
       { icon: '🤝', name: 'From friends', path: dir('fromFriends'), own: true },
+      { icon: '🎁', name: 'Shared games', path: dir('shared'), own: true },
       ...grants.filter((g) => fs.existsSync(g.path)).map((g) => ({ icon: '📁', name: path.basename(g.path) || g.path, path: g.path, granted: true }))
     ];
   });
@@ -140,51 +176,55 @@ function register({ getWin: gw }) {
   });
   ipcMain.handle('xfer-phone-list', () => { ensure(); try { return fs.readdirSync(dir('toPhone'), { withFileTypes: true }).filter((d) => d.isFile() && !d.name.startsWith('.')).map((d) => ({ name: d.name, size: fs.statSync(path.join(dir('toPhone'), d.name)).size })); } catch { return []; } });
   ipcMain.handle('xfer-unshare', (_e, name) => { const f = path.join(dir('toPhone'), path.basename(String(name))); if (!inside(f, dir('toPhone')) || real(f) === real(dir('toPhone'))) return false; try { fs.rmSync(f); return true; } catch { return false; } });
-  ipcMain.handle('xfer-prep-game', async (_e, g) => {
-    if (!g) return { ok: false, error: 'No game chosen.' };
+  /* Shared games: the pool. Bladedeck can see every game in the library (the storage map only reads
+     sizes), but nothing of a game leaves this PC until the owner copies it into Bladedeck/Shared
+     games, after a Windows/desktop confirmation the page cannot press for them. Only the pool is
+     packed or sent; the original stays where it is. The page names a game by its library id, and
+     the file comes from the library on disk, never from the page. ROM sync is separate (romsync.js). */
+  ipcMain.handle('xfer-prep-game', async (_e, id) => {
+    const e = (getLib().entries || []).find((x) => x && x.id === String(id || ''));
+    const src = gameSource(e);
+    if (!src) return { ok: false, error: e ? 'Bladedeck can only share a game whose file is in its own game folder, not a folder like Desktop or Program Files.' : 'That game is not in your library.' };
+    const from = src.dir || src.file, size = sizeOf(src);
+    const w = getWin();
+    const { response } = await dialog.showMessageBox(w && !w.isDestroyed() ? w : undefined, {
+      type: 'question', buttons: ['Cancel', 'Copy to Shared games'], defaultId: 0, cancelId: 0, noLink: true,
+      title: 'Share this game?', message: `Copy ${e.title} into Shared games?`,
+      detail: `From: ${from}\nSize: ${fmt(size)}\n\nOnly what is in Bladedeck${path.sep}Shared games can be sent to your phone or a friend, and only when you send it. The original stays where it is.`
+    });
+    if (response !== 1) return { ok: false, cancelled: true, error: 'Not shared.' };
     ensure();
-    let target = '';
-    if (g.type === 'rom' && g.rom) target = g.rom;
-    else if (g.type === 'recomp' && g.exe) target = g.exe;
-    else if (g.exe) target = g.exe;
-    if (!target) return { ok: false, error: 'This game has no file set.' };
-
-    const resolved = path.resolve(target);
-    if (!fs.existsSync(resolved)) return { ok: false, error: 'The game file was not found on disk.' };
-    allowForSession(resolved);
-    allowForSession(path.dirname(resolved));
-
-    const st = fs.statSync(resolved);
-    if (st.isFile()) {
-      return { ok: true, path: resolved, name: path.basename(resolved), size: st.size, isDir: false };
-    }
-    return { ok: true, path: resolved, name: path.basename(resolved), size: 0, isDir: true };
-  });
-  ipcMain.handle('xfer-pack-game', async (_e, dirPath, title) => {
-    const d = path.resolve(String(dirPath || ''));
-    if (!allowed(d) || !fs.existsSync(d)) return { ok: false, error: 'Folder not available.' };
-    ensure();
-    const safeTitle = (String(title || path.basename(d))).replace(/[^\w .()'-]/g, '_').trim() || 'game';
-    const outDir = dir('toPhone');
-    let out = path.join(outDir, `${safeTitle}.zip`);
-    for (let i = 2; fs.existsSync(out); i++) out = path.join(outDir, `${safeTitle} (${i}).zip`);
+    // One file stays one file in the pool; a game folder, or a disc with its tracks, becomes a folder.
+    const single = !src.dir && src.files.length === 1;
+    const name = uniqName(dir('shared'), safeName(e.title) + (single ? path.extname(src.file) : ''));
+    const to = path.join(dir('shared'), name);
     try {
-      const arch = require('./archive');
-      const bin = arch.bin ? arch.bin() : null;
-      if (bin) {
-        const { spawn } = require('child_process');
-        await new Promise((res, rej) => {
-          const p = spawn(bin, ['a', '-tzip', '-y', out, path.basename(d)], { cwd: path.dirname(d), windowsHide: true });
-          p.on('close', (c) => c === 0 ? res() : rej(new Error('Zip failed')));
-          p.on('error', rej);
-        });
-        if (fs.existsSync(out)) {
-          allowForSession(out);
-          return { ok: true, path: out, name: path.basename(out), size: fs.statSync(out).size };
-        }
-      }
-    } catch { /* skip */ }
-    return { ok: false, error: 'Could not pack folder into .zip. 7-Zip is needed.' };
+      if (src.dir) await fs.promises.cp(src.dir, to, { recursive: true, errorOnExist: true, filter: notLink });
+      else if (single) await fs.promises.copyFile(src.file, to, fs.constants.COPYFILE_EXCL);
+      else { fs.mkdirSync(to); for (const f of src.files) await fs.promises.copyFile(f, path.join(to, path.basename(f)), fs.constants.COPYFILE_EXCL); }
+    } catch (err) { try { fs.rmSync(to, { recursive: true, force: true }); } catch { /* left behind */ } return { ok: false, error: `The copy did not finish: ${err.message || err}` }; }
+    return { ok: true, path: to, name, isDir: !single };
+  });
+  ipcMain.handle('xfer-pool-list', () => { ensure(); try { return fs.readdirSync(dir('shared'), { withFileTypes: true }).filter((d) => !d.name.startsWith('.')).map((d) => ({ name: d.name, isDir: d.isDirectory() })); } catch { return []; } });
+  ipcMain.handle('xfer-pool-remove', (_e, name) => {
+    const f = path.join(dir('shared'), path.basename(String(name || '')));
+    if (!inside(f, dir('shared')) || real(f) === real(dir('shared'))) return false;
+    try { fs.rmSync(f, { recursive: true, force: true }); return true; } catch { return false; }
+  });
+  // A game folder in the pool, packed into one .zip in To phone so a phone or friend gets it whole.
+  ipcMain.handle('xfer-pack-game', async (_e, name) => {
+    const d = path.join(dir('shared'), path.basename(String(name || '')));
+    if (!inside(d, dir('shared')) || real(d) === real(dir('shared')) || !fs.existsSync(d) || !fs.statSync(d).isDirectory()) return { ok: false, error: 'Only a game in Shared games can be packed.' };
+    const bin = require('./archive').bin(); if (!bin) return { ok: false, error: 'Packing needs 7-Zip.' };
+    ensure();
+    const out = path.join(dir('toPhone'), uniqName(dir('toPhone'), `${path.basename(d)}.zip`));
+    const ok = await new Promise((res) => {
+      // -snl stores links as links, so a link inside the folder can never pull in a file from outside it.
+      const p = require('child_process').spawn(bin, ['a', '-tzip', '-y', '-snl', out, path.basename(d)], { cwd: dir('shared'), windowsHide: true, stdio: 'ignore' });
+      p.on('close', (c) => res(c === 0 || c === 1)); p.on('error', () => res(false));
+    });
+    if (!ok || !fs.existsSync(out)) { try { fs.rmSync(out, { force: true }); } catch { /* none */ } return { ok: false, error: 'It could not be packed.' }; }
+    return { ok: true, path: out, name: path.basename(out), size: fs.statSync(out).size };
   });
   ipcMain.handle('fs-root', () => ({ root: ROOT, mods: dir('mods'), fromPhone: dir('fromPhone'), toPhone: dir('toPhone') }));
 }

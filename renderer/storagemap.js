@@ -38,7 +38,7 @@ const StorageMap = (() => {
     });
 
     try {
-      const res = await api.storageMap(S.lib?.entries || []);
+      const res = await api.storageMap();
       if (!res || !res.ok) {
         const root = $('#modal');
         if (root) $('.sm-wrap', root).innerHTML = '<p class="note">Could not read storage information.</p>';
@@ -154,7 +154,7 @@ const StorageMap = (() => {
             <div class="sm-acts">
               ${canPlay ? `<button type="button" data-sm-act="play" data-id="${esc(it.id)}" title="Launch game">▶ Play</button>` : ''}
               ${canShare ? `<button type="button" data-sm-act="share" data-id="${esc(it.id)}" title="Share with phone or friend">📤 Share</button>` : ''}
-              ${it.path ? `<button type="button" data-sm-act="reveal" data-path="${esc(it.path)}" title="Show in folder">📁 Show</button>` : ''}
+              ${it.path ? `<button type="button" data-sm-act="reveal" data-id="${esc(it.id)}" title="Show in folder">📁 Show</button>` : ''}
               ${it.type === 'capture' ? `<button type="button" data-sm-act="del-cap" data-path="${esc(it.path)}" title="Delete recording">✕</button>` : ''}
               ${it.id === 'cache:online-media' ? `<button type="button" data-sm-act="clear-om" title="Clear online media cache">🧹 Clear</button>` : ''}
             </div>
@@ -223,11 +223,8 @@ const StorageMap = (() => {
     }
 
     if (act === 'reveal') {
-      const p = actBtn.dataset.path;
-      if (p) {
-        api.fsReveal(p);
-        toast('Shown in your file manager.');
-      }
+      if (await api.storageReveal(actBtn.dataset.id)) toast('Shown in your file manager.');
+      else toast('That is not there any more.', 'err');
       return;
     }
 

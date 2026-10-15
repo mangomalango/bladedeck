@@ -100,20 +100,21 @@ const Transfer = (() => {
   // Share a game directly from its details card or tasks
   async function openGame(e) {
     if (!e) return;
-    toast(`Preparing ${e.title}…`);
-    const r = await api.xferPrepGame(e);
-    if (!r.ok) { toast(r.error || 'Game file could not be readied for sending.', 'err'); return; }
+    // Main asks first (a desktop dialog), then copies the game into Shared games; only that copy is sent.
+    const r = await api.xferPrepGame(e.id);
+    if (!r.ok) { if (!r.cancelled) toast(r.error || 'That game could not be shared.', 'err'); return; }
+    toast(`${e.title} is in Shared games.`, 'fun');
     if (r.isDir) {
-      // Directory-based PC port: pack into .zip so it can be sent whole
+      // A game folder: pack it into one .zip so a phone or friend receives all of it.
       closeModal();
       openModal({
         title: `Share ${e.title}`,
-        html: `<p><b>${esc(e.title)}</b> is a folder with game assets.</p><p class="note">Bladedeck can pack it into a .zip archive so your phone or friend receives the complete port.</p>`,
+        html: `<p><b>${esc(e.title)}</b> is a folder, now copied into Shared games.</p><p class="note">Bladedeck packs that copy into a .zip so your phone or friend receives the whole game.</p>`,
         buttons: [
           { label: 'Cancel' },
           { label: 'Pack into .zip and send', primary: true, onClick: async () => {
-            toast(`Compressing ${e.title} folder…`);
-            const p = await api.xferPackGame(r.path, e.title);
+            toast(`Packing ${e.title}…`);
+            const p = await api.xferPackGame(r.name);
             if (!p.ok) { toast(p.error, 'err'); return; }
             open(p.path, `${e.title}.zip`);
           } }

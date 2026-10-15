@@ -10,7 +10,7 @@
      - Minecraft: Prism Launcher instances and worlds.
    - Media: recordings, clips and instant replays in Videos/Bladedeck.
    - Caches & downloads: online video/theme caches, artwork, backups and Downloads. */
-const { ipcMain, app } = require('electron');
+const { ipcMain, app, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -369,10 +369,10 @@ async function scanStorage(entries = []) {
     it.pct = totalAccounted > 0 ? Math.round((it.size / totalAccounted) * 1000) / 10 : 0;
   });
 
-  try {
-    const FA = require('./fsaccess');
-    items.forEach((it) => { if (it.path) FA.allowForSession(it.path); });
-  } catch { /* skip */ }
+  // Read only: the map unlocks nothing. "Show" goes by the item's id (storage-reveal), so the page
+  // never hands main a path of its own.
+  shown = new Map(items.filter((it) => it.path).map((it) => [it.id, it.path]));
+  for (const it of items) delete it.entry;
 
   return {
     ok: true,
@@ -384,10 +384,11 @@ async function scanStorage(entries = []) {
   };
 }
 
-function register() {
-  ipcMain.handle('storage-map', async (_e, entries) => {
-    return scanStorage(entries || []);
-  });
+// The games come from the library on disk, not from the page.
+let shown = new Map();
+function register(getLib) {
+  ipcMain.handle('storage-map', async () => scanStorage((getLib ? getLib().entries : []) || []));
+  ipcMain.handle('storage-reveal', (_e, id) => { const p = shown.get(String(id)); if (!p || !fs.existsSync(p)) return false; shell.showItemInFolder(p); return true; });
 }
 
 module.exports = { register, scanStorage };

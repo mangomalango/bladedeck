@@ -148,9 +148,12 @@ that list in main.js.
 | `xferToPhone(f)` | `xfer-to-phone` | call | fsaccess.js |
 | `xferPhoneList()` | `xfer-phone-list` | call | fsaccess.js |
 | `xferUnshare(n)` | `xfer-unshare` | call | fsaccess.js |
-| `xferPrepGame(g)` | `xfer-prep-game` | call | fsaccess.js |
-| `xferPackGame(dir, title)` | `xfer-pack-game` | call | fsaccess.js |
-| `storageMap(entries)` | `storage-map` | call | storage.js |
+| `xferPrepGame(id)` | `xfer-prep-game` | call | fsaccess.js |
+| `xferPackGame(name)` | `xfer-pack-game` | call | fsaccess.js |
+| `storageMap()` | `storage-map` | call | storage.js |
+| `storageReveal(id)` | `storage-reveal` | call | storage.js |
+| `xferPoolList()` | `xfer-pool-list` | call | fsaccess.js |
+| `xferPoolRemove(name)` | `xfer-pool-remove` | call | fsaccess.js |
 | `onLanPeers(fn)` | `lan-peers` | event | lan.js |
 | `onLanEvent(fn)` | `lan-event` | event | main process sends it |
 | `fsList(d)` | `fs-list` | call | fsaccess.js |

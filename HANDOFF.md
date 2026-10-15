@@ -65,15 +65,8 @@ Task IDs and cards: see TEAM.md (next free ID: BD-019 (BD-011..BD-018 are in ROA
 
 ### For Gemini (in Antigravity)
 - BD-003 complete, reviewed and merged by the lead (557049f). Next audit: what lands on master after it (`/bladedeck-audit`).
-- **BD-010** · windows · Gemini · `/bladedeck-review` of the Windows-only code, which has had no
-  bug review yet: wincapture.js, winaudio.js, winpad.js, winlist.js, procs.js (win32 guards),
-  system.js, steaminput.js, steamlink.js, netshare.js and romsync.js (win32 parts), and main.js
-  `prewarmSteam`, the 'launch' handler and `command()`. Look for: PowerShell or cmd quoting with
-  paths that hold spaces, quotes or `&`; spawn/execFile without an 'error' handler or windowsHide;
-  helpers left running after Bladedeck quits; hard-coded Linux paths reached on Windows. Read only
-  plus `npm run check`; do not run Bladedeck outside `npm run test-copy`. Write
-  NIGHTLY-REVIEW-gemini.md, fix only small certain things on `gemini/<date>-bd010`, commit, and
-  tell the owner the branch name. Claude (Windows) verifies each finding on this PC.
+- **BD-010** (done) · windows · Gemini · `/bladedeck-review` of the Windows-only code.
+  Review complete, documented in `NIGHTLY-REVIEW-gemini.md`. Fixed `tasklist` windowsHide in `prewarmSteam` (`main.js:347`) and FFmpeg concat backslash normalization (`wincapture.js:180`). Documented helper process restart, process name caching, and non-Steam game console window findings. Branch: `gemini/2026-10-14-bd010`. Claude (Windows) verifies findings.
 
 ### For Claude
 - Things that need the owner's hardware: multi-screen on two screens, the DualSense speaker,
@@ -85,6 +78,13 @@ Task IDs and cards: see TEAM.md (next free ID: BD-019 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-14, Gemini (reviewer): BD-010 Windows-only code review.**
+  Audited `wincapture.js`, `winaudio.js`, `winpad.js`, `winlist.js`, `procs.js`, `system.js`, `steaminput.js`, `steamlink.js`, `netshare.js`, `romsync.js`, and `main.js` (`prewarmSteam`, `command()`, `launch`).
+  - Fixed `tasklist` missing `{ windowsHide: true }` in `prewarmSteam` (`main.js:347`) to prevent startup console flash.
+  - Fixed FFmpeg concat file path backslash normalization (`wincapture.js:180`) using forward slashes to avoid escape sequence corruption (`\n`, `\t`, `\r`) with Windows user paths.
+  - Documented findings in `NIGHTLY-REVIEW-gemini.md`: PowerShell helper restart recovery on process death (`winlist.js`, `winpad.js`), process name cache PID reuse (`winlist.js`), persistent console window for non-Steam games launched via Steam (`steamlink.js:102`), single-core affinity enforcement on Windows (`main.js:401`), and synchronous Steam appmanifest disk I/O in `procs.steamInstallDirs()`.
+  - Verification: `npm run check` clean (119 files, 267 channels); `node scripts/sweep.js --empty` clean (50 items opened, 0 errors, 16 blocked calls). Branch: `gemini/2026-10-14-bd010`.
 
 - **2026-10-14, Gemini (Windows):** Windows Storage Map improvements & test-copy safety.
   Storage map on Windows (`storage.js`, `renderer/storagemap.js`, `renderer/app.js`, `main.js`):

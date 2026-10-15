@@ -15,7 +15,7 @@ const Net = require('./net');
 const TEST = process.env.BLADEDECK_TEST || '';
 if (TEST) {
   app.setPath('userData', path.resolve(TEST));
-  const BLOCK = /^(launch|split-launch|sys-power|sys-brightness|sys-wifi-connect|sys-wifi-off|bt-(connect|pair|power|scan)|sound-(set|player-sink|follow)|ms-(open|close|extend|place-main|pin-sound|menu)|ds-set|pads-claim|win-act|focus-pid|proc-freeze|peek-\w+|steamlink-(sync|restart)|steam-sleep-fix|companion-(enable|ring|alarms)|lan-(set|offer|send|accept)|romsync-(pair|answer|sync)|netshare-firewall|net-(hello|poke)|dns-(system|app)|emu-install|emu-install-win|emu-gh-install|moonlight-open|mc-open|dock-open|webapp-open|capture-(record|replay|game|stop)|live-start|presence|discord-set|keep-on-top|open-link|fs-open|fs-reveal|bios-open|capture-open|extras-update|backup-restore|backup-import|xfer-(to-phone|pack-game)|quit)$/;
+  const BLOCK = /^(launch|split-launch|sys-power|sys-brightness|sys-wifi-connect|sys-wifi-off|bt-(connect|pair|power|scan)|sound-(set|player-sink|follow)|ms-(open|close|extend|place-main|pin-sound|menu)|ds-set|pads-claim|win-act|focus-pid|proc-freeze|peek-\w+|steamlink-(sync|restart)|steam-sleep-fix|companion-(enable|ring|alarms)|lan-(set|offer|send|accept)|romsync-(pair|answer|sync)|netshare-firewall|net-(hello|poke)|dns-(system|app)|emu-install|emu-install-win|emu-gh-install|moonlight-open|mc-open|dock-open|webapp-open|capture-(record|replay|game|stop)|live-start|presence|discord-set|keep-on-top|open-link|fs-open|(fs|storage)-reveal|bios-open|capture-open|extras-update|backup-restore|backup-import|xfer-(to-phone|pack-game|prep-game|pool-remove)|quit)$/;
   const handle = ipcMain.handle.bind(ipcMain);
   ipcMain.handle = (ch, fn) => handle(ch, BLOCK.test(ch) ? () => { console.log(`[test copy] blocked ${ch}`); return null; } : fn);
   ipcMain.on('bd-test', (e) => { e.returnValue = true; });
@@ -344,7 +344,7 @@ function prewarmSteam() {
       try { const c = spawn(exe || onPath('flatpak') || '/usr/bin/flatpak', exe ? ['-silent'] : ['run', 'com.valvesoftware.Steam', '-silent'], { detached: true, stdio: 'ignore' }); c.on('error', () => {}); c.unref(); } catch { /* no Steam */ }
     });
   } else if (process.platform === 'win32') {
-    require('child_process').execFile('tasklist', ['/FI', 'IMAGENAME eq steam.exe', '/NH'], (err, out) => {
+    require('child_process').execFile('tasklist', ['/FI', 'IMAGENAME eq steam.exe', '/NH'], { windowsHide: true }, (err, out) => {
       if (err || /steam\.exe/i.test(String(out))) return;
       const pf = [process.env['ProgramFiles(x86)'], process.env.ProgramFiles].filter(Boolean).map((d) => path.join(d, 'Steam', 'steam.exe')).find((p) => fs.existsSync(p));
       if (pf) try { const c = spawn(pf, ['-silent'], { detached: true, stdio: 'ignore' }); c.on('error', () => {}); c.unref(); } catch { /* no Steam */ }
@@ -910,7 +910,7 @@ ipcMain.handle('mod-add', (_e, dir, file) => {
 
 // ---------------------------------------------------------------- the Files panel
 // Lives in fsaccess.js: Bladedeck's own folder by default, other folders only when allowed.
-require('./fsaccess').register({ getWin: () => win });
+require('./fsaccess').register({ getWin: () => win, getLib: loadLib });
 require('./voice').register({ getWin: () => win });
 require('./wallpaper').register({ steamRoot: () => steamRoot(loadLib().settings?.steamPath) });
 
@@ -1042,7 +1042,7 @@ require('./online').register({ settings: () => loadLib().settings, mediaDir });
 require('./store').register({ getWin: () => win });
 require('./capture').register({ getWin: () => win });
 require('./system').register();
-require('./storage').register();
+require('./storage').register(loadLib);
 require('./players').register({ getWin: () => win });
 require('./extras').register({ settings: () => loadLib().settings });
 require('./roms').register({ getWin: () => win });
