@@ -278,7 +278,7 @@ that list in main.js.
 | `updateCheck(o)` | `update-check` | call | updater.js |
 | `updateInstall()` | `update-install` | call | updater.js |
 | `onUpdateProgress(fn)` | `update-progress` | event | main process sends it |
-| `phoneMsgTest()` | `phone-msg-test` | call | phonemsg.js |
+| `phoneMsgTest(o)` | `phone-msg-test` | call | phonemsg.js |
 | `onPhoneMsg(fn)` | `phone-msg` | event | main process sends it |
 | `feedbackAdd(o)` | `feedback-add` | call | feedback.js |
 | `feedbackList()` | `feedback-list` | call | feedback.js |

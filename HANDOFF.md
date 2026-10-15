@@ -160,6 +160,19 @@ Task IDs and cards: see TEAM.md (next free ID: BD-029 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15, Claude (Windows), lead: BD-028 round 1 + review fixes (owner's go).** Look: a soft glass orb at the bottom (the
+  sender's picture inside); a plip on arrival and a faint rising tone while it floats up; it opens into a header across
+  the top (left, not centred) with the sender's picture, name and up to 3 lines, and only the header's own background is
+  blurred (the still of the screen, cropped to it). Owner's choice: the game in front is frozen while the combo is held
+  and runs again on release (renderer/companion.js, procFreeze; not when Bladedeck is in front); after the pop the game
+  keeps running with the choice (wait = keep playing, LB pause, RB menu). Review fixes: rate limit keyed on the pairing
+  key; overlay setContentProtection(true) (Windows; Linux skips the still while Capture runs); the menu ignores LB/RB/LT/RT
+  and the LB+RB+Y Wreck chord while a bubble is up (bubble-up); Android: pageOrigin re-read in onPageFinished,
+  shouldOverrideUrlLoading keeps the WebView on the connect screen and Bladedeck pages, and a 96 px sender picture (large
+  icon, <= 24 KB) goes with each message. Tested in a Windows test copy: orb, hold to 1 with a picture, header at the top,
+  pop, the 4 s choice ending in keep playing, bubbleUp on and off, the bar entry. Not tested: freezing a real game (procs
+  is blocked in test copies), a real controller, the Android build.
+
 - **2026-10-15, BD-028 review (second Claude, in place of Gemini; read only, of 98fdd16):** no injection (textContent
   only, clip() strips control chars) and no blocking bug. To fix before merge: (1) rate limit keyed on the device key, not
   the phone's chosen name; (2) Android Bridge.link origin: set pageOrigin again in onPageFinished from v.getUrl(), and

@@ -47,9 +47,28 @@ public class NotifyService extends NotificationListenerService {
       body.put("app", cut(label, 40));
       body.put("sender", cut(title, 40));
       body.put("text", cut(text, 500));
+      String icon = picture(n);
+      if (!icon.isEmpty()) body.put("icon", icon);
       final String json = body.toString(), url = base + "/api/notify", auth = "Bearer " + key;
       new Thread(() -> send(url, auth, json)).start();
     } catch (Exception e) { /* never let a notification break the listener */ }
+  }
+
+  // The sender's picture (the notification's large icon) as a small PNG, 96 px, or "" without one.
+  String picture(Notification n) {
+    try {
+      android.graphics.drawable.Icon ic = n.getLargeIcon();
+      if (ic == null) return "";
+      android.graphics.drawable.Drawable d = ic.loadDrawable(this);
+      if (d == null) return "";
+      android.graphics.Bitmap b = android.graphics.Bitmap.createBitmap(96, 96, android.graphics.Bitmap.Config.ARGB_8888);
+      android.graphics.Canvas c = new android.graphics.Canvas(b);
+      d.setBounds(0, 0, 96, 96); d.draw(c);
+      java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+      b.compress(android.graphics.Bitmap.CompressFormat.PNG, 90, out);
+      String s = "data:image/png;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP);
+      return s.length() <= 24000 ? s : "";
+    } catch (Exception e) { return ""; }
   }
 
   static String cut(CharSequence s, int n) { String t = s == null ? "" : s.toString(); return t.length() > n ? t.substring(0, n) : t; }

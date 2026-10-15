@@ -35,6 +35,8 @@ function makeOverlay() {
   });
   overlay.setAlwaysOnTop(true, 'screen-saver');
   overlay.setIgnoreMouseEvents(true);
+  // Never in recordings, replays or screenshots (Windows and macOS honour this; Linux does not).
+  overlay.setContentProtection(true);
   overlay.setVisibleOnAllWorkspaces?.(true, { visibleOnFullScreen: true });
   overlay.loadFile(path.join(__dirname, 'renderer', 'bubble.html'));
   overlay.webContents.once('did-finish-load', () => { ready = true; flush(); });
@@ -48,11 +50,14 @@ function flush() {
 }
 
 // A message from a paired phone (companion.js), or a test from Settings.
-function receive(from, b = {}) {
-  const now = Date.now(), t = (recent.get(from) || []).filter((x) => now - x < 60000);
+// The limit counts per pairing key (a phone could rename itself; it cannot change its key).
+function receive(from, b = {}, who = from) {
+  const now = Date.now(), t = (recent.get(who) || []).filter((x) => now - x < 60000);
   if (t.length >= 12) return { ok: false, error: 'Too many messages; slow down.' };
-  t.push(now); recent.set(from, t);
-  const msg = { id: `${now}-${Math.random().toString(36).slice(2, 7)}`, phone: clip(from, 40), app: clip(b.app, 40) || 'Phone', sender: clip(b.sender, 40), text: clip(b.text, 500), at: now };
+  t.push(now); recent.set(who, t);
+  // The sender's picture: a small PNG, JPEG or WebP the phone sends with the message, or none.
+  const icon = typeof b.icon === 'string' && b.icon.length <= 24000 && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(b.icon) ? b.icon : '';
+  const msg = { id: `${now}-${Math.random().toString(36).slice(2, 7)}`, phone: clip(from, 40), app: clip(b.app, 40) || 'Phone', sender: clip(b.sender, 40), text: clip(b.text, 500), icon, at: now };
   if (!msg.text && !msg.sender) return { ok: false, error: 'Empty message.' };
   const lv = level();
   if (lv === 'off') return { ok: true, shown: false };
@@ -70,19 +75,25 @@ function register(d) {
     if (r.msg) tellDeck({ type: 'bar', msg: r.msg, opened: !!r.opened });
     if (r.choice === 'pause' || r.choice === 'menu') tellDeck({ type: 'choice', choice: r.choice });
   });
+  // The combo is held: the menu freezes the game in front, and lets it run again on release.
+  ipcMain.on('bubble-hold', (e, on) => { if (overlay && e.sender === overlay.webContents) tellDeck({ type: 'hold', on: !!on }); });
+  // A bubble or the choice is up: the menu leaves LB, RB, LT and RT alone meanwhile.
+  ipcMain.on('bubble-up', (e, on) => { if (overlay && e.sender === overlay.webContents) tellDeck({ type: 'up', on: !!on }); });
   // Nothing left on screen: hide the window so it costs nothing.
   ipcMain.on('bubble-idle', (e) => { if (overlay && e.sender === overlay.webContents && overlay.isVisible()) overlay.hide(); });
   // One still picture of the screen, blurred behind the open bubble (a window cannot blur what
   // other programs draw, so it is taken once, when the bubble starts to fill).
   ipcMain.handle('bubble-snap', async (e) => {
     if (!overlay || e.sender !== overlay.webContents) return null;
+    // Linux cannot keep the bubble out of captures, so no still of the screen while Bladedeck records.
+    if (process.platform === 'linux' && require('./capture').status().running) return null;
     try {
       const b = overlay.getBounds();
       const src = (await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: Math.round(b.width / 2), height: Math.round(b.height / 2) } }))[0];
       return src ? src.thumbnail.toDataURL() : null;
     } catch { return null; }
   });
-  ipcMain.handle('phone-msg-test', () => receive('Test', { app: 'Messages', sender: 'Bladedeck', text: 'This is how a message from your phone looks. Hold LB + RB and a trigger to read it, then let go.' }));
+  ipcMain.handle('phone-msg-test', (_e, o = {}) => receive('Test', { app: 'Messages', sender: 'Bladedeck', text: 'This is how a message from your phone looks. Hold LB + RB and a trigger to read it, then let go.', icon: o ? o.icon : '' }, 'test'));
 }
 
 function stop() { if (overlay && !overlay.isDestroyed()) overlay.destroy(); overlay = null; }

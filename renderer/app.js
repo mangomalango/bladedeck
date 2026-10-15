@@ -1529,7 +1529,10 @@ function calm(on) {
 const wake = () => { menuInputAt = Date.now(); calm(false); };
 setInterval(() => { if (!S.modal && Date.now() - menuInputAt > 60000) calm(true); }, 5000);
 for (const t of ['keydown', 'pointerdown', 'pointermove', 'wheel']) addEventListener(t, wake, { passive: true, capture: true });
-function handle(a) { Warp.skip(); wake(); Atmos.poke(); handleInput(a); hints(); if (a === 'up' || a === 'down' || a === 'left' || a === 'right') Players.bump(); }
+// A phone message bubble is up (renderer/companion.js): its LB + RB + trigger hold and LB/RB choice
+// must not also switch blades or open things here.
+let bubbleUp = false;
+function handle(a) { if (bubbleUp && /^(lb|rb|lt|rt)$/.test(a)) return; Warp.skip(); wake(); Atmos.poke(); handleInput(a); hints(); if (a === 'up' || a === 'down' || a === 'left' || a === 'right') Players.bump(); }
 /* The hint bar says what the buttons do where you are, so Y reads "Close…" in the Running list
    and the dock rather than "Edit". */
 let hintsDefault = null, hintsNow = '';
@@ -1700,7 +1703,7 @@ function bindInput() {
     if (st.back && st.x && !paired) { paired = true; Capture.toggleRecord(); }
     if (st.back && st.rb && !paired) { paired = true; Capture.saveReplay(); }
     // LB + RB + Y: the wrecking ball (an alpha draft of another interface).
-    if (st.lb && st.rb && st.y && !st.back && !paired && (Players.inMenu() ?? deckFocused())) { paired = true; Wreck.start(); }
+    if (st.lb && st.rb && st.y && !st.back && !paired && !bubbleUp && (Players.inMenu() ?? deckFocused())) { paired = true; Wreck.start(); }
     // A Stadia controller's own buttons (Chrome maps them to 17 and 18): Assistant asks by voice,
     // Capture saves the last moments, or held for half a second starts or stops recording. In games too.
     const stadia = ps.find((g) => /18d1.*9400|stadia/i.test(g.id));

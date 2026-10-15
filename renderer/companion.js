@@ -120,12 +120,24 @@ const Companion = (() => {
   /* -------------------------------------------------------------- phone messages (phonemsg.js) */
   // Every message ends up in the notification bar; after reading one, LB pauses the game (frozen,
   // with Bladedeck in front: going back to it thaws it) and RB brings up the menu.
+  let heldPid = 0;
+  const gamePid = () => { const p = S.playing; return p ? p.winPid || p.pid || 0 : 0; };
   window.bladedeck.onPhoneMsg?.(async (d) => {
+    // The owner's choice: the game in front is frozen while the combo is held (so the held buttons
+    // do nothing in it) and runs again on release. Not when Bladedeck itself is in front.
+    if (d.type === 'hold') {
+      if (d.on && !heldPid && !deckFocused()) {
+        const pid = gamePid();
+        if (pid && !((await api.procFrozen()) || []).includes(pid) && await api.procFreeze(pid, true)) heldPid = pid;
+      } else if (!d.on && heldPid) { const pid = heldPid; heldPid = 0; await api.procFreeze(pid, false); }
+      return;
+    }
+    if (d.type === 'up') { bubbleUp = !!d.on; return; }
     if (d.type === 'bar' && d.msg) {
       const m = d.msg;
       Notify.add(`📱 ${m.sender ? `${m.sender} (${m.app})` : m.app}: ${m.text}`, 'ok');
     } else if (d.type === 'choice') {
-      const p = S.playing, pid = p && (p.winPid || p.pid);
+      const p = S.playing, pid = gamePid();
       if (d.choice === 'pause' && pid) {
         if (await api.procFreeze(pid, true)) { document.dispatchEvent(new CustomEvent('running-changed')); toast(`${entryById(p.id)?.title || 'Your game'} is paused. Going back to it un-pauses it.`); }
       }

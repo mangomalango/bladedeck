@@ -152,7 +152,7 @@ async function handle(req, res) {
     try { return json(res, 200, req.method === 'POST' ? await S.soundSetFn(await body(req)) : await S.soundGet()); } catch (err) { return json(res, 200, { error: String(err.message || err) }); }
   }
   // A notification the phone forwards (only from apps ticked on the phone): a bubble (phonemsg.js).
-  if (req.method === 'POST' && p === '/api/notify') return json(res, 200, require('./phonemsg').receive(dev.name, await body(req)));
+  if (req.method === 'POST' && p === '/api/notify') return json(res, 200, require('./phonemsg').receive(dev.name, await body(req), dev.key));
   if (req.method === 'POST' && p === '/api/do') {
     const b = await body(req);
     const r = await ask('do', b, 15000);

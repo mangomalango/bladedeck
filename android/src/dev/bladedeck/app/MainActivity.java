@@ -41,6 +41,12 @@ public class MainActivity extends Activity {
   private static final String HOME = "file:///android_asset/connect.html";
   private ValueCallback<Uri[]> picking;
   private volatile String pageOrigin = "";
+  // "http://<host>:47616" for a Bladedeck page, "" for anything else.
+  static String originOf(String url) {
+    if (url == null) return "";
+    Uri u = Uri.parse(url);
+    return "http".equals(u.getScheme()) && u.getPort() == 47616 && u.getHost() != null && !u.getHost().isEmpty() ? "http://" + u.getHost() + ":47616" : "";
+  }
 
   @Override protected void onCreate(Bundle saved) {
     super.onCreate(saved);
@@ -80,10 +86,17 @@ public class MainActivity extends Activity {
       @Override public void onReceivedError(WebView v, WebResourceRequest req, WebResourceError err) {
         if (req.isForMainFrame() && !req.getUrl().toString().startsWith("file:")) v.loadUrl(HOME + "#lost");
       }
-      // The Bladedeck page on screen (scheme, host and Bladedeck's port), for Bridge.link.
-      @Override public void onPageStarted(WebView v, String url, android.graphics.Bitmap icon) {
-        Uri u = Uri.parse(url);
-        pageOrigin = "http".equals(u.getScheme()) && u.getPort() == 47616 && u.getHost() != null ? "http://" + u.getHost() + ":47616" : "";
+      // The Bladedeck page on screen (scheme, host and Bladedeck's port), for Bridge.link. Set when a
+      // page starts and again when it has finished (after any redirect), from the WebView's own URL.
+      @Override public void onPageStarted(WebView v, String url, android.graphics.Bitmap icon) { pageOrigin = originOf(url); }
+      @Override public void onPageFinished(WebView v, String url) { pageOrigin = originOf(v.getUrl()); }
+      // Only the connect screen and Bladedeck pages open here (the bridge is in every page this
+      // window loads); any other link opens in the phone's browser instead.
+      @Override public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest req) {
+        String url = req.getUrl().toString();
+        if (url.startsWith("file:///android_asset/") || !originOf(url).isEmpty()) return false;
+        try { startActivity(new Intent(Intent.ACTION_VIEW, req.getUrl())); } catch (Exception e) { /* no browser */ }
+        return true;
       }
     });
     web.addJavascriptInterface(new Bridge(), "BladedeckApp");

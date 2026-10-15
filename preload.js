@@ -224,7 +224,7 @@ contextBridge.exposeInMainWorld('bladedeck', {
   updateCheck: (o) => ipcRenderer.invoke('update-check', o),
   updateInstall: () => ipcRenderer.invoke('update-install'),
   onUpdateProgress: (fn) => ipcRenderer.on('update-progress', (_e, d) => fn(d)),
-  phoneMsgTest: () => ipcRenderer.invoke('phone-msg-test'),
+  phoneMsgTest: (o) => ipcRenderer.invoke('phone-msg-test', o),
   onPhoneMsg: (fn) => ipcRenderer.on('phone-msg', (_e, d) => fn(d)),
   feedbackAdd: (o) => ipcRenderer.invoke('feedback-add', o),
   feedbackList: () => ipcRenderer.invoke('feedback-list'),

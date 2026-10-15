@@ -6,32 +6,37 @@
   <title>Bladedeck bubble</title>
   <style>
     html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font-family: "Segoe UI", system-ui, sans-serif; color: #fff; user-select: none; }
-    /* The blurred still of the screen behind an open bubble. */
-    #snap { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(22px) brightness(.55) saturate(1.2); transform: scale(1.06); opacity: 0; pointer-events: none; }
-    #tray { position: fixed; left: 0; right: 0; bottom: 28px; display: flex; justify-content: center; gap: 14px; pointer-events: none; }
-    /* A bubble: --p goes from 0 (small, see-through, at the bottom) to 1 (message size, at the top). */
-    .bub { --p: 0; position: relative; display: flex; align-items: center; gap: 10px; box-sizing: border-box;
-      min-width: 64px; max-width: calc(64px + var(--p) * 600px); padding: calc(8px + var(--p) * 18px) calc(12px + var(--p) * 22px);
-      border-radius: calc(40px - var(--p) * 14px);
-      background: radial-gradient(circle at 30% 25%, rgba(255,255,255,calc(.28 + var(--p) * .1)), rgba(255,255,255,calc(.06 + var(--p) * .1)) 55%, rgba(180,220,255,calc(.08 + var(--p) * .12)));
-      border: 1px solid rgba(255,255,255,.45); box-shadow: inset 0 0 18px rgba(255,255,255,.18), 0 6px 24px rgba(0,0,0,calc(.15 + var(--p) * .3));
-      opacity: calc(.62 + var(--p) * .38); transition: opacity .6s; animation: rise .7s cubic-bezier(.2,1.4,.4,1) both, bob 3.2s ease-in-out .7s infinite; }
+    #tray { position: fixed; left: 0; right: 0; bottom: 30px; display: flex; justify-content: center; gap: 16px; pointer-events: none; }
+    /* A soft glass orb at the bottom; --p goes from 0 (orb) to 1 (the header at the top). */
+    .bub { --p: 0; position: relative; box-sizing: border-box; overflow: hidden; display: flex; align-items: center; gap: 14px;
+      width: 58px; height: 58px; border-radius: 50%;
+      background: radial-gradient(circle at 32% 26%, rgba(255,255,255,.55), rgba(255,255,255,.10) 38%, rgba(160,210,255,.07) 62%, rgba(255,255,255,.22) 100%);
+      border: 1px solid rgba(255,255,255,.38); box-shadow: inset -6px -8px 16px rgba(120,180,255,.18), inset 4px 5px 10px rgba(255,255,255,.25), 0 4px 18px rgba(0,0,0,.18);
+      opacity: .7; transition: opacity .6s; animation: rise .8s cubic-bezier(.2,1.4,.4,1) both, bob 3.4s ease-in-out .8s infinite; }
     .bub.held { animation: none; }
-    .bub .ic { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 18px; background: rgba(255,255,255,.18); }
-    .bub .tx { min-width: 0; line-height: 1.25; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
-    .bub .who { font-weight: 600; font-size: calc(13px + var(--p) * 9px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(180px + var(--p) * 420px); }
-    .bub .peek { font-size: 12px; opacity: calc(.85 - var(--p)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
-    .bub .full { font-size: calc(14px + var(--p) * 10px); max-height: calc(var(--p) * 60vh); overflow: hidden; opacity: var(--p); white-space: pre-wrap; word-break: break-word; }
-    .bub .ring { position: absolute; inset: -5px; border-radius: inherit; border: 3px solid rgba(255,255,255,.9); opacity: calc(var(--p) * .9); clip-path: inset(0 calc((1 - var(--p)) * 100%) 0 0); pointer-events: none; }
+    /* While it fills: a growing glass header across the top, its own background a blurred still of
+       the screen behind it (only behind it). */
+    .bub.open { position: fixed; left: 28px; top: 0; width: calc(58px + var(--p) * (100vw - 114px)); height: calc(58px + var(--p) * 92px);
+      border-radius: calc(29px - var(--p) * 7px); padding: 0 calc(var(--p) * 26px); opacity: 1;
+      background: rgba(255,255,255,calc(.10 + var(--p) * .06)); box-shadow: 0 10px 34px rgba(0,0,0,calc(.2 + var(--p) * .3)), inset 0 1px 0 rgba(255,255,255,.4); }
+    .bub .bg { position: absolute; inset: 0; background-repeat: no-repeat; filter: blur(18px) brightness(.6) saturate(1.25); transform: scale(1.08); opacity: var(--p); pointer-events: none; }
+    .bub .shine { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(180deg, rgba(255,255,255,.18), transparent 45%); pointer-events: none; }
+    .bub .ic { position: relative; flex: none; width: calc(30px + var(--p) * 34px); height: calc(30px + var(--p) * 34px); margin-left: calc(13px - var(--p) * 13px);
+      border-radius: 50%; overflow: hidden; display: grid; place-items: center; font-weight: 700; font-size: calc(14px + var(--p) * 12px); background: rgba(255,255,255,.2); opacity: calc(.75 + var(--p) * .25); }
+    .bub .ic img { width: 100%; height: 100%; object-fit: cover; }
+    .bub .tx { position: relative; min-width: 0; flex: 1; opacity: var(--p); text-shadow: 0 1px 3px rgba(0,0,0,.55); }
+    .bub .who { font-weight: 600; font-size: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bub .full { font-size: 19px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+    .bub .ring { position: absolute; inset: 0; border-radius: inherit; border: 2px solid rgba(255,255,255,.85); opacity: calc(var(--p) * .8); clip-path: inset(0 calc((1 - var(--p)) * 100%) 0 0); pointer-events: none; }
     .bub.fade { opacity: 0; }
     .bub.pop { animation: pop .38s ease-out forwards; }
-    @keyframes rise { from { transform: translateY(80px) scale(.4); opacity: 0; } }
-    @keyframes bob { 50% { transform: translateY(-6px); } }
-    @keyframes pop { 30% { transform: scale(1.12); opacity: 1; } to { transform: scale(1.5); opacity: 0; filter: blur(4px); } }
+    @keyframes rise { from { transform: translateY(70px) scale(.3); opacity: 0; } }
+    @keyframes bob { 50% { transform: translateY(-7px); } }
+    @keyframes pop { 30% { transform: scale(1.04); opacity: 1; } to { transform: scale(1.18); opacity: 0; filter: blur(5px); } }
     .spark { position: fixed; width: 6px; height: 6px; border-radius: 50%; background: #fff; pointer-events: none; animation: spark .6s ease-out forwards; }
     @keyframes spark { to { transform: translate(var(--dx), var(--dy)) scale(.2); opacity: 0; } }
-    /* After the pop: what next. Waiting keeps playing. */
-    #choose { position: fixed; top: 28px; left: 50%; transform: translateX(-50%); display: none; gap: 10px; padding: 10px 14px; border-radius: 18px;
+    /* After the pop: the game keeps running; waiting keeps playing. */
+    #choose { position: fixed; top: 26px; left: 28px; display: none; gap: 10px; padding: 10px 14px; border-radius: 18px;
       background: rgba(10,20,35,.72); border: 1px solid rgba(255,255,255,.25); box-shadow: 0 8px 30px rgba(0,0,0,.4); font-size: 17px; }
     #choose.on { display: flex; animation: rise .4s ease-out both; }
     #choose span { padding: 6px 12px; border-radius: 12px; background: rgba(255,255,255,.08); }
@@ -42,7 +47,6 @@
   </style>
 </head>
 <body>
-  <img id="snap" alt="">
   <div id="tray"></div>
   <div id="choose"><span class="def">Keep playing</span><span><b>LB</b>Pause</span><span><b>RB</b>Menu</span><i class="bar"></i></div>
   <script src="bubble.js"></script>
