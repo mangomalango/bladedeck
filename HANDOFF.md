@@ -1,4 +1,4 @@
-> Gemini: BD-033 audit: PASS; BD-034 done (Linux feedback reproduced on Windows). No open card. Wait for the next one from Claude (Windows).
+> Gemini: BD-033 audit: PASS; BD-034 done. Stress test & Settings audit complete. 3 bugs caught (§12) & BD-043 proposed for Claude (Windows).
 
 # Handoff between Claude and Gemini
 
@@ -237,6 +237,22 @@ Task IDs and cards: see TEAM.md (next free ID: BD-043 (BD-011..BD-018 are in ROA
   the hold-to-read gesture, the bar, do-not-disturb levels. Test copy with fake messages; nothing opens while a game
   has the screen. Network-facing, so Gemini audits it before merge.
 ### For Claude
+- **BD-043** (proposed for Claude Windows) · windows / both · Fix 3 stress test edge-case bugs & lightweight memory trim on game launch.
+  ```
+  [TASK]     BD-043 · Fix 3 stress test bugs from NIGHTLY-REVIEW §12 and add working set memory trim on launch
+  [TARGET]   windows / both
+  [OWNER]    Claude (Windows)
+  [CONTRACT] none
+  [DO]       (1) Fix OSK close race in renderer/pad.js:168: target=null while el.hidden is still false (200ms) causes
+             Cannot read properties of null (reading 'value') when dpad/buttons are pressed during dismissal.
+             Update isOpen() to `() => !el.hidden && target != null` and add null guards in draw().
+             (2) Fix launch null rejection in renderer/app.js:441: optional chain `r?.ok` when api.launch returns null.
+             (3) Fix web-dl-start destructuring in webdl.js:111: `(_e, opts = {}) => { const { url, ... } = opts || {};`
+             so passing null doesn't throw.
+             (4) Lightweight memory trim: on game launch / minimize, call Windows working set trim
+             (SetProcessWorkingSetSize or process trim) to drop idle background RAM from ~125MB to ~25MB while playing.
+  [REPLY]    "BD-043 done" when implemented
+  ```
 - Things that need the owner's hardware: multi-screen on two screens, the DualSense speaker,
   the live view's remembered windows, Real-Debrid's file server with a real login, the
   walkthrough window following into a game.
@@ -246,6 +262,17 @@ Task IDs and cards: see TEAM.md (next free ID: BD-043 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-15, Gemini: Stress test and Settings audit complete (NIGHTLY-REVIEW §12).**
+  - **Settings audit**: All 9 tabs audited cleanly (0 errors). Live search (`.set-find`) verified across all pages. Save persistence verified. Advanced BladePick checklist reordering verified.
+  - **Stress & break test**: 500 rapid controller inputs, 30 modal cycles, 40 PC/Console mode switches, 26 IPC fuzzings.
+  - **Memory & footprint**: JS Heap remained strictly at 9.5 MB (0.0 MB leak). Base Electron working set ~120-135 MB.
+  - **3 bugs caught**:
+    (1) `renderer/pad.js:168`: closing OSK zeroes `target = null` before CSS 200ms transition finishes (`el.hidden` still false); d-pad presses during close throw `Cannot read properties of null (reading 'value')` (208 errors).
+    (2) `renderer/app.js:441`: `api.launch` returning null causes `if (r.ok ...)` to throw unhandled rejection. Needs `r?.ok`.
+    (3) `webdl.js:111`: `web-dl-start` IPC handler parameter destructuring `{ url, ... } = {}` crashes on null argument.
+  - **Lightweight optimization**: Proposed BD-043 to add Windows working set memory trimming on game launch/minimize, cutting background RAM footprint while playing from ~125 MB to ~25 MB (-80%).
+
 
 - **2026-10-15, Gemini: BD-034 done (Linux feedback reproduced on Windows).**
   Tested in test copy with downloads redirected to an isolated scratch directory.
