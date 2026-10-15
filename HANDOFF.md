@@ -1,4 +1,9 @@
-> Gemini: no open card. Wait for the next one from Claude (Windows).
+> ## >>> GEMINI: START HERE (BD-032, do this first) <<<
+> 1. Get the branch: `git fetch origin && git worktree add ../bladedeck-gemini-bd032 -b gemini/2026-10-15-bd032 origin/bladedeck-nightly`
+> 2. Run `/bladedeck-review` on ONLY these commits: `git diff 128c5d6 3569f60 -- renderer/bubble.js renderer/bubble.html phonemsg.js renderer/app.js android scripts/replytest.js` (BD-030 quick replies as merged and changed since) and `git show f336cf7` (right stick: click sorts, hold plays music). Card: "For Gemini", BD-032.
+> 3. Run `npm run check`, `npm run test-replies`, `npm run test-pool`. Read only; no pushes to other branches; test copies only; never touch the installed Bladedeck or the computer.
+> 4. Findings in `NIGHTLY-REVIEW-gemini.md`, with the exact commands you ran and what you did NOT test; reply "BD-032 audit: PASS" or "DRIFT (what)" in HANDOFF.md.
+> 5. Then stop and wait for the next card.
 
 # Handoff between Claude and Gemini
 
@@ -10,7 +15,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-Task IDs and cards: see TEAM.md (next free ID: BD-032 (BD-011..BD-018 are in ROADMAP.md)).
+Task IDs and cards: see TEAM.md (next free ID: BD-033 (BD-011..BD-018 are in ROADMAP.md)).
 
 - **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
   .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
@@ -104,6 +109,27 @@ Task IDs and cards: see TEAM.md (next free ID: BD-032 (BD-011..BD-018 are in ROA
   [REPLY]    "BD-024 audit: PASS" or "DRIFT (<what>)" here in HANDOFF.md, details in NIGHTLY-REVIEW-gemini.md
   ```
 ### For Gemini (in Antigravity)
+- **BD-032** · both · Gemini · Peer review of quick replies as they are now on bladedeck-nightly, plus the right-stick change.
+  ```
+  [TASK]     BD-032 · the reply gesture and layout do what the owner chose, and nothing sends by accident
+  [TARGET]   both (renderer/bubble.js is shared; Linux behaviour must match)
+  [OWNER]    Gemini
+  [CONTRACT] none (no channel added: still 276; bubble-reply unchanged {id, pick 0-3})
+  [INPUT]    renderer/bubble.js + bubble.html: replies are LB held + the RIGHT STICK pushed one way for 0.55 s
+             (up 0 Sounds good, down 1 Busy, right 2 5 mins, left 3 In a match); the stick must come back to the
+             middle first (stickArmed); View held disarms; each frame adds at most 100 ms; with replies on offer LB
+             pauses on LET-GO only if no direction went with it (lbWas/lbUsed); the replies are a cross in the middle
+             of the screen, the Keep playing / LB / RB bar alone at the top. phonemsg.js: the menu gets its buttons
+             back if the overlay closes or crashes. android: the thumbs-up as \uD83D\uDC4D, javac -encoding UTF-8.
+             renderer/app.js f336cf7: right stick click sorts in console mode, held 0.55 s plays/pauses music; M is music.
+  [DO]       look for: a reply sent with no LB, by camera movement, by a second controller or a drifting stick, or
+             while View is held; LB + stick then LB let go also pausing; a diagonal picking the wrong reply; the
+             choice closing mid-hold; #rp left on screen after the choice ends; the R3 hold/tap mix-up (a hold
+             also sorting, a tap also toggling music); anything that changes Linux or messages without replies
+  [RULES]    TEAM.md: your own worktree and gemini/<date>-bd032 branch; read only on bladedeck-nightly; no pushes
+             to others' branches; test copies only; never run or kill the installed Bladedeck
+  [REPLY]    "BD-032 audit: PASS" or "DRIFT (<what>)" here, details in NIGHTLY-REVIEW-gemini.md
+  ```
 - **BD-031** (done: PASS by a second Claude in place of Gemini, the owner's call; BD-030 merged, see Log) · both · Gemini · Audit BD-030 (quick replies) on branch claude/bd030-quick-replies (11aee87) BEFORE it is
   merged: phonemsg.js (REPLIES, replyable, outbox, bubble-reply, takeReplies), companion.js GET /api/replies,
   renderer/bubble.js (hold-to-send, faceArmed), android NotifyService.java (replyAction, poll, answer). Try to
