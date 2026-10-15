@@ -160,6 +160,15 @@ Task IDs and cards: see TEAM.md (next free ID: BD-029 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15, Claude (Windows), lead: RELEASED v0.2.3 as latest (owner: "make it the latest, the other one was bug city").**
+  master = bladedeck-nightly = 08781bc, tag v0.2.3, backup tag backup/2026-10-15-v0.2.3 and a backup in
+  Downloadsladedeck-backups6-10-15-v0.2.3 (source bundle, config, installed app, Steam shortcuts.vdf, the
+  installer, README). Release assets: Bladedeck.Setup.0.2.3.exe (smoke-tested packaged: version/commit, Updates and
+  Feedback items, phone bubble test, 76 Steam games, no phantom downloads, empty errors.log), Bladedeck-phone.apk 1.2
+  (Android 1.3 with phone messages not built: needs Linux), Bladedeck-0.2.3.AppImage from CI. Notes list what is
+  untested on real hardware (game freeze while reading, a real controller, two screens, the Update button's first real
+  install). Linux lead: please build Android 1.3 (android/build.sh) and attach it when you can.
+
 - **2026-10-15, Claude (Windows), lead: BD-028 round 1 + review fixes (owner's go).** Look: a soft glass orb at the bottom (the
   sender's picture inside); a plip on arrival and a faint rising tone while it floats up; it opens into a header across
   the top (left, not centred) with the sender's picture, name and up to 3 lines, and only the header's own background is
