@@ -1594,8 +1594,8 @@ setInterval(() => { if (!S.modal && Date.now() - menuInputAt > 60000) calm(true)
 for (const t of ['keydown', 'pointerdown', 'pointermove', 'wheel']) addEventListener(t, wake, { passive: true, capture: true });
 // A phone message bubble is up (renderer/companion.js): its LB + RB + trigger hold and LB/RB choice
 // must not also switch blades or open things here.
-let bubbleUp = false;
-function handle(a) { if (bubbleUp && /^(lb|rb|lt|rt)$/.test(a)) return; Warp.skip(); wake(); Atmos.poke(); handleInput(a); hints(); if (a === 'up' || a === 'down' || a === 'left' || a === 'right') Players.bump(); }
+let bubbleUp = false, bubbleFace = false;
+function handle(a) { if (bubbleUp && /^(lb|rb|lt|rt)$/.test(a)) return; if (bubbleFace && /^(a|b|x|y)$/.test(a)) return; Warp.skip(); wake(); Atmos.poke(); handleInput(a); hints(); if (a === 'up' || a === 'down' || a === 'left' || a === 'right') Players.bump(); }
 /* The hint bar says what the buttons do where you are, so Y reads "Close…" in the Running list
    and the dock rather than "Edit". */
 let hintsDefault = null, hintsNow = '';

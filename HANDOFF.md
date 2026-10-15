@@ -223,6 +223,21 @@ Task IDs and cards: see TEAM.md (next free ID: BD-032 (BD-011..BD-018 are in ROA
   RIGHT STICK CLICK, in console mode when no dialog is open; it replaces music play/pause there (M, the ☰ button and PC mode keep
   it; the controls list says so). Games blade stays shown by default (nothing to change). 0.2.4 ships later. Minor, not done: a
   re-ticked blade goes back just before System, not to its old slot. `npm run check` passes; not run in a window.
+- **2026-10-15, Claude (Windows CLI session, Opus): BD-030 quick replies, on branch claude/bd030-quick-replies,
+  NOT merged.** After the pop, a message the phone can answer also offers four fixed phrases on A, B, X, Y
+  (Sounds good, Can't talk busy right now, Give me 5 mins, In a match be there soon), sent by HOLDING the button
+  0.55 s (a ring fills); a tap never sends, and a button already down when the choice opened must be let go first.
+  Changed from the card for safety: the bubble sends only a phrase number (bubble-reply {id, pick}), never text;
+  the phrases live in phonemsg.js; the phone keeps the same four and posts nothing else. Phone: NotifyService finds
+  the app's reply action (RemoteInput, also the watch extension), sends a random ref with /api/notify, keeps the
+  action in memory, polls GET /api/replies every 3 s for up to 3 min, and answers through the app's own action.
+  PC: replies wait in memory per pairing key (max 10, 3 min), taken once; a dismissed or faded bubble can no
+  longer be answered. While replies are offered the menu ignores A/B/X/Y (bubbleFace), so a hold over the menu
+  cannot launch a game. The bar entry says "You replied: ...". Clicking a badge is not possible: the overlay is
+  click-through. Tests: npm run test-replies (22 attacks) pass; test-pool and check (276) pass; sweep 54 items, no
+  errors; test copy: tap A sent nothing, holding Y sent, the menu guard on and off, the bar entry. NOT tested: the
+  Android code (not compiled, needs android/build.sh on Linux), a real phone, a real controller in a game.
+  Next: BD-031 Gemini audit, then the lead reviews and merges.
 
 - **2026-10-15, Claude (Linux/cloud): Organize (a) and (b) built, on claude/bladedeck-helpers-termination-pwivp1** (same branch as the
   helper fix, merged with bladedeck-nightly 3da4110+; the cloud session may only push to this branch). (a) Settings, Advanced: blades

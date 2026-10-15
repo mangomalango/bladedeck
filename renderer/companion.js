@@ -132,10 +132,10 @@ const Companion = (() => {
       } else if (!d.on && heldPid) { const pid = heldPid; heldPid = 0; await api.procFreeze(pid, false); }
       return;
     }
-    if (d.type === 'up') { bubbleUp = !!d.on; return; }
+    if (d.type === 'up') { bubbleUp = !!d.on; bubbleFace = !!d.face; return; }
     if (d.type === 'bar' && d.msg) {
       const m = d.msg;
-      Notify.add(`📱 ${m.sender ? `${m.sender} (${m.app})` : m.app}: ${m.text}`, 'ok');
+      Notify.add(`📱 ${m.sender ? `${m.sender} (${m.app})` : m.app}: ${m.text}${d.replied ? ` · You replied: ${d.replied}` : ''}`, 'ok');
     } else if (d.type === 'choice') {
       const p = S.playing, pid = gamePid();
       if (d.choice === 'pause' && pid) {
