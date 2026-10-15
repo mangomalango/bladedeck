@@ -25,7 +25,16 @@ const StorageMap = (() => {
     openModal({
       title: 'Storage map', wide: true,
       html: '<div class="sm-wrap"><div class="sm-loading"><p class="note">Mapping storage space across games, media and caches…</p></div></div>',
-      buttons: [{ label: 'Close', primary: true }]
+      buttons: [{ label: 'Close', primary: true }],
+      onOpen: (root) => {
+        root.__lbrb = (dir) => {
+          const keys = FILTERS.map((f) => f[0]);
+          const idx = keys.indexOf(curFilter);
+          const next = dir === 'rb' ? (idx + 1) % keys.length : (idx - 1 + keys.length) % keys.length;
+          curFilter = keys[next];
+          render();
+        };
+      }
     });
 
     try {
@@ -224,22 +233,23 @@ const StorageMap = (() => {
 
     if (act === 'del-cap') {
       const p = actBtn.dataset.path;
-      if (p && confirm(`Delete this recording (${base(p)})?`)) {
-        await api.fsRevoke(p); // or rm
-        try {
-          const fs = window.bladedeck?.fsRevoke; // or reload
+      if (p && await confirmAsk({ title: `Delete ${base(p)}?`, text: 'This recording will be permanently deleted from your PC.', yes: 'Delete recording', danger: true })) {
+        const ok = await api.captureDelete(p);
+        if (ok) {
           toast('Capture removed.');
-          open(); // refresh storage map
-        } catch { /* skip */ }
+          open();
+        } else {
+          toast('Could not delete capture.', 'err');
+        }
       }
       return;
     }
 
     if (act === 'clear-om') {
-      if (confirm('Clear the online preview clips and themes cache? New ones will download when you browse games.')) {
+      if (await confirmAsk({ title: 'Clear preview clips and music?', text: 'Online preview clips and theme music will be removed from your cache. New ones will download when you browse games.', yes: 'Clear cache' })) {
+        await api.onlineMediaClear();
         toast('Online media cache cleared.');
-        // refresh
-        setTimeout(open, 600);
+        setTimeout(open, 500);
       }
       return;
     }

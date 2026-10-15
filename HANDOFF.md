@@ -86,6 +86,14 @@ Task IDs and cards: see TEAM.md (next free ID: BD-019 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-14, Gemini (Windows):** Windows Storage Map improvements & test-copy safety.
+  Storage map on Windows (`storage.js`, `renderer/storagemap.js`, `renderer/app.js`, `main.js`):
+  - Multi-drive support on Windows: `storage.disks()` now discovers drives `D:\` through `Z:\` in addition to C:\ and homedir, enabling the storage bar and item scan to recognize Steam and ROM libraries on secondary disks.
+  - Safe session access: Added `fsaccess.allowForSession` for all scanned storage items so clicking "Show" opens files located outside default ROOT/GAMES folders without security denials.
+  - Storage Map controller & modal cleanup: `renderer/app.js` now enables `__lbrb` bumper cycling for any modal registering `root.__lbrb` (including Storage Map category filtering). Replaced raw `confirm()` with `confirmAsk()` for TV/controller friendliness. Replaced dummy `fsRevoke` with `api.captureDelete(p)` and hooked `api.onlineMediaClear()` for the cache cleanup action.
+  - Test-copy safety: Added `xfer-pack-game` to `BLOCK` regex in `main.js` to prevent 7z game packaging from running in test copies during automated sweeps.
+  - Verification: `npm run check` clean (119 files, 264 channels); `node scripts/sweep.js --empty` passed (50 items opened, 0 errors, 16 blocked calls). Branch: `gemini/2026-10-14-storage-debug`.
+
 - **2026-10-14, Gemini (Linux):** PC port sharing & Storage Map.
   PC port sharing (`storage.js`, `fsaccess.js`, `preload.js`, `renderer/transfer.js`, `renderer/app.js`, `renderer/play.js`):
   Added support for sharing PC ports (`recomp`) and ROMs directly to paired phones or nearby friends over LAN.

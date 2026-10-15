@@ -1580,7 +1580,7 @@ function modalInput(a) {
   // Settings: LB and RB go through its pages.
   // Consoles: LB and RB go through the consoles.
   const cr = $('#modal');
-  if (cr?.__lbrb && $('#modal .cn') && (a === 'lb' || a === 'rb')) { cr.__lbrb(a); Sound.play('tick'); return; }
+  if (cr?.__lbrb && (a === 'lb' || a === 'rb')) { cr.__lbrb(a); Sound.play('tick'); return; }
   const sr = $('#modal .set, #modal .dlg.settings');
   if (sr && (a === 'lb' || a === 'rb')) { settingsTab($('#modal'), setTab + (a === 'rb' ? 1 : -1)); Sound.play('tick'); return; }
   PadNav.input($('#modal'), a);

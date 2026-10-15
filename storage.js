@@ -23,6 +23,14 @@ function disks() {
     ['Home', os.homedir()],
     ['Games', path.join(os.homedir(), 'Games')]
   ];
+  if (process.platform === 'win32') {
+    for (const l of 'DEFGHIJKLMNOPQRSTUVWXYZ') {
+      const dp = `${l}:\\`;
+      try {
+        if (fs.existsSync(dp)) mounts.push([`Drive ${l}:`, dp]);
+      } catch { /* skip */ }
+    }
+  }
   for (const [label, p] of mounts) {
     try {
       if (!fs.existsSync(p)) continue;
@@ -360,6 +368,11 @@ async function scanStorage(entries = []) {
     it.rank = idx + 1;
     it.pct = totalAccounted > 0 ? Math.round((it.size / totalAccounted) * 1000) / 10 : 0;
   });
+
+  try {
+    const FA = require('./fsaccess');
+    items.forEach((it) => { if (it.path) FA.allowForSession(it.path); });
+  } catch { /* skip */ }
 
   return {
     ok: true,
