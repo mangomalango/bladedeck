@@ -672,7 +672,13 @@ function readDownloads() {
 }
 function startDownloadWatch() {
   if (dlTimer) return;
+  // Every manifest in every library is read each time: every 3 s while Bladedeck is in front,
+  // every 20 s while a game or anything else is (nobody sees the bar then).
+  let lastRead = 0;
   const tick = () => {
+    const front = win && !win.isDestroyed() && win.isFocused() && !win.isMinimized();
+    if (!front && Date.now() - lastRead < 20000) return;
+    lastRead = Date.now();
     const list = readDownloads();
     const key = JSON.stringify(list);
     if (key !== dlLast && win) { dlLast = key; win.webContents.send('downloads', list); }

@@ -138,6 +138,18 @@ Task IDs and cards: see TEAM.md (next free ID: BD-027 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15, Claude (Windows), lead: idle cost measured per effect; Calm; downloads.** Test copy with the owner's
+  library, CPU of the renderer and GPU processes over 12 s per step. Finding: ANY motion (ribbon, the wallpaper's
+  Ken Burns zoom, even the 16 px downloads ring) kept the GPU process at ~99% of a core; nothing moving: 10%.
+  Blur, the tint filter and frame rate barely mattered. So: Calm (renderer/app.js calm(), scenes.js, style.css
+  body.calm): a minute without input and everything holds still until the next input; measured 24% -> 3%
+  renderer, 100% -> 10% GPU. Also: the phantom "3 downloads" (Outlast, Huntdown, Blasphemous: installed on C:,
+  "update required" leftovers on F:) came from 1662c5e building the installed-elsewhere set and never using it;
+  fixed. Steam download manifests are read every 3 s only while Bladedeck is in front, every 20 s otherwise.
+  CAVEAT: this PC is rendering in software right now (WebGL: "SwiftShader") because the RX 9070 XT is disabled,
+  so every frame costs a core; in-use numbers need re-measuring with the card on. Linux: same code, please run a
+  test copy and confirm Calm wakes on the controller. Shared files: main.js, renderer/app.js, scenes.js, style.css.
+
 - **2026-10-15, Claude (Windows), lead: BD-026, System, Updates and System, Feedback and ideas (owner's ask).**
   New: updater.js (update-info, update-check, update-install, event update-progress), feedback.js (feedback-add,
   feedback-list, feedback-folder), renderer/updates.js (Updates and Feedback screens), scripts/buildinfo.js
