@@ -39,13 +39,20 @@
     #choose { position: fixed; top: 26px; left: 28px; display: none; gap: 10px; padding: 10px 14px; border-radius: 18px;
       background: rgba(10,20,35,.72); border: 1px solid rgba(255,255,255,.25); box-shadow: 0 8px 30px rgba(0,0,0,.4); font-size: 23px; }
     #choose.on { display: flex; flex-wrap: wrap; max-width: calc(100vw - 56px); animation: rise .4s ease-out both; }
-    /* Quick replies (BD-030): their own row; hold a button and its badge fills, then turns green. */
-    #rp { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; font-size: 21px; }
+    /* Quick replies (BD-030): on their own in the middle of the screen, one per right-stick direction;
+       held, a reply fills, then turns green. */
+    #rp { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); display: grid; gap: 14px;
+      grid-template-columns: 1fr auto 1fr; grid-template-areas: ". u ." "l c r" ". d ."; align-items: center; font-size: 26px; }
     #rp[hidden] { display: none; }
-    #rp span { position: relative; overflow: hidden; }
+    #rp [data-r="0"] { grid-area: u; justify-self: center; } #rp [data-r="1"] { grid-area: d; justify-self: center; }
+    #rp [data-r="2"] { grid-area: r; justify-self: start; } #rp [data-r="3"] { grid-area: l; justify-self: end; }
+    #rp span { position: relative; overflow: hidden; padding: 10px 18px; border-radius: 16px; white-space: nowrap;
+      background: rgba(10,20,35,.72); border: 1px solid rgba(255,255,255,.25); box-shadow: 0 8px 30px rgba(0,0,0,.4); }
+    #rp .mid { grid-area: c; font-size: 16px; text-align: center; opacity: .85; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
     #rp .fill { position: absolute; inset: 0; background: rgba(120,200,255,.45); transform: scaleX(0); transform-origin: left; pointer-events: none; }
-    #rp span.sent { background: rgba(110,230,150,.5); }
-    #rp span.fail { background: rgba(255,120,120,.45); }
+    #rp span.sent { background: rgba(110,230,150,.6); }
+    #rp span.fail { background: rgba(255,120,120,.5); }
+    #rp b { display: inline-block; min-width: 26px; margin-right: 8px; padding: 1px 5px; border-radius: 6px; background: rgba(255,255,255,.85); color: #123; font-size: 15px; text-align: center; }
     #rp b, #rp em { position: relative; z-index: 1; } #rp em { font-style: normal; }
     #choose span { padding: 6px 12px; border-radius: 12px; background: rgba(255,255,255,.08); }
     #choose span.def { background: rgba(120,200,255,.35); }
@@ -56,7 +63,8 @@
 </head>
 <body>
   <div id="tray"></div>
-  <div id="choose"><span class="def">Keep playing</span><span><b>LB</b>Pause</span><span><b>RB</b>Menu</span><div id="rp" hidden></div><i class="bar"></i></div>
+  <div id="choose"><span class="def">Keep playing</span><span><b>LB</b>Pause</span><span><b>RB</b>Menu</span><i class="bar"></i></div>
+  <div id="rp" hidden></div>
   <script src="bubble.js"></script>
 </body>
 </html>

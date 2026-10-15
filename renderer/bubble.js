@@ -6,16 +6,18 @@
    frozen while the combo is held and runs again on release (the menu does that, phonemsg.js tells it).
    Letting go pops it into the notification bar; the game keeps running and 4 seconds offer: wait to
    keep playing, LB to pause, RB for the menu. Letting go before a quarter full just sinks it back.
-   Quick replies (BD-030), only when the phone can answer that app: four fixed phrases on A, B, X and
-   Y, sent by holding LB and HOLDING the button about half a second while a ring fills (owner's pick:
-   a plain in-game hold must never send one). A tap never sends, and a button already down when the
-   choice opened has to be let go first. With replies on offer, LB pauses when let go without one. The bubble sends only the phrase's number; phonemsg.js holds the words. */
+   Quick replies (BD-030), only when the phone can answer that app: four fixed phrases set around a
+   centre, picked by holding LB and pushing the right stick that way about half a second while the
+   badge fills (owner's pick; LB because the right stick is a game's camera, and a plain in-game push
+   must never send one). A flick never sends, and a stick already pushed when the choice opened has to
+   come back to the middle first. With replies on offer, LB pauses when let go without one. The bubble sends only the phrase's number; phonemsg.js holds the words. */
 const tray = document.getElementById('tray'), choose = document.getElementById('choose'), rp = document.getElementById('rp');
 const FILL_MS = 900, FADE_MS = 15000, CHOOSE_MS = 4000, TOP = 24, REPLY_HOLD_MS = 550;
-const FACE = ['a', 'b', 'x', 'y'], FACE_LABEL = ['A', 'B', 'X', 'Y'];
+// The reply directions on the right stick, in the order of the phrases (phonemsg.js REPLIES).
+const DIRS = ['rup', 'rdown', 'rright', 'rleft'], DIR_LABEL = ['↑', '↓', '→', '←'];
 const live = []; // { msg, el, p, held, timer, from }
 let choosing = null, needRelease = false, forced = null, snap = '';
-let faceArmed = false, replyHold = null, sending = false; // replyHold: { k, ms }
+let stickArmed = false, replyHold = null, sending = false; // replyHold: { k, ms }
 let lbWas = false, lbUsed = false; // LB is also the reply modifier: did a face button go with it?
 
 /* ---------------------------------------------------------- sound: a plip in, a faint rise up, a pop */
@@ -100,17 +102,18 @@ function pop(b) {
 function startChoice(msg) {
   choosing = { msg, until: Date.now() + CHOOSE_MS };
   needRelease = true; // LB/RB count only once the combo is let go
-  faceArmed = false; replyHold = null; sending = false; // A/B/X/Y count only once all four are up
+  stickArmed = false; replyHold = null; sending = false; // the stick counts only once it is back in the middle
   lbWas = false; lbUsed = false;
   rp.innerHTML = '';
   if (Array.isArray(msg.replies)) {
     msg.replies.slice(0, 4).forEach((t, i) => {
       const s = document.createElement('span'); s.dataset.r = i;
-      const b = document.createElement('b'); b.textContent = 'LB+' + FACE_LABEL[i];
+      const b = document.createElement('b'); b.textContent = DIR_LABEL[i];
       const f = document.createElement('i'); f.className = 'fill';
       const w = document.createElement('em'); w.textContent = String(t);
       s.append(f, b, w); rp.appendChild(s);
     });
+    const c = document.createElement('div'); c.className = 'mid'; c.textContent = 'LB + right stick'; rp.appendChild(c);
   }
   rp.hidden = !rp.childElementCount;
   choose.classList.remove('on'); void choose.offsetWidth; choose.classList.add('on');
@@ -119,7 +122,7 @@ function startChoice(msg) {
 function endChoice(choice, replied = 0) {
   if (!choosing) return;
   window.bubble.done({ msg: choosing.msg, opened: true, choice, replied });
-  choosing = null; replyHold = null; choose.classList.remove('on');
+  choosing = null; replyHold = null; choose.classList.remove('on'); rp.hidden = true;
   report(); idleSoon();
 }
 // Held long enough: main queues the phrase for the phone; the badge says so, then the choice closes.
@@ -140,7 +143,12 @@ function pads() {
   if (forced) return forced; // tests
   const ps = [...(navigator.getGamepads?.() || [])].filter(Boolean);
   const on = (i) => ps.some((g) => !!g.buttons[i]?.pressed || (g.buttons[i]?.value || 0) > 0.5);
-  return { lb: on(4), rb: on(5), lt: on(6), rt: on(7), a: on(0), b: on(1), x: on(2), y: on(3), back: on(8) };
+  // The right stick, from whichever pad pushes it furthest: one direction at most, the stronger axis.
+  let rx = 0, ry = 0;
+  for (const g of ps) { const x = g.axes[2] || 0, y = g.axes[3] || 0; if (Math.hypot(x, y) > Math.hypot(rx, ry)) { rx = x; ry = y; } }
+  const far = Math.hypot(rx, ry) > 0.6, vert = Math.abs(ry) >= Math.abs(rx);
+  return { lb: on(4), rb: on(5), lt: on(6), rt: on(7), back: on(8),
+    rup: far && vert && ry < 0, rdown: far && vert && ry > 0, rright: far && !vert && rx > 0, rleft: far && !vert && rx < 0 };
 }
 function place(b) {
   const p = b.p, f = b.from || { left: 28, top: innerHeight - 90 };
@@ -176,7 +184,7 @@ function frame(now) {
     else if (!needRelease && st.rb && !st.lb) endChoice('menu');
     // Replies on offer: LB pauses when it is let go, unless it was the modifier for a reply.
     if (choosing && choosing.msg.replies && !needRelease) {
-      if (st.lb && FACE.some((k) => st[k])) lbUsed = true;
+      if (st.lb && DIRS.some((k) => st[k])) lbUsed = true;
       if (lbWas && !st.lb && !st.rb && !lbUsed && !sending) endChoice('pause');
       if (!st.lb) lbUsed = false;
       lbWas = st.lb;
@@ -186,14 +194,14 @@ function frame(now) {
   } else if (!combo) needRelease = false;
   if (live.length || choosing) requestAnimationFrame(frame); else running = false;
 }
-// LB and exactly one of A, B, X, Y held, after all four were up: its ring fills; let go early and it empties.
+// LB held and the right stick pushed one way, after it was back in the middle: that badge fills; let go early and it empties.
 function replies(st, dt) {
-  const down = FACE.map((f) => !!st[f]);
-  if (!down.some(Boolean)) faceArmed = true;
-  // View + Y / X are the walkthrough and record chords, not a reply: disarmed until the buttons are let go.
-  if (st.back) faceArmed = false;
+  const down = DIRS.map((f) => !!st[f]);
+  if (!down.some(Boolean)) stickArmed = true;
+  // View held is a chord (walkthrough, record), not a reply: disarmed until the stick is back in the middle.
+  if (st.back) stickArmed = false;
   const n = down.filter(Boolean).length, k = down.indexOf(true);
-  if (!faceArmed || n !== 1 || !st.lb || st.rb) { if (replyHold) fill(replyHold.k, 0); replyHold = null; return; }
+  if (!stickArmed || n !== 1 || !st.lb || st.rb) { if (replyHold) fill(replyHold.k, 0); replyHold = null; return; }
   if (!replyHold || replyHold.k !== k) { if (replyHold) fill(replyHold.k, 0); replyHold = { k, ms: 0 }; }
   replyHold.ms += Math.min(dt, 100); // a stalled frame never counts as a long hold
   choosing.until = Math.max(choosing.until, Date.now() + 400); // never runs out mid-hold

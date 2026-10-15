@@ -185,6 +185,16 @@ Task IDs and cards: see TEAM.md (next free ID: BD-032 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15, Claude (Windows), lead: quick replies on LB + the RIGHT STICK, set around the middle of the screen (owner:
+  "use the direction of the right stick, replies all around; very simple; the bar on top, replies in the centre").** Hold LB
+  and push the right stick: up Sounds good, down Busy, right 5 mins, left In a match (phrase order unchanged, so the phone
+  side is untouched); held half a second it sends. The stick must be back in the middle first; View held disarms it; LB
+  alone still pauses on let-go. LB stays because the right stick is a game's camera. The bar (Keep playing / LB Pause /
+  RB Menu) stays alone at the top left; the replies are their own cross in the centre with "LB + right stick" in the
+  middle. Test copy (overlay driven by __bubbleTest): stick alone 1.5 s sent nothing; LB + right sent and closed; LB tap
+  paused; LB + left let go early did nothing; View + LB + down sent nothing; screenshot checked. check, test-replies,
+  sweep pass. Not tested: a real controller (axes 2/3 are the standard right stick), a real phone.
+
 - **2026-10-15, Claude (Windows), lead: quick replies now need LB held + A/B/X/Y (owner's pick, review finding 4).**
   A plain in-game hold of a face button never sends. The badges read LB+A .. LB+Y. With replies on offer, LB pauses when
   let go without a face button (before: on press); messages without replies are unchanged. The per-frame cap on the hold
