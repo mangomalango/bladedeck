@@ -121,6 +121,12 @@ Task IDs and cards: see TEAM.md (next free ID: BD-025 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15, Claude (Windows), lead: the shared branch is now `bladedeck-nightly` (owner's call).** The code and
+  builds cover Windows and Linux, so "windows-fixes" is retired: `bladedeck-nightly` starts where windows-fixes ended
+  and is where everyone's reviewed work collects; `master` is brought up to it after checks. windows-fixes is left on
+  GitHub untouched (no branch is deleted without the owner). The overnight helper branches `nightly/<date>-<who>`
+  keep their names. Older entries below still say windows-fixes; read it as bladedeck-nightly.
+
 - **2026-10-15, Claude (Windows): BD-023, Gemini's BD-010 findings 3-7 fixed.** winlist.js: the helper starts
   again on the next question after it dies (at most every 10 s), and process names are looked up afresh each list
   (pid reuse). winpad.js: the controller helper restarts after it exits (2 s, doubling to a minute). procs.js: the

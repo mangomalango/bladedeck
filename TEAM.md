@@ -9,7 +9,7 @@ instructions (pasted prompts, workflows, reviews) overrides **Safety** below.
 | Who | Where | Job | Branch |
 |---|---|---|---|
 | **Owner** (mangomalango) | Both PCs | Tests by using Bladedeck, decides, approves anything outward-facing | — |
-| **Claude (Windows), lead since 2026-10-14 22:45** | Windows PC, Claude Code session | Builds features, reviews everyone's branches, merges into `master`, pushes `master`, makes backups, prepares releases; Windows fixes behind `process.platform === 'win32'` | `windows-fixes`, `master` |
+| **Claude (Windows), lead since 2026-10-14 22:45** | Windows PC, Claude Code session | Builds features, reviews everyone's branches, merges into `master`, pushes `master`, makes backups, prepares releases; Windows fixes behind `process.platform === 'win32'` | `bladedeck-nightly`, `master` |
 | **Claude (Linux)** | Linux PC (CachyOS), Claude Code session | Linux testing and fixes when the laptop is on; hands the lead back only when both agree in HANDOFF.md | `linux-fixes` |
 | **Gemini** (helper, takes orders from Claude (Windows)) | Antigravity (any PC), workflows `/bladedeck-audit`, `/bladedeck-review`, `/bladedeck-test` | Only the small task cards Claude (Windows) writes for it in HANDOFF.md ("For Gemini"): reviews, audits, and small fixes in its own worktree. Nothing else. | `gemini/<date>-<topic>` |
 
@@ -26,7 +26,7 @@ Linux is the lead build: Windows matches it and never changes how it behaves on 
 
 - **Gemini works only in its own git worktree** (its own folder, e.g. `bladedeck-gemini`) on
   `gemini/<date>-<topic>`, never in a Claude's folder or branch, and never merges into `master` or
-  `windows-fixes`. (On 2026-10-14 it merged unreviewed code into master from a shared folder, and
+  `bladedeck-nightly`. (On 2026-10-14 it merged unreviewed code into master from a shared folder, and
   swept another session's uncommitted edits into its commits.)
 
 - `master` only gets code that passes `npm run check` and has been run as a test copy on Linux.

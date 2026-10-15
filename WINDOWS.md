@@ -18,7 +18,7 @@ here.
   question. Otherwise just do it.
 - Finish the job: build, check it works, and say plainly what was and wasn't tested. Explain in
   plain words, without jargon.
-- "Update the GitHub" means commit and push. Here, push `windows-fixes`; the Linux session
+- "Update the GitHub" means commit and push. Here, push `bladedeck-nightly`; the Linux session
   merges it.
 - Always tell the owner what is committed but not pushed, and what is installed versus only
   built.
@@ -65,7 +65,7 @@ reference for how everything should behave. Windows matches it; it never changes
   (source with .git, AppImage, Windows installer, APK, library.json, README) and pushes a
   `backup/<date>-v<version>` tag.
 
-- **Work on a branch:** `git switch -c windows-fixes`, commit as you go, push that branch. Don't
+- **Work on a branch:** `git switch bladedeck-nightly`, commit as you go, push that branch. Don't
   push to `master`. The Linux session reviews and merges it.
 - **Don't break Linux.** Put Windows fixes behind `process.platform === 'win32'`, or in the
   `win*.js` helpers. Leave the Linux code paths alone.
@@ -190,7 +190,7 @@ Tick each item when it works or is fixed. Add a short note when something needed
 
 ## When you finish
 
-1. Push `windows-fixes`.
+1. Push `bladedeck-nightly`.
 2. Add a dated entry at the top of the Log in `HANDOFF.md`: what you tested, what you fixed,
    what still fails (with lines from `errors.log`).
 3. Update the ticks above in the same commit.
