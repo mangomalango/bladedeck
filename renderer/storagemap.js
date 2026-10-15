@@ -236,7 +236,7 @@ const StorageMap = (() => {
           toast('Capture removed.');
           open();
         } else {
-          toast('Could not delete capture.', 'err');
+          toast('Could not delete this capture.', 'err');
         }
       }
       return;

@@ -375,7 +375,7 @@ const Guide = (() => {
     const c = cfg(), o = (v, n, cur) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${n}</option>`;
     return `<div class="row2"><label>The guide flap opens from<select name="guideSide">${o('right', 'The right edge', c.side)}${o('left', 'The left edge', c.side)}${o('top', 'The top', c.side)}${o('bottom', 'The bottom', c.side)}</select></label>
       <label>Hold this trigger to pull out the guide (the other one pulls out the quick menu)<select name="guideTrigger">${o('lt', 'LT (left trigger)', c.trigger)}${o('rt', 'RT (right trigger)', c.trigger)}</select></label></div>
-      <div class="checks"><label><input type="checkbox" name="guideRumble" ${c.rumble ? 'checked' : ''}> Rumble the controller while pulling</label></div>`;
+      <div class="checks"><label><input type="checkbox" name="guideRumble" ${c.rumble ? 'checked' : ''}> Trigger haptic rumble: Vibrate the controller while pulling open the guide flap. Default: off.</label></div>`;
   }
   function readSettings(root) {
     S.lib.settings.guide = { side: $('[name=guideSide]', root).value, trigger: $('[name=guideTrigger]', root).value, rumble: $('[name=guideRumble]', root).checked };

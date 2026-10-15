@@ -114,8 +114,8 @@ const Extras = (() => {
   function read(root) {
     const s = st(), q = (k) => root.querySelector(`[data-ex="${k}"]`);
     if (q('weekly')) s.backupWeekly = q('weekly').checked;
-    if (q('discordClientId')) { const id = q('discordClientId').value.trim(); s.discordClientId = /^\d{15,22}$/.test(id) ? id : ''; if (id && !s.discordClientId) toast('A Discord Application ID is a long number.', 'err'); }
-    if (q('discordRpc')) { s.discordRpc = q('discordRpc').checked; if (s.discordRpc && !s.discordClientId) toast('Add your Discord Application ID first.', 'err'); if (!s.discordRpc) api.discordClear?.(); }
+    if (q('discordClientId')) { const id = q('discordClientId').value.trim(); s.discordClientId = /^\d{15,22}$/.test(id) ? id : ''; if (id && !s.discordClientId) toast('A Discord application ID is a long number.', 'err'); }
+    if (q('discordRpc')) { s.discordRpc = q('discordRpc').checked; if (s.discordRpc && !s.discordClientId) toast('Add your Discord application ID first.', 'err'); if (!s.discordRpc) api.discordClear?.(); }
     if (q('repo')) { const r = q('repo').value.trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\/+$/, ''); s.updateRepo = /^[\w.-]+\/[\w.-]+$/.test(r) ? r : ''; if (r && !s.updateRepo) toast('The repository is written as owner/name, like nate/bladedeck.', 'err'); }
     if (q('check')) s.updateCheck = q('check').checked;
     save();

@@ -183,7 +183,7 @@ const Capture = (() => {
     return `<p class="note cap-status">Checking the recorder…</p>
       <div class="row2"><label>Keep the last moments ready to save (replay)<select name="capReplay">${o(0, 'Off', c.replay)}${o(15, '15 seconds', c.replay)}${o(30, '30 seconds', c.replay)}${o(60, '1 minute', c.replay)}${o(120, '2 minutes', c.replay)}${o(300, '5 minutes', c.replay)}</select></label>
         <label>Frames per second<select name="capFps">${o(30, '30', c.fps)}${o(60, '60', c.fps)}</select></label></div>
-      <div class="checks"><label><input type="checkbox" name="capMic" ${c.mic ? 'checked' : ''}> Record my microphone too</label></div>
+      <div class="checks"><label><input type="checkbox" name="capMic" ${c.mic ? 'checked' : ''}> Microphone recording: Include your microphone commentary in gameplay recordings and clips. Default: off.</label></div>
       <div class="cap-btns" style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-x="capgallery">Captures</button><button type="button" data-x="capsetup">Set up screen recording now</button></div>
       <p class="note">While playing: View + X or Ctrl+Alt+R records and stops; View + RB or Ctrl+Alt+S saves the last moments. Clips go to Videos/Bladedeck.</p>`;
   }

@@ -30,7 +30,7 @@ const Music = (() => {
   function shuffleOrder() { for (let i = order.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [order[i], order[j]] = [order[j], order[i]]; } }
 
   async function playAt(k) {
-    if (!list.length && !(await load())) { toast('No music found. Pick a music folder in Settings.', 'err'); return; }
+    if (!list.length && !(await load())) { toast('No music was found. Choose a music folder in Settings.', 'err'); return; }
     pos = ((k % order.length) + order.length) % order.length;
     const file = list[order[pos]];
     audio.src = fileUrl(file);

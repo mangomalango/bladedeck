@@ -9,9 +9,9 @@ const NetShare = (() => {
     return `<div class="ns-now"><p class="note">Looking at this network…</p></div>
       <h4 class="set-sub">Who can see this PC</h4>
       <div class="checks">
-        <label><input type="checkbox" name="lanOn" ${s.lanOn !== false ? 'checked' : ''}> Show me to other Bladedecks (see who is around, invite them, send files, ROM sync)</label>
-        <label><input type="checkbox" name="lanShare" ${s.lanShare === true ? 'checked' : ''}> Share my game list with them (so you can see which games you both have)</label>
-        <label><input type="checkbox" name="publicNetworks" ${s.publicNetworks === true ? 'checked' : ''}> Also share on public networks (cafés, school, hotels: anyone there could see your name and what you play)</label>
+        <label><input type="checkbox" name="lanOn" ${s.lanOn !== false ? 'checked' : ''}> Nearby visibility: Allow other Bladedecks on the local network to see this device. Default: on.</label>
+        <label><input type="checkbox" name="lanShare" ${s.lanShare === true ? 'checked' : ''}> Share game library: Allow nearby friends to see which titles you own for multiplayer. Default: off.</label>
+        <label><input type="checkbox" name="publicNetworks" ${s.publicNetworks === true ? 'checked' : ''}> Share on public networks: Enable network features on public Wi-Fi (cafés, schools, hotels). Default: off.</label>
       </div>
       <h4 class="set-sub">Firewall</h4><div class="ns-fw"><p class="note">Checking…</p></div>
       <h4 class="set-sub">Between your own devices</h4>

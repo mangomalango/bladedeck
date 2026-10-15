@@ -474,7 +474,7 @@ const Watch = (() => {
 
   function settingsHtml() {
     const c = cfg();
-    return `<div class="checks"><label><input type="checkbox" name="watchOn" ${c.on ? 'checked' : ''}> Watch these folders and add new games straight away</label></div>
+    return `<div class="checks"><label><input type="checkbox" name="watchOn" ${c.on ? 'checked' : ''}> Automatic library watching: Scan watched folders and add new games as soon as they appear. Default: off.</label></div>
       <label>Watched folders, one per line<textarea name="watchDirs" rows="3">${esc(c.dirs.join('\n'))}</textarea></label>
       <div><button type="button" data-browse="dir:watchDirs" data-append="1">Add folder</button></div>
       <p class="note">ROMs anywhere inside join the library under the right emulator, with art. AppImages and game folders are added too. In Downloads only ROMs, AppImages and itch.io games you picked in Get games are added, so installers are left alone.</p>`;
