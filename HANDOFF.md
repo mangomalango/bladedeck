@@ -230,6 +230,18 @@ Task IDs and cards: see TEAM.md (next free ID: BD-034 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15, Claude (Windows), lead: bug-fix pass after v0.2.4 (owner: "go crazy with bug fixes"), on bladedeck-nightly, NOT
+  released.** (1) 4a54e25 Windows: the shared execFile helpers pass windowsHide, so tailscale, yt-dlp, winget, 7-Zip, ffmpeg
+  and tar no longer flash a console window (ignored on Linux). (2) c6e5bea the menu no longer ignores A/B/X/Y, Enter and
+  Space while quick replies show (left over from face-button replies). (3) f5a303a test copies: the bubble window gets no
+  controller either. (4) 3c99d6f the bubble countdown bar shows the time really left. (5) ecd8a23 BD-031 #2/#7/#8: the PC
+  answers reply:true when it kept a message; the phone polls only then, prefers SEMANTIC_ACTION_REPLY (Android 9+), and its
+  loop survives a bad answer and a stop race (Java NOT compiled). (6) fe34fa4 the pairing key is compared in constant
+  time (the ?key= URL form stays: images, events, video and downloads cannot send a header). Tests: check, test-replies
+  (2 new checks), test-pool, sweep (54 items, no errors) pass; test copy: bubble window sees 0 pads, bar ~0.70 after 1.2 s,
+  LB + right still sends; authed() harness: right key by header or query, wrong/empty/prefix refused. Open: a re-ticked
+  blade goes back before System, not its old place (Settings, Advanced); the real errors.log and Feedback folder were empty.
+
 - **2026-10-15, Claude (Windows), lead: RELEASED v0.2.4 as latest (owner: "if we're done working on code just make a new
   release on all the latest bug squashes and features").** master = bladedeck-nightly = 69db45b (version bump on top of
   e69dc82), tag v0.2.4, backup tag backup/2026-10-15-v0.2.4 (= v0.2.3, 08781bc), backup in
