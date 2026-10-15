@@ -1,9 +1,4 @@
-> ## >>> GEMINI: START HERE (BD-033, do this first) <<<
-> 1. Get the release: `git fetch origin --tags && git worktree add ../bladedeck-gemini-bd033 -b gemini/2026-10-15-bd033 v0.2.4`
-> 2. Run `/bladedeck-audit` on the whole release: `git diff v0.2.3 v0.2.4` (code only; skip HANDOFF.md and NIGHTLY-REVIEW-gemini.md). Card: "For Gemini", BD-033.
-> 3. Run `npm run check`, `npm run test-replies`, `npm run test-pool`, `npm run sweep`. Read only; no pushes to other branches; test copies only; never touch the installed Bladedeck or the computer.
-> 4. Findings in `NIGHTLY-REVIEW-gemini.md`, with the exact commands you ran and what you did NOT test; reply "BD-033 audit: PASS" or "DRIFT (what)" in HANDOFF.md.
-> 5. Then stop and wait for the next card.
+> Gemini: BD-033 audit: PASS (v0.2.4 release audit). No open card. Wait for the next one from Claude (Windows).
 
 # Handoff between Claude and Gemini
 
@@ -109,7 +104,7 @@ Task IDs and cards: see TEAM.md (next free ID: BD-034 (BD-011..BD-018 are in ROA
   [REPLY]    "BD-024 audit: PASS" or "DRIFT (<what>)" here in HANDOFF.md, details in NIGHTLY-REVIEW-gemini.md
   ```
 ### For Gemini (in Antigravity)
-- **BD-033** · both · Gemini · Whole-release audit of v0.2.4 (published 2026-10-15), after the fact.
+- **BD-033** (done: PASS, Gemini, gemini/2026-10-15-bd033, NIGHTLY-REVIEW §10) · both · Gemini · Whole-release audit of v0.2.4 (published 2026-10-15), after the fact.
   ```
   [TASK]     BD-033 · v0.2.3..v0.2.4 as one piece: nothing broken between the parts, Linux unchanged, notes true
   [TARGET]   both
@@ -126,7 +121,7 @@ Task IDs and cards: see TEAM.md (next free ID: BD-034 (BD-011..BD-018 are in ROA
              than "note"
   [RULES]    TEAM.md: your own worktree and gemini/<date>-bd033 branch; read only; no pushes to others' branches;
              test copies only; never run or kill the installed Bladedeck; never edit the release
-  [REPLY]    "BD-033 audit: PASS" or "DRIFT (<what>)" here, details in NIGHTLY-REVIEW-gemini.md
+  [REPLY]    "BD-033 audit: PASS" here, details in NIGHTLY-REVIEW-gemini.md §10
   ```
 - **BD-032** (done: PASS, Gemini, gemini/2026-10-15-bd032, NIGHTLY-REVIEW §9) · both · Gemini · Peer review of quick replies as they are now on bladedeck-nightly, plus the right-stick change.
   ```
@@ -229,6 +224,16 @@ Task IDs and cards: see TEAM.md (next free ID: BD-034 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-15, Gemini: BD-033 audit: PASS (whole-release audit of v0.2.4).**
+  Audited git diff v0.2.3..v0.2.4 (25 files changed, 900 insertions, 62 deletions) and GitHub release v0.2.4 assets.
+  Interoperability: bubble guards (bubbleUp) cleanly isolate LB/RB menu navigation without fighting controller sorting;
+  gamepad inputs are fully handed off while a game is focused; BladePick checklist maintains clean JSON sync while
+  consoleSort explicitly preserves Home sections and Recent game order. Release notes accurately reflect all built features,
+  fixes, and hardware disclaimers. Open findings BD-031 #2, #7, #8, #9 evaluated: all remain benign notes/polish.
+  Verification: cmd /c "npm run check" (129 files, 276 channels), cmd /c "npm run test-replies" (21/21 ok),
+  cmd /c "npm run test-pool" (20/20 ok), and cmd /c "npm run sweep" (54 System items, all blades/settings tabs/PC mode,
+  0 page errors, 19 outward calls safely blocked). Not tested: physical controller, live carrier phone, live killed recording.
 
 - **2026-10-15, Claude (Windows), lead: RELEASED v0.2.4 as latest (owner: "if we're done working on code just make a new
   release on all the latest bug squashes and features").** master = bladedeck-nightly = 69db45b (version bump on top of

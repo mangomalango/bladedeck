@@ -215,9 +215,55 @@ Audited commits `128c5d6..3569f60` (`renderer/bubble.js`, `renderer/bubble.html`
 
 ---
 
+## 10. BD-033: Whole-Release Audit of v0.2.4 (`git diff v0.2.3 v0.2.4`)
+**Result: PASS (0 blockers, 0 drifts, 0 regressions)**
+
+Audited the complete v0.2.4 release (`git diff v0.2.3 v0.2.4`, 25 files changed, 900 insertions, 62 deletions) and release assets (`gh release view v0.2.4`).
+
+### A. Verification Commands Run
+1. `cmd /c "npm run check"`: **All 129 files pass, 276 channels answered**.
+2. `cmd /c "npm run test-replies"`: **21/21 assertions pass** (phrase validation, bounds enforcement, window isolation, 3-min expiry, flood rate limiting).
+3. `cmd /c "npm run test-pool"`: **20/20 pool security assertions pass**.
+4. `cmd /c "npm run sweep"`: **54 System items opened, all blades and games walked, all 8 settings tabs, and PC mode tested**. 0 page errors, 0 unhandled rejections, 19 outward calls safely blocked in test copy.
+
+### B. Interoperability & Clash Analysis
+1. **Bubble Guards vs Right-Stick Sort vs Menu LB:**
+   - When a bubble or reply choice is displayed (`bubbleUp = true`), `handle(a)` suppresses `lb`, `rb`, `lt`, `rt`, preventing menu blade navigation from fighting with notification controls.
+   - While a game is focused (`!focused`), controller input is delegated entirely to the game process, preventing right stick movements (camera) from triggering menu actions or sorting.
+   - When choice closes or if the overlay window dies, `phonemsg.js` cleanly fires `tellDeck({ type: 'up', on: false, face: false })`, ensuring background menu keys are immediately restored.
+2. **Settings Blades Checklist (`BladePick`) vs Home/Recent Ordering:**
+   - `BladePick` bi-directionally syncs with the JSON textarea in Settings, Advanced, enforces at least 1 blade, and locks the System blade.
+   - Console sorting (`consoleSort`) affects game lists but is explicitly bypassed by `home` and `recent` filters (`f.home` returns `homeSections()`, `f.recent` returns `lastPlayed` slice), preserving curated home picks and recent games regardless of active sort mode.
+
+### C. Release Notes Truth Verification (`gh release view v0.2.4`)
+Every statement in the published release notes accurately reflects the repository code:
+- **Quick replies on LB + right stick:** Matches `renderer/bubble.js` and `phonemsg.js` (4 fixed phrases, 550 ms hold, stick centering guard, stalled-frame clamp).
+- **Sort game lists from controller:** Matches `renderer/app.js` R3 tap behavior, `cycleConsoleSort()`, and `O` key shortcut.
+- **Music play/pause on right-stick hold:** Matches `renderer/app.js` R3 hold > 550 ms, `r3Held` release guard, keyboard `M`, and ♪ button.
+- **Pick blades in Settings, Advanced:** Matches `BladePick` component.
+- **Windows helper termination:** Matches `winpad.js` `$parent.HasExited` check and `wincapture.js` `watchdog` process monitoring.
+- **M key in console mode:** Restored to toggle music.
+- **Disclaimers:** Explicitly states that Android phone app attached is still 1.2 (1.3 with quick replies needs compiling on Linux) and notes that physical controller hardware, real live killed recordings, and Linux window runs were not run on this Windows host.
+
+### D. Assessment of Open Findings (BD-031 #2, #7, #8, #9)
+- **#2 (Phone polls 3 min after answerable notification):** Note only. Background loop polls every 3 s for 3 min over LAN/Tailscale then stops. Negligible battery/network footprint.
+- **#7 (Semantic reply action on Android 9+):** Note only. Current implementation via `RemoteInput.getAllowFreeFormInput()` is standard and compatible across Android 7+ (API 24+).
+- **#8 (Small poll-restart micro-race):** Note only. `ConcurrentHashMap` and synchronized `poll()` guarantee thread safety.
+- **#9 (Countdown bar does not pause during hold):** Note only. Purely cosmetic CSS animation detail; the dialog remains open via `choosing.until` hold extension.
+- **Conclusion:** None of these findings are worse than "note". Zero blockers.
+
+### E. What Was NOT Tested
+- Physical Xbox / DualSense controller hardware in hand (simulated via Gamepad API state injector and test copy).
+- Physical Android phone paired over Tailnet receiving actual carrier SMS.
+- Live FFmpeg recording on this PC (RX 9070 XT disabled with error 31; hardware helper logic tested with mock).
+- Linux window run on Windows host (Linux verified via static audit and GitHub Actions CI build #38795085223).
+
+---
+
 ## Summary
 - `npm run check`: **All 129 files pass, 276 channels answered**.
 - `npm run test-replies`: **21/21 assertions pass**.
 - `npm run test-pool`: **20/20 security assertions pass**.
-- Result: **BD-032 audit: PASS**.
+- `npm run sweep`: **54 System items opened, 0 errors, 19 outward calls blocked**.
+- Result: **BD-033 audit: PASS**.
 
