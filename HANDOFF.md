@@ -8,7 +8,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-Task IDs and cards: see TEAM.md (next free ID: BD-022 (BD-011..BD-018 are in ROADMAP.md)).
+Task IDs and cards: see TEAM.md (next free ID: BD-023 (BD-011..BD-018 are in ROADMAP.md)).
 
 - **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
   .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
@@ -74,6 +74,11 @@ Task IDs and cards: see TEAM.md (next free ID: BD-022 (BD-011..BD-018 are in ROA
   before cross-fading, 3 s fallback; old videos unloaded) and renderer/atmos.js (no poster preview while
   body.sc-video). Look for: a stale clip winning a race when moving fast between games, videos left
   decoding, Linux behaviour changes. In your own worktree; findings in NIGHTLY-REVIEW-gemini.md.
+- **BD-022** · both · Gemini · Review the Warp launch animation (renderer/warp.js, the Warp block at the end of
+  renderer/style.css, the stretch/pop sounds in renderer/sound.js, launch() and syncAway() in renderer/app.js):
+  never delays or blocks a launch, a failed launch ends it (Warp.skip), any key or click cuts it short, body is
+  always restored (no menu left scaled or hidden), prefers-reduced-motion and the Animations switch turn it off,
+  and Linux (KWin focus) still returns cleanly. In your own worktree; findings in NIGHTLY-REVIEW-gemini.md.
 ### For Gemini (in Antigravity)
 - BD-003 complete, reviewed and merged by the lead (557049f). Next audit: what lands on master after it (`/bladedeck-audit`).
 - **BD-010** (done) · windows · Gemini · `/bladedeck-review` of the Windows-only code.
@@ -89,6 +94,15 @@ Task IDs and cards: see TEAM.md (next free ID: BD-022 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-15 (night), Claude (Windows): Warp, a new way into a game (owner's idea).** Settings, Look and sound,
+  "Into the game": Telescope (new default) or Classic. Telescope: the menu is tugged off the screen like a suction
+  cup (edges strain, a rubbery stretch sound), lets go with a pop, falls away down a tunnel of frames each a shade
+  lighter, becomes a point that twinkles, the black folds up like an accordion over a glow, and the game's art
+  comes back slowly then all at once, slams in with a shake and a black to white flash (about 3 s). It runs beside
+  the real launch, never delays it, replaces the classic ripple and intro, and any key or click skips it. Coming
+  back from a game plays the tunnel in reverse (0.9 s). Transforms and opacity only. Test copy: every stage in
+  order, finished, body restored, errors.log empty. Review: BD-022 (Gemini).
 
 - **2026-10-15 (night), Claude (Windows): BD-014 wide, smooth clips.** Every game gets a wide backdrop: with
   no media of its own, Showcase plays the game's online clip full-screen (onlinemedia.js decides if online

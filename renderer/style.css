@@ -1807,3 +1807,68 @@ body.hdmi-on > #top, body.hdmi-on > #hints { opacity: 0; pointer-events: none; }
 .hp-faq details { border-radius: 12px; background: rgba(255,255,255,.05); margin-bottom: 6px; padding: 10px 14px; }
 .hp-faq summary { cursor: pointer; font-weight: 600; font-size: 15px; }
 .hp-faq p { margin: 8px 0; color: var(--ink-dim); }
+
+/* ================================================================ Warp (warp.js): into a game and back */
+html.warping { background: #000; }
+html.warping body { transform-origin: 50% 50%; will-change: transform, opacity; }
+#warp { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; overflow: hidden; }
+#warp[hidden] { display: none; }
+/* 1. Black closes in and the menu falls away down a tunnel of frames, each a shade lighter. */
+html[data-warp="shrink"] body { transition: transform 1.1s cubic-bezier(.55, 0, .85, .35), filter 1.1s; transform: scale(.03); filter: brightness(1.25) saturate(1.2); }
+html[data-warp="twinkle"] body, html[data-warp="fold"] body, html[data-warp="slam"] body, html[data-warp="shake"] body { transform: scale(0); opacity: 0; }
+.wp-ring { position: absolute; inset: 0; border: 3px solid rgba(255, 255, 255, .1); border-radius: 18px; opacity: 0; transform: scale(1); }
+.wp-ring:nth-child(2) { border-color: rgba(255, 255, 255, .16); } .wp-ring:nth-child(3) { border-color: rgba(255, 255, 255, .24); }
+.wp-ring:nth-child(4) { border-color: rgba(255, 255, 255, .34); } .wp-ring:nth-child(5) { border-color: rgba(255, 255, 255, .5); }
+html[data-warp="shrink"] .wp-ring { animation: wp-ring 1.1s cubic-bezier(.5, 0, .8, .4) forwards; }
+html[data-warp="shrink"] .wp-ring:nth-child(2) { animation-delay: .1s; } html[data-warp="shrink"] .wp-ring:nth-child(3) { animation-delay: .2s; }
+html[data-warp="shrink"] .wp-ring:nth-child(4) { animation-delay: .3s; } html[data-warp="shrink"] .wp-ring:nth-child(5) { animation-delay: .4s; }
+@keyframes wp-ring { 0% { transform: scale(1); opacity: 0; } 15% { opacity: 1; } 100% { transform: scale(.02); opacity: .3; } }
+/* 2. A point of light, and an anime twinkle. */
+.wp-star { position: absolute; left: 50%; top: 50%; width: 0; height: 0; opacity: 0; }
+.wp-star i { position: absolute; left: -90px; top: -3px; width: 180px; height: 6px; border-radius: 6px; background: radial-gradient(ellipse at center, #fff 0 18%, rgba(190, 230, 255, .9) 35%, transparent 72%); filter: drop-shadow(0 0 10px #bfe6ff); }
+.wp-star i + i { transform: rotate(90deg); }
+html[data-warp="twinkle"] .wp-star { animation: wp-twinkle .45s cubic-bezier(.2, .9, .3, 1.2) forwards; }
+@keyframes wp-twinkle { 0% { opacity: 0; transform: scale(.1) rotate(0); } 45% { opacity: 1; transform: scale(1.25) rotate(45deg); } 100% { opacity: 0; transform: scale(.2) rotate(90deg); } }
+/* 3. The black folds up like an accordion, stripe by stripe, over a glow. */
+.wp-acc { position: absolute; inset: 0; display: flex; flex-direction: column; opacity: 0; }
+.wp-acc b { flex: 1; background: #000; transform-origin: 50% 0; }
+.wp-acc b:nth-child(even) { transform-origin: 50% 100%; }
+html[data-warp="fold"] #warp { background: radial-gradient(circle at 50% 50%, #fff 0, #9bd 18%, #123 55%, #000 80%); }
+html[data-warp="fold"] .wp-acc { opacity: 1; }
+html[data-warp="fold"] .wp-acc b { animation: wp-fold .42s cubic-bezier(.6, 0, .4, 1) forwards; }
+html[data-warp="fold"] .wp-acc b:nth-child(1), html[data-warp="fold"] .wp-acc b:nth-child(9) { animation-delay: 0s; }
+html[data-warp="fold"] .wp-acc b:nth-child(2), html[data-warp="fold"] .wp-acc b:nth-child(8) { animation-delay: .03s; }
+html[data-warp="fold"] .wp-acc b:nth-child(3), html[data-warp="fold"] .wp-acc b:nth-child(7) { animation-delay: .06s; }
+html[data-warp="fold"] .wp-acc b:nth-child(4), html[data-warp="fold"] .wp-acc b:nth-child(6) { animation-delay: .09s; }
+html[data-warp="fold"] .wp-acc b:nth-child(5) { animation-delay: .12s; }
+@keyframes wp-fold { to { transform: scaleY(0); } }
+/* 4. The game comes back out of the point, slowly and then all at once, and slams into the screen. */
+.wp-art { position: absolute; inset: 0; background: #000 center / cover no-repeat; opacity: 0; transform: scale(.01); display: grid; place-items: center; }
+.wp-art.tall { background-size: contain; }
+.wp-art span { font: 800 clamp(32px, 6vw, 96px)/1.1 inherit; color: #fff; text-align: center; padding: 0 6vw; text-shadow: 0 6px 30px rgba(0, 0, 0, .6); }
+html[data-warp="slam"] .wp-art { opacity: 1; transition: transform .62s cubic-bezier(.95, 0, 1, .15), opacity .15s; transform: scale(1.08); }
+html[data-warp="shake"] .wp-art { opacity: 1; transform: scale(1.08); animation: wp-shake .5s cubic-bezier(.36, .07, .19, .97) both; }
+@keyframes wp-shake {
+  0% { transform: scale(1.12) translate(0, 0); } 10% { transform: scale(1.1) translate(-26px, 14px) rotate(-1deg); }
+  25% { transform: scale(1.09) translate(22px, -12px) rotate(.8deg); } 40% { transform: scale(1.08) translate(-14px, 8px); }
+  60% { transform: scale(1.06) translate(8px, -5px); } 80% { transform: scale(1.04) translate(-3px, 2px); } 100% { transform: scale(1.03) translate(0, 0); }
+}
+.wp-flash { position: absolute; inset: 0; opacity: 0; background: #000; }
+html[data-warp="shake"] .wp-flash { animation: wp-flash .7s linear forwards; }
+@keyframes wp-flash { 0% { opacity: 1; background: #000; } 18% { opacity: 1; background: #fff; } 100% { opacity: 0; background: #fff; } }
+/* Back from a game: the tunnel in reverse, quickly. */
+html[data-warp="return"] body { animation: wp-return .9s cubic-bezier(.15, .85, .25, 1) both; }
+@keyframes wp-return { 0% { transform: scale(.02); opacity: 0; filter: brightness(2); } 35% { opacity: 1; } 100% { transform: scale(1); opacity: 1; filter: none; } }
+html[data-warp="return"] .wp-ring { animation: wp-ring-out .8s cubic-bezier(.2, .8, .3, 1) forwards; }
+html[data-warp="return"] .wp-ring:nth-child(2) { animation-delay: .05s; } html[data-warp="return"] .wp-ring:nth-child(3) { animation-delay: .1s; }
+html[data-warp="return"] .wp-ring:nth-child(4) { animation-delay: .15s; } html[data-warp="return"] .wp-ring:nth-child(5) { animation-delay: .2s; }
+@keyframes wp-ring-out { 0% { transform: scale(.02); opacity: .6; } 100% { transform: scale(1.05); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { #warp { display: none; } html.warping body { transform: none !important; animation: none !important; } }
+/* 0. The suction cup: the menu is pulled toward you and its edges strain inward, then it lets go. */
+.wp-edge { position: absolute; inset: 0; border-radius: 0; box-shadow: inset 0 0 0 0 rgba(0, 0, 0, 0); }
+html[data-warp="peel"] body { transition: transform .42s cubic-bezier(.4, 0, .9, .6), filter .42s; transform: scale(1.045) perspective(900px) translateZ(8px); filter: brightness(.92) contrast(1.08); }
+html[data-warp="peel"] .wp-edge { transition: box-shadow .42s cubic-bezier(.4, 0, .9, .6), border-radius .42s; box-shadow: inset 0 0 70px 36px rgba(0, 0, 0, .85); border-radius: 46px; }
+html[data-warp="shrink"] .wp-edge { transition: box-shadow .12s; box-shadow: inset 0 0 0 0 rgba(0, 0, 0, 0); }
+/* The let-go: a quick snap back before it falls away. */
+html[data-warp="shrink"] body { animation: wp-snap .16s ease-out; }
+@keyframes wp-snap { 0% { transform: scale(1.045); } 100% { transform: scale(.96); } }

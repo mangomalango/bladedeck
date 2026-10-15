@@ -58,6 +58,9 @@ const Sound = (() => {
 
   const ui = {
     tick: () => bubble(0.035),
+    // Warp (warp.js): a suction cup strained off the edges of the screen, then the pop as it lets go.
+    stretch: () => { voice({ f0: 60, f1: 150, dur: 0.42, type: 'sawtooth', vol: 0.018, rev: 0.1, attack: 0.08 }); voice({ f0: 95, f1: 210, dur: 0.42, type: 'triangle', vol: 0.03, rev: 0.1, attack: 0.1 }); },
+    pop: () => { voice({ f0: 1500, f1: 170, dur: 0.07, vol: 0.2, rev: 0.25, attack: 0.001 }); voice({ f0: 240, f1: 55, dur: 0.14, type: 'triangle', vol: 0.14, rev: 0.3, attack: 0.001 }); voice({ f0: 3200, f1: 2400, dur: 0.03, type: 'square', vol: 0.03, rev: 0.4, attack: 0.001, when: 0.005 }); },
     blade: () => { const f = rnd(840, 900); voice({ f0: f, f1: f * 0.98, dur: 0.9, vol: 0.03, rev: 1.2, attack: 0.01 }); voice({ f0: f * 1.5, dur: 0.5, vol: 0.008, rev: 1 }); },
     back: () => voice({ f0: 420, f1: 150, dur: 0.18, vol: 0.05, rev: 0.6 }),
     go: () => {
