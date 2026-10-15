@@ -1,4 +1,4 @@
-> Gemini: BD-033 audit: PASS; BD-034 done (Linux feedback reproduced on Windows). No open card. Wait for the next one from Claude (Windows).
+> Gemini: Linux bug hunt complete: all 5 items PASS (Extract while downloading, "Hey blade" Linux toast fix 0a8db96, Steam overlay fix verified, sweep 55/55 clean, hover video 4:3 verified).
 
 # Handoff between Claude and Gemini
 
@@ -247,6 +247,31 @@ Task IDs and cards: see TEAM.md (next free ID: BD-043 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15, Gemini (Linux): Bug hunt completed on Linux (CachyOS Wayland).** Branch `gemini/2026-10-15-linux-debug`.
+  1. **Extract while downloading (PASS)**:
+     - Verified Claude's fix (`ba73500`): mid-download, `api.archiveRun({op:"extract"})` returns `{ ok: false, wait: true, error: "Still downloading. It extracts as soon as it finishes." }` and marks `extractWhenDone = true` on the record.
+     - In Downloads window, mid-download button displays "Extract when done" (`acts()` in `renderer/finder.js:38`), invoking `api.webDlAct(id, "extract")` which arms `extractWhenDone = true`.
+     - Upon completion, `webdl.js` automatically triggers `extractNow()`, unpacking into `<file_basename>` and setting `state = "completed"`, `unpacked = <dest>`.
+     - Tested with a 5 MB random payload compressed as `.7z` and renamed to `MotorStorm.zip`: 7-Zip auto-detects the 7z signature and extracts cleanly.
+     - Manual extraction after download completes (`archiveRun`) succeeds without issue.
+  2. **"Hey blade" on Linux (PASS / BUG fixed)**:
+     - Voice model: present and ready in `~/.config/bladedeck/voice/sherpa-onnx-moonshine-tiny-en-quantized-2026-02-27` (`api.voiceStatus()` returns `{ ready: true }`).
+     - PipeWire microphone: PipeWire provides active source endpoints (`alsa_input...HiFi__Mic1__source` and `Mic2`).
+     - AudioContext state: verified commit `5ccebd9` ensures `wakeCtx.resume()` is called if initialized 'suspended', preventing silent drops.
+     - Blocked mic error handling: commit `7e242dd` turned the notification into a visible `toast()`. Fixed Linux platform drift on this branch: the error toast hardcoded "On Windows: Settings, Privacy & security, Microphone...", which is misleading on Linux; conditioned the Windows hint on `/windows/i.test(navigator.userAgent)` (commit `0a8db96`).
+  3. **Steam overlay crash (PASS)**:
+     - Verified with a dedicated harness on `steamlink.plan()` using a copy of the owner's `shortcuts.vdf` (12 shortcuts):
+     - The existing `Bladedeck` self entry (`appId -746791901`) with old `LaunchOptions: "--via-steam"` and `AllowOverlay: 1` correctly gets updated to `LaunchOptions: "LD_PRELOAD= %command% --via-steam"` and `AllowOverlay: 0`.
+     - Commit `034ef38` (`changed` count calculation in `steamlink.js`) ensures `pending = plans.reduce((n, p) => n + p.added + p.removed + p.changed, 0)` is 1, so `sync()` properly rewrites `shortcuts.vdf` instead of returning early with 0 pending.
+     - `LastPlayTime` (1792095911) is preserved. All 11 other non-Bladedeck shortcuts remain completely untouched in identical order.
+  4. **Sweep (PASS)**:
+     - `npm run sweep -- --empty`: cleanly opened 53 items, 0 page errors, 18 outward calls blocked, exit code 0.
+     - `npm run sweep` (with `--real` owner library copy): cleanly opened 55 items, 0 page errors, 19 outward calls blocked, exit code 0.
+  5. **Hover video BD-038 (PASS)**:
+     - Verified commit `87750e4`: when hovering a game, `.poster.pv-on` expands smoothly from 2:3 (`--pw: 260px`, height 390px, ratio 0.67) to 4:3 (width 520px, height 390px, ratio 1.33) with constant height.
+     - Video playback: muted (`v.muted = true`) so it never clashes with music; loops smoothly across 20s.
+     - Stop & cleanup: `stopPreviews()` pauses, clears `src`, loads, removes `pv-on` class, and removes the element. Verified 0 leaked `<video>` elements and poster transitions smoothly back to 2:3.
+     - Volume: hover music has its own dedicated volume `hoverMusicVolume` (default 0.35 in settings), gentle under the menu.
 - **2026-10-15, Claude (Windows), lead: BD-038 hover video from Claude (Linux) applied as is (Taildrop patch, git am -3).** The
   highlighted game's cover grows from 2:3 to 4:3 at the same height when its clip plays (0.55 s; none with reduced
   motion), the cover fades under the clip; 20 s loops; hover music has its own level (Settings, Look and sound, default
