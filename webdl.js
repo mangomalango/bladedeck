@@ -126,7 +126,8 @@ function register({ getWin, getSettings }) {
   app.whenReady().then(() => { attach(session.fromPartition('persist:webapps')); attach(session.defaultSession); });
   ipcMain.handle('web-dl-list', () => [...items.values()].map((x) => pub(x.rec)));
   // Download one file now, through the browser's session. kind 'game' installs it for the library.
-  ipcMain.handle('web-dl-start', (_e, { url, kind = '', title = '' } = {}) => {
+  ipcMain.handle('web-dl-start', (_e, opts = {}) => {
+    const { url, kind = '', title = '' } = opts || {};
     let u; try { u = new URL(String(url)); } catch { return { ok: false, error: 'That is not a web address.' }; }
     if (!/^https?:$/.test(u.protocol)) return { ok: false, error: 'Only web downloads.' };
     if (kind === 'game') expect.set(u.href, { dir: romsDir(), unpack: true, title: String(title).slice(0, 120) });

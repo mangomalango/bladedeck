@@ -258,9 +258,34 @@ Reproduced using a local HTTP server streaming a 20 MB archive slowly (`640 KB/s
 
 ---
 
+## 14. BD-044: Windows Bug Hunt (Whole App, Real & Isolated Test Copies)
+**Result: 4 problems found and fixed on branch `gemini/2026-10-16-bd044`**
+
+Drove all System items, Settings tabs, PC mode, Files, Downloads (local HTTP archive on 127.0.0.1), Updates, Feedback, Help, Guide, Storage Map, Companion notification bubbles, Multiplayer menu, and themes over DevTools CDP and manual automated suites.
+
+### Problems Found & Fixed (worst first):
+1. **On-Screen Keyboard (`OSK`) Close Race Condition (`renderer/pad.js:123`, `127`)**:
+   - *What happened*: Tapping any controller button or d-pad direction while the on-screen keyboard is dismissing threw floods of `Cannot read properties of null (reading 'value')`.
+   - *Cause*: `close()` immediately set `target = null;`, but left `el.hidden = false` for 200 ms while the closing fade animation completed. `isOpen()` checked `!el.hidden` (still true), allowing `handle()` to run and `draw()` to attempt reading `target.value`.
+   - *Fix*: Updated `isOpen` to `() => !el.hidden && target != null;` and added null guards in `draw()`, `put()`, and `del()`.
+2. **Unhandled Launch Rejection on Null (`renderer/app.js:441`)**:
+   - *What happened*: When a game launch was blocked, refused, or returned null, line 441 ran `if (r.ok ...)` without optional chaining, throwing an unhandled promise rejection.
+   - *Fix*: Changed to `if (r?.ok && r.viaSteam && !cover)` and `if (!r?.ok)`.
+3. **`hovermusic.js` Startup Race (`renderer/hovermusic.js:54`)**:
+   - *What happened*: Threw `Uncaught ReferenceError: S is not defined at hovermusic.js:54` in page console during initial page load.
+   - *Cause*: `hovermusic.js` is loaded at line 118 in `index.html`, before `app.js` (line 134) declares `S`. If the 250 ms highlight watcher fired before `app.js` finished executing, `S.sel` evaluation threw a ReferenceError.
+   - *Fix*: Added `if (typeof S === 'undefined') return;` at the top of the watcher interval.
+4. **`web-dl-start` IPC Handler Destructuring Crash on Null (`webdl.js:129`)**:
+   - *What happened*: Calling `api.webDlStart(null)` threw `TypeError: Cannot destructure property 'url' ... as it is null`.
+   - *Cause*: Default parameter `= {}` only catches `undefined`, not `null`.
+   - *Fix*: Changed signature to `(_e, opts = {}) => { const { url, kind = '', title = '' } = opts || {};`.
+
+---
+
 ## Summary
 - `npm run check`: **All 129 files pass, 276 channels answered**.
 - `npm run test-replies`: **21/21 assertions pass**.
 - `npm run test-pool`: **20/20 security assertions pass**.
-- BD-034: **Reproductions complete and findings documented**.
+- Result: **BD-044 done: 4 problems found and fixed**.
+
 

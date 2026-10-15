@@ -438,8 +438,8 @@ async function launch(e) {
   const arrived = warp || plainStart ? Promise.resolve() : FX.tracers(el);
   const r = await pending;
   // Started through Steam (Steam Input): Steam's launch pop-ups get the same cover as a Steam game.
-  if (r.ok && r.viaSteam && !cover) { cover = true; api.keepOnTop(true); guardSteam(); }
-  if (!r.ok) { Warp.skip(); el?.classList.remove('charging'); FX.fizzle(el); toast(r.error, 'err'); launching = false; if (cover) { api.keepOnTop(false); steamGuard = null; } return; }
+  if (r?.ok && r.viaSteam && !cover) { cover = true; api.keepOnTop(true); guardSteam(); }
+  if (!r?.ok) { Warp.skip(); el?.classList.remove('charging'); FX.fizzle(el); toast(r?.error || 'Game could not be started.', 'err'); launching = false; if (cover) { api.keepOnTop(false); steamGuard = null; } return; }
   await arrived;
   el?.classList.remove('charging');
   if (!warp && !plainStart) { FX.ripple(el); Sound.play('ripple'); Intro.play(e); }
