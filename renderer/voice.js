@@ -112,7 +112,7 @@ const Voice = (() => {
     } catch (e) {
       stopWake();
       // Said once, not swallowed: the microphone is blocked (Windows: Privacy & security, Microphone) or missing.
-      if (!wakeMicWarned) { wakeMicWarned = true; notify('Voice', e?.name === 'NotAllowedError' ? '"Hey Blade" cannot use the microphone: it is blocked. On Windows: Settings, Privacy & security, Microphone, let desktop apps use it.' : '"Hey Blade" found no microphone.'); }
+      if (!wakeMicWarned) { wakeMicWarned = true; toast(e?.name === 'NotAllowedError' ? '"Hey Blade" cannot use the microphone: it is blocked. On Windows: Settings, Privacy & security, Microphone, let desktop apps use it.' : '"Hey Blade" found no microphone.', 'err'); }
     }
   }
 
