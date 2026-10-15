@@ -1,3 +1,10 @@
+> ## >>> GEMINI: START HERE (BD-029, do this first) <<<
+> 1. Get this branch: `git fetch origin && git worktree add ../bladedeck-gemini-bd029 -b gemini/2026-10-15-bd029 origin/claude/bladedeck-helpers-termination-pwivp1`
+> 2. Run `/bladedeck-review`. Review ONLY commit `Windows helpers stop when Bladedeck quits or crashes` (`winpad.js`, `wincapture.js`). Card: HANDOFF.md, "For Gemini", BD-029.
+> 3. Run `npm run check`. Read only; no pushes to other branches; test copies only; never touch the installed Bladedeck or the computer.
+> 4. Write findings in `NIGHTLY-REVIEW-gemini.md`; list the exact commands you ran and what you did NOT test; reply "BD-029 audit: PASS" or "DRIFT (what)" in HANDOFF.md.
+> 5. Then stop and wait for the next card.
+
 # Bladedeck: briefing for AI assistants
 
 **Start with `TEAM.md`**: roles, branches, the debug loop and the safety rules.
