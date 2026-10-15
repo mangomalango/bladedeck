@@ -397,7 +397,7 @@ const Files = (() => {
         p.body.querySelector('.fl-path').dataset.busy = `${op === 'extract' ? 'Extracting' : 'Compressing'} ${it.name}…`;
         const r = await api.archiveRun({ op, file: it.path, fmt: a });
         delete p.body.querySelector('.fl-path').dataset.busy;
-        if (!r.ok) { toast(r.error, 'err'); return; }
+        if (!r.ok) { toast(r.error, r.wait ? undefined : 'err'); return; }
         toast(`${op === 'extract' ? 'Extracted into' : 'Made'} ${r.out.split(/[\\/]/).pop()}.`, 'fun');
         if (p.dir) load(p, p.dir);
       })

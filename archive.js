@@ -82,7 +82,11 @@ function register({ getWin }) {
     const f = path.resolve(String(file || ''));
     if (!FA.allowed(f) || !fs.existsSync(f)) return { ok: false, error: 'Bladedeck may not use that folder. Allow it in Files first.' };
     const id = Math.random().toString(36).slice(2, 9);
-    if (op === 'extract') { if (!fs.statSync(f).isFile()) return { ok: false, error: 'That is a folder, not an archive.' }; return extract(f, id); }
+    if (op === 'extract') {
+      if (!fs.statSync(f).isFile()) return { ok: false, error: 'That is a folder, not an archive.' };
+      if (require('./webdl').extractWhenDone(f)) return { ok: false, wait: true, error: 'Still downloading. It extracts as soon as it finishes.' };
+      return extract(f, id);
+    }
     if (op === 'compress') return compress(f, fmt === '7z' ? '7z' : 'zip', id);
     return { ok: false, error: 'Unknown job.' };
   });

@@ -41,7 +41,7 @@ function uniq(dir, name) {
   while (fs.existsSync(f)) f = path.join(dir, `${base} (${i++})${ext}`);
   return f;
 }
-const pub = (r) => ({ id: r.id, name: r.name, file: r.file, dir: path.dirname(r.file), what: r.game ? { label: `Game for your library (${kindOf(r.name).label.toLowerCase()})`, icon: '🎮' } : kindOf(r.name), archive: ARCHIVE.test(r.name), game: !!r.game, total: r.total, got: r.got, state: r.state, paused: r.paused, speed: r.speed, from: r.from, at: r.at, unpacked: r.unpacked || '', title: r.title || '', note: r.note || '' });
+const pub = (r) => ({ id: r.id, name: r.name, file: r.file, dir: path.dirname(r.file), what: r.game ? { label: `Game for your library (${kindOf(r.name).label.toLowerCase()})`, icon: '🎮' } : kindOf(r.name), archive: ARCHIVE.test(r.name), game: !!r.game, total: r.total, got: r.got, state: r.state, paused: r.paused, speed: r.speed, from: r.from, at: r.at, unpacked: r.unpacked || '', title: r.title || '', note: r.note || '', extractWhenDone: !!r.extractWhenDone });
 let last = 0, pending = false;
 function tell(now) {
   if (!now && Date.now() - last < 250) { if (!pending) { pending = true; setTimeout(() => { pending = false; tell(true); }, 260); } return; }
@@ -65,6 +65,22 @@ function unpack(rec) {
     if (err && /\.zip$/i.test(rec.file)) execFile('tar', ['-xf', rec.file, '-C', dest], { timeout: 3600000, windowsHide: true }, (tErr) => finish(tErr));
     else finish(err);
   });
+}
+
+// Extract a finished download with 7-Zip, next to itself (the Downloads window's Extract).
+function extractNow(rec) {
+  rec.state = 'unpacking'; rec.note = ''; rec.extractWhenDone = false; tell(true);
+  require('./archive').extract(rec.file, rec.id).then((r) => { rec.state = 'completed'; if (r.ok) rec.unpacked = r.out; else rec.note = r.error; tell(true); send('web-dl-done', pub(rec)); });
+}
+/* A file that is still downloading sits in Downloads under its own name while it grows, so Files
+   shows it and 7-Zip fails on the half-written archive. Extract pressed then (in Files or in the
+   Downloads window) waits and runs as soon as the download finishes. Returns whether it waits. */
+function extractWhenDone(file) {
+  const f = path.resolve(String(file || ''));
+  const x = [...items.values()].find(({ rec }) => path.resolve(rec.file) === f && (rec.state === 'progressing' || rec.state === 'unpacking'));
+  if (!x) return false;
+  if (x.rec.state === 'progressing' && ARCHIVE.test(x.rec.file) && !x.rec.unpack) { x.rec.extractWhenDone = true; x.rec.note = 'Extracts as soon as it finishes downloading.'; tell(true); }
+  return true;
 }
 
 function attach(ses) {
@@ -91,10 +107,12 @@ function attach(ses) {
     });
     item.once('done', (_ev, state) => {
       rec.got = item.getReceivedBytes(); rec.state = state; rec.speed = 0;
+      if (state !== 'completed' && rec.extractWhenDone) { rec.extractWhenDone = false; rec.note = ''; }
       items.set(rec.id, { rec, item: null });
       if (state === 'completed') {
         if (Notification.isSupported()) new Notification({ title: 'Download finished', body: `${rec.name}${rec.from ? ` · ${rec.from}` : ''}`, silent: true }).show();
         if (rec.unpack && ARCHIVE.test(rec.file)) { rec.state = 'unpacking'; send('web-dl-done', pub(rec)); unpack(rec); return; }
+        if (rec.extractWhenDone) { rec.note = ''; extractNow(rec); return; }
         send('web-dl-done', pub(rec));
       }
       tell(true);
@@ -126,10 +144,8 @@ function register({ getWin, getSettings }) {
     else if (act === 'open' && rec.state === 'completed') shell.openPath(rec.unpacked || rec.file);
     // Show it in the system's own file manager (Dolphin, Explorer), which needs no folder allowed.
     else if (act === 'reveal' && rec.state === 'completed') { if (rec.unpacked) shell.openPath(rec.unpacked); else shell.showItemInFolder(rec.file); }
-    else if (act === 'extract' && rec.state === 'completed' && !rec.unpacked && ARCHIVE.test(rec.file) && fs.existsSync(rec.file)) {
-      rec.state = 'unpacking'; rec.note = ''; tell(true);
-      require('./archive').extract(rec.file, rec.id).then((r) => { rec.state = 'completed'; if (r.ok) rec.unpacked = r.out; else rec.note = r.error; tell(true); send('web-dl-done', pub(rec)); });
-    }
+    else if (act === 'extract' && rec.state === 'completed' && !rec.unpacked && ARCHIVE.test(rec.file) && fs.existsSync(rec.file)) extractNow(rec);
+    else if (act === 'extract' && rec.state === 'progressing') extractWhenDone(rec.file);
     else if (act === 'forget' && !item) items.delete(rec.id);
     tell(true); return true;
   });
@@ -154,4 +170,4 @@ function register({ getWin, getSettings }) {
   });
 }
 
-module.exports = { register };
+module.exports = { register, extractWhenDone };

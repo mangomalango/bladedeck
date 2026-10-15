@@ -34,7 +34,9 @@ const WebDl = (() => {
   const short = (p) => String(p || '').split(/[\\/]/).filter(Boolean).slice(-2).join('/');
   const stateOf = (d) => (d.state === 'unpacking' ? `Extracting…${prog[d.id] != null ? ` ${prog[d.id]}%` : ''}` : d.state === 'completed' ? (d.unpacked ? (d.game ? 'Installed' : 'Extracted') : 'Done') : d.state === 'cancelled' ? 'Cancelled' : d.state === 'interrupted' ? 'Stopped' : d.paused ? 'Paused' : d.speed ? `${mb(d.speed)}/s` : 'Starting…');
   function acts(d, full) {
-    if (busy(d) && d.state !== 'unpacking') return `<button type="button" data-dl="${d.paused ? 'resume' : 'pause'}" data-id="${d.id}">${d.paused ? '▶' : '⏸'}</button><button type="button" data-dl="cancel" data-id="${d.id}" aria-label="Cancel">✕</button>`;
+    // An archive still downloading can be told to extract the moment it finishes.
+    const later = d.archive && !d.game && !d.extractWhenDone ? `<button type="button" data-dl="extract" data-id="${d.id}">Extract when done</button>` : '';
+    if (busy(d) && d.state !== 'unpacking') return `<button type="button" data-dl="${d.paused ? 'resume' : 'pause'}" data-id="${d.id}">${d.paused ? '▶' : '⏸'}</button>${later}<button type="button" data-dl="cancel" data-id="${d.id}" aria-label="Cancel">✕</button>`;
     if (d.state !== 'completed') return d.state === 'unpacking' ? '' : `<button type="button" data-dl="forget" data-id="${d.id}" aria-label="Clear">✕</button>`;
     const extract = d.archive && !d.unpacked ? `<button type="button" data-dl="extract" data-id="${d.id}">Extract</button>` : '';
     return `${full ? `<button type="button" data-dl="open" data-id="${d.id}">Open</button>` : ''}<button type="button" data-dl="show" data-id="${d.id}">Show</button>${extract}<button type="button" data-dl="forget" data-id="${d.id}" aria-label="Clear">✕</button>`;
