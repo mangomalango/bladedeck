@@ -138,7 +138,7 @@ function pads() {
   if (forced) return forced; // tests
   const ps = [...(navigator.getGamepads?.() || [])].filter(Boolean);
   const on = (i) => ps.some((g) => !!g.buttons[i]?.pressed || (g.buttons[i]?.value || 0) > 0.5);
-  return { lb: on(4), rb: on(5), lt: on(6), rt: on(7), a: on(0), b: on(1), x: on(2), y: on(3) };
+  return { lb: on(4), rb: on(5), lt: on(6), rt: on(7), a: on(0), b: on(1), x: on(2), y: on(3), back: on(8) };
 }
 function place(b) {
   const p = b.p, f = b.from || { left: 28, top: innerHeight - 90 };
@@ -181,10 +181,12 @@ function frame(now) {
 function replies(st, dt) {
   const down = FACE.map((f) => !!st[f]);
   if (!down.some(Boolean)) faceArmed = true;
+  // View + Y / X are the walkthrough and record chords, not a reply: disarmed until the buttons are let go.
+  if (st.back) faceArmed = false;
   const n = down.filter(Boolean).length, k = down.indexOf(true);
   if (!faceArmed || n !== 1) { if (replyHold) fill(replyHold.k, 0); replyHold = null; return; }
   if (!replyHold || replyHold.k !== k) { if (replyHold) fill(replyHold.k, 0); replyHold = { k, ms: 0 }; }
-  replyHold.ms += dt;
+  replyHold.ms += Math.min(dt, 50); // a stalled frame never counts as a long hold
   choosing.until = Math.max(choosing.until, Date.now() + 400); // never runs out mid-hold
   fill(k, Math.min(1, replyHold.ms / REPLY_HOLD_MS));
   if (replyHold.ms >= REPLY_HOLD_MS) { replyHold = null; sendReply(k); }

@@ -38,7 +38,7 @@ import org.json.JSONObject;
    the four phrases below, so the PC can never make the phone send other words. */
 public class NotifyService extends NotificationListenerService {
   static final String PREFS = "notify";
-  static final List<String> REPLIES = Arrays.asList("Sounds good 👍", "Can't talk, busy right now", "Give me 5 mins", "In a match, be there soon!");
+  static final List<String> REPLIES = Arrays.asList("Sounds good \uD83D\uDC4D", "Can't talk, busy right now", "Give me 5 mins", "In a match, be there soon!");
   static final long REPLY_MS = 3 * 60000L;
   static final class Pending { final Notification.Action action; final long at; Pending(Notification.Action a, long t) { action = a; at = t; } }
   static final Map<String, Pending> PENDING = new ConcurrentHashMap<>();

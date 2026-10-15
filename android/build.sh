@@ -13,7 +13,7 @@ for d in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
 done
 "$BT/aapt2" compile --dir res -o "$OUT/res.zip"
 "$BT/aapt2" link -o "$OUT/base.apk" -I "$JAR" --manifest AndroidManifest.xml -A assets --java "$OUT/gen" "$OUT/res.zip" --auto-add-overlay
-javac --release 11 -classpath "$JAR" -d "$OUT/classes" $(find src "$OUT/gen" -name '*.java')
+javac --release 11 -encoding UTF-8 -classpath "$JAR" -d "$OUT/classes" $(find src "$OUT/gen" -name '*.java')
 "$BT/d8" --lib "$JAR" --min-api 24 --output "$OUT/dex" $(find "$OUT/classes" -name '*.class')
 cp "$OUT/base.apk" "$OUT/unsigned.apk"; (cd "$OUT/dex" && jar --update --no-manifest --file ../unsigned.apk classes.dex)
 "$BT/zipalign" -f -p 4 "$OUT/unsigned.apk" "$OUT/aligned.apk"

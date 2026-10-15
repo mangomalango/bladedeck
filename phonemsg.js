@@ -63,7 +63,9 @@ function makeOverlay() {
   overlay.setVisibleOnAllWorkspaces?.(true, { visibleOnFullScreen: true });
   overlay.loadFile(path.join(__dirname, 'renderer', 'bubble.html'));
   overlay.webContents.once('did-finish-load', () => { ready = true; flush(); });
-  overlay.on('closed', () => { overlay = null; ready = false; });
+  // If the overlay dies mid-choice, give the menu its buttons back.
+  overlay.webContents.on('render-process-gone', () => tellDeck({ type: 'up', on: false, face: false }));
+  overlay.on('closed', () => { overlay = null; ready = false; tellDeck({ type: 'up', on: false, face: false }); });
   return overlay;
 }
 function flush() {

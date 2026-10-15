@@ -1,9 +1,4 @@
-> ## >>> GEMINI: START HERE (BD-031, do this first) <<<
-> 1. Get this branch: `git fetch origin && git worktree add ../bladedeck-gemini-bd031 -b gemini/2026-10-15-bd031 origin/claude/bd030-quick-replies`
-> 2. Run `/bladedeck-review`. Review ONLY commit 11aee87 `BD-030: quick replies from the phone bubble`. Card: HANDOFF.md, "For Gemini", BD-031.
-> 3. Run `npm run check`, `npm run test-replies`, `npm run test-pool`. Read only; no pushes to other branches; test copies only; never touch the installed Bladedeck or the computer.
-> 4. Write findings in `NIGHTLY-REVIEW-gemini.md`; list the exact commands you ran and what you did NOT test; reply "BD-031 audit: PASS" or "DRIFT (what)" in HANDOFF.md.
-> 5. Then stop and wait for the next card.
+> Gemini: no open card. Wait for the next one from Claude (Windows).
 
 # Handoff between Claude and Gemini
 
@@ -109,7 +104,7 @@ Task IDs and cards: see TEAM.md (next free ID: BD-032 (BD-011..BD-018 are in ROA
   [REPLY]    "BD-024 audit: PASS" or "DRIFT (<what>)" here in HANDOFF.md, details in NIGHTLY-REVIEW-gemini.md
   ```
 ### For Gemini (in Antigravity)
-- **BD-031** · both · Gemini · Audit BD-030 (quick replies) on branch claude/bd030-quick-replies (11aee87) BEFORE it is
+- **BD-031** (done: PASS by a second Claude in place of Gemini, the owner's call; BD-030 merged, see Log) · both · Gemini · Audit BD-030 (quick replies) on branch claude/bd030-quick-replies (11aee87) BEFORE it is
   merged: phonemsg.js (REPLIES, replyable, outbox, bubble-reply, takeReplies), companion.js GET /api/replies,
   renderer/bubble.js (hold-to-send, faceArmed), android NotifyService.java (replyAction, poll, answer). Try to
   make a reply go out that the owner did not hold, to the wrong phone, with words of the PC's choosing, or after
@@ -189,6 +184,22 @@ Task IDs and cards: see TEAM.md (next free ID: BD-032 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-15, Claude (Windows), lead: BD-030 quick replies MERGED into bladedeck-nightly after a second-Claude review
+  (BD-031, owner: "have a second Claude review BD-030 now in place of Gemini, then merge it if it passes").** Review:
+  PASS, no blockers (replies only from the overlay, pick 0-3 only, fixed words, per pairing key, taken once, 3 min, Maps
+  so no __proto__ tricks, SecureRandom refs, Linux and BD-028 unchanged). Fixed before merge-push: (1) the Java phrase
+  list had a raw emoji and javac ran without -encoding, so on an older JDK "Sounds good" would never match and the
+  phone would send nothing: now \uD83D\uDC4D and `-encoding UTF-8` in android/build.sh; (3) a stalled overlay frame
+  could count as a long hold: each frame now adds at most 50 ms; (4, part) View held disarms replies, so View + Y / X
+  (walkthrough, record) never send one; (5) if the overlay closes or crashes mid-choice the menu gets A/B/X/Y back.
+  test-replies' fake overlay got an .on(). check (130 files, 276 channels), test-replies, test-pool and sweep (54 items,
+  no errors) pass. NOT done, for the owner or later: (2) the phone polls 3 min after every answerable message even when
+  the PC did not keep it (battery; Android change, needs a build); (4) a normal in-game hold of A/B/X/Y inside the 4 s
+  window sends a reply, and every controller counts: a modifier (LB + face) or a longer hold is the owner's call;
+  (6) green means queued, not delivered; (7) prefer the semantic reply action on Android 9+; (8) a small poll-restart
+  race; (9) the countdown bar does not follow a hold. Android still NOT compiled (no SDK on Windows): Linux lead,
+  please run android/build.sh. No real phone or controller tested.
 
 - **2026-10-15, Claude (Windows), lead: nightly check-up (owner: "looks perfect, works, has Gemini's changes, built").**
   All Gemini code is in nightly (BD-020/021/022 fixes via 4e6b248; its bd024/bd029 branches are review notes only, joined

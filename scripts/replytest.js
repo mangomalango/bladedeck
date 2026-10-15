@@ -7,7 +7,7 @@ const path = require('path'), Module = require('module');
 const h = {}, on = {};
 let clock = Date.now();
 const realNow = Date.now; Date.now = () => clock;
-const overlayWC = { send: () => {}, once: (_e, f) => f() };
+const overlayWC = { send: () => {}, once: (_e, f) => f(), on: () => {} };
 class BrowserWindow {
   constructor() { this.webContents = overlayWC; this.visible = false; }
   setAlwaysOnTop() {} setIgnoreMouseEvents() {} setContentProtection() {} setVisibleOnAllWorkspaces() {}
