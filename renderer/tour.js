@@ -2,11 +2,12 @@
 /* Tour: every feature, one card at a time, with the buttons for a controller and a keyboard,
    and a "Show me" that opens the real thing. It runs once on its own after an update that adds
    it, and is always in System, Tour, in the Guide flap and on the Controls screen.
-   Controller: left and right (or A) move, X shows me, B closes. Uses S, save, esc, Sound and
+   It is split into chapters (TOUR_CHAPTERS): the first run shows only the quick start, and Help
+   lists the rest by topic. Controller: left and right (or A) move, X shows me, B closes. Uses S, save, esc, Sound and
    the feature modules at call time. */
 
 const TOUR = [
-  { icon: '👋', title: 'Welcome to Bladedeck', text: 'Your games, apps and emulators in one console-style menu that works from the couch with just a controller or a TV remote, or from the desk with a mouse and keyboard. This tour covers everything, a card at a time.', keys: [['Next card', 'right or A', '→ or Enter'], ['Close the tour', 'B', 'Esc']] },
+  { icon: '👋', title: 'Welcome to Bladedeck', text: 'Your games, apps and emulators in one console-style menu that works from the couch with just a controller or a TV remote, or from the desk with a mouse and keyboard. These few cards are what you need to start. Everything else is in ❓ Help at the top, by topic, whenever you want it.', keys: [['Next card', 'right or A', '→ or Enter'], ['Close the tour', 'B', 'Esc']] },
   { icon: '🗂️', title: 'Blades and games', text: 'Blades are the tall tabs: Home, Games, Steam, Emulation, PC, Apps and System. Move between them and pick a game. Home keeps your favorites and what you played last.', keys: [['Next or previous blade', 'left / right, or LB / RB', '← → or Page Up / Down'], ['Pick a game', 'up / down', '↑ ↓'], ['Play it', 'A', 'Enter'], ['Favorite it', 'X', 'F'], ['Edit it (art, name, launch options)', 'Y', 'E'], ['Tasks and looks for it', 'Start', 'T']] },
   { icon: '🖥️', title: 'Console mode and PC mode', text: 'Console mode is the big-screen menu. PC mode is a library manager with a grid, search and buttons for everything. Switch any time.', keys: [['Switch modes', 'tap View', 'F10'], ['Search the library (PC mode)', 'RB', 'Ctrl+F or /']], show: () => setMode(S.mode === 'console' ? 'pc' : 'console') },
   { icon: '🚀', title: 'Starting a game', text: 'A blade sweeps in with the game and a random sponsor (an angry monkey, a goat that screams…), then goes up in steam. Bladedeck stays over Steam\'s "launching" pop-ups until the game is ready. Turn the intro off in Settings.', keys: [['Skip the intro', 'any button', 'any key or click'], ['See what Steam is asking', 'X', 'X']], show: () => { const e = S.lib.entries.find((x) => x.type !== 'app' && (x.cover || x.hero)) || S.lib.entries[0]; if (e) Intro.play(e); } },
@@ -44,33 +45,58 @@ const TOUR = [
   { icon: '🎵', title: 'Music', text: 'Your own music folder plays behind the menus and stops when a game starts (or keeps going, if you like).', keys: [['Play or pause', 'right stick click', 'M'], ['Previous / next song', 'tap LT / RT', '[ / ]'], ['Song list', 'System, Music', '☰ at the top']] },
   { icon: '⚡', title: 'Faster starts', text: 'Bladedeck starts Steam quietly when it opens, gives games a big shader cache, and can use GameMode. In Steam, turn on Shader Pre-Caching so games stop compiling shaders while you wait.', keys: [['Settings', 'Settings, Faster starts', '']] },
   { icon: '🤫', title: 'Secrets', text: 'Some things are not on any list. Try doing things you are not supposed to, like slamming from one end of the menu to the other. A small mechanic may need to hammer it back together.', keys: [['Break the menu', 'slam end to end', 'slam end to end'], ['Fix it', 'mash A', 'mash Enter']] },
+  { icon: '❓', title: 'Stuck? Help is here', text: 'Whenever something is confusing, press ❓ Help at the top (or F1). It has the quick start again, the tour by topic, every control, the guide, voice control, the browser, and answers to the questions people ask most.', keys: [['Open Help', '', 'F1']], show: () => Help.open() },
+  { icon: '🔄', title: 'ROM sync', text: 'Your own PCs can share their ROMs: pair them once (the other PC says yes), and each copies the games it is missing. It never fills your main drive: it keeps room free and uses another drive, like a USB drive, when it has to.', show: () => RomSync.open() },
+  { icon: '📶', title: 'Network and sharing', text: 'Other Bladedecks only see you on your home network. On a café or school Wi-Fi you stay hidden, unless you choose to share there too. Settings, Network & sharing shows which network you are on and what the firewall lets in.', show: () => openSettingsAt('net') },
   { icon: '🏁', title: 'That\'s everything', text: 'Find this tour again any time in System, Tour, or from the Guide flap. F1 (or System, Controls) lists every button.', keys: [['Every button', 'System, Controls', 'F1 or ?']] }
+];
+
+/* The tour by topic. Quick start is what everyone needs; the rest is there when you want it
+   (Help lists the chapters). A card not named here lands in "More". */
+const TOUR_CHAPTERS = [
+  { id: 'start', icon: '⭐', name: 'Quick start', cards: ['Welcome to Bladedeck', 'Blades and games', 'Starting a game', 'Jump out of a game and back', 'The dock', 'The guide flap', 'Stuck? Help is here'] },
+  { id: 'play', icon: '🎮', name: 'While you play', cards: ['Console mode and PC mode', 'Quick Resume', 'What is running', 'Floating panels', 'The sound card', 'The quick menu', 'The walkthrough window', 'Typing with a controller', 'Recording, clips and save states', 'Voice commands'] },
+  { id: 'games', icon: '⬇️', name: 'Getting games', cards: ['Get games', 'Browse your sources', 'Emulators and ROMs', 'Minecraft', 'Watched folders', 'Artwork and achievements', 'Cheats and mods', 'Faster starts'] },
+  { id: 'together', icon: '👥', name: 'Playing together', cards: ['Split screen', 'Nearby', 'Send files', 'ROM sync', 'Network and sharing'] },
+  { id: 'pc', icon: '🖥', name: 'Your PC and files', cards: ['This PC', 'Notifications and downloads', 'Your files stay yours', 'Backup and restore'] },
+  { id: 'you', icon: '🎨', name: 'Make it yours', cards: ['Home picks', 'Your profile, goals and journal', 'Night Drive', 'Wallpaper', 'Themes', 'Music', 'Secrets'] }
 ];
 
 const Tour = (() => {
   const el = document.createElement('div');
   el.id = 'tour'; el.hidden = true;
   document.body.appendChild(el);
-  let i = 0, on = false;
+  let i = 0, on = false, deck = null, chap = null; // deck: the cards of the chapter being shown (indexes into TOUR)
+  const all = () => TOUR.map((_, k) => k);
+  const idx = (title) => TOUR.findIndex((t) => t.title === title);
+  const cardsOf = (c) => c.cards.map(idx).filter((k) => k >= 0);
+  function chapters() {
+    const named = new Set(TOUR_CHAPTERS.flatMap((c) => c.cards));
+    const more = TOUR.map((t, k) => k).filter((k) => !named.has(TOUR[k].title) && TOUR[k].icon !== '🏁');
+    return [...TOUR_CHAPTERS.map((c) => ({ ...c, list: cardsOf(c) })), ...(more.length ? [{ id: 'more', icon: '➕', name: 'More', list: more }] : [])].map((c) => ({ ...c, count: c.list.length }));
+  }
 
   function draw() {
-    const t = TOUR[i];
+    const t = TOUR[deck[i]], n = deck.length, last = i === n - 1;
+    const next = chap && chapters()[chapters().findIndex((c) => c.id === chap.id) + 1];
     el.innerHTML = `<div class="tr-card">
-      <div class="tr-top"><span>${i + 1} of ${TOUR.length}</span><button type="button" class="tr-x" data-t="close" aria-label="Close">✕</button></div>
+      <div class="tr-top"><span>${chap ? `${chap.icon} ${esc(chap.name)} · ` : ''}${i + 1} of ${n}</span><button type="button" class="tr-x" data-t="close" aria-label="Close">✕</button></div>
       <div class="tr-ic">${t.icon}</div>
       <h2>${esc(t.title)}</h2>
       <p>${esc(t.text)}</p>
       ${t.keys?.length ? `<table class="ctl tr-keys"><thead><tr><th></th><th>Controller</th><th>Keyboard</th></tr></thead><tbody>${t.keys.map(([w, p, k]) => `<tr><td>${esc(w)}</td><td>${p ? esc(p) : '<span class="dim">—</span>'}</td><td>${k ? esc(k) : '<span class="dim">—</span>'}</td></tr>`).join('')}</tbody></table>` : ''}
-      <div class="tr-dots">${TOUR.map((_, j) => `<i class="${j === i ? 'on' : ''}" data-j="${j}"></i>`).join('')}</div>
+      <div class="tr-dots">${deck.map((_, j) => `<i class="${j === i ? 'on' : ''}" data-j="${j}"></i>`).join('')}</div>
       <div class="tr-foot">
         <button type="button" data-t="prev" ${i ? '' : 'disabled'}>‹ Back</button>
         ${t.show ? '<button type="button" data-t="show"><i class="pad x">X</i> Show me</button>' : ''}
-        <button type="button" class="primary" data-t="next">${i === TOUR.length - 1 ? 'Done' : 'Next ›'}</button>
+        ${last && next ? `<button type="button" data-t="nextchap">${next.icon} ${esc(next.name)} ›</button>` : ''}
+        <button type="button" class="primary" data-t="next">${last ? 'Done' : 'Next ›'}</button>
       </div></div>`;
   }
 
-  function open(at = 0) {
-    i = Math.max(0, Math.min(TOUR.length - 1, at)); on = true;
+  function open(at = 0, list = null, c = null) {
+    deck = list || all(); chap = c;
+    i = Math.max(0, Math.min(deck.length - 1, at)); on = true;
     el.hidden = false; draw(); requestAnimationFrame(() => el.classList.add('open'));
     Sound.play('pop');
   }
@@ -81,16 +107,19 @@ const Tour = (() => {
     // Then, once: the optional extras worth turning on.
     if (!S.lib.settings.extrasSeen) setTimeout(() => { if (!S.modal) Extras.open(); }, 700);
   }
-  function go(d) { const n = i + d; if (n < 0) return; if (n >= TOUR.length) { close(); return; } i = n; Sound.play('tick'); draw(); }
+  function go(d) { const n = i + d; if (n < 0) return; if (n >= deck.length) { close(); return; } i = n; Sound.play('tick'); draw(); }
+  // One chapter of the tour (Help's list, and the first run's quick start).
+  function chapter(id) { const c = chapters().find((x) => x.id === id) || chapters()[0]; open(0, c.list, c); }
+  function nextChapter() { const l = chapters(), k = l.findIndex((c) => c.id === chap?.id); if (l[k + 1]) { chapter(l[k + 1].id); Sound.play('tick'); } }
   // Show the real thing; the tour steps aside and comes back where it was when that closes.
   function show() {
-    const t = TOUR[i]; if (!t.show) return;
-    const at = i; close();
+    const t = TOUR[deck[i]]; if (!t.show) return;
+    const at = i, d0 = deck, c0 = chap; close();
     setTimeout(() => {
       t.show();
       const back = setInterval(() => {
         const busy = S.modal || Resume.isOpen() || Volume.isOpen() || Guide.isOpen() || Intro.playing() || Dock.active();
-        if (!busy) { clearInterval(back); setTimeout(() => open(at), 400); }
+        if (!busy) { clearInterval(back); setTimeout(() => open(at, d0, c0), 400); }
       }, 500);
       setTimeout(() => clearInterval(back), 120000);
     }, 260);
@@ -108,7 +137,7 @@ const Tour = (() => {
     const b = ev.target.closest('[data-t]'), d = ev.target.closest('[data-j]');
     if (d) { i = +d.dataset.j; draw(); return; }
     if (!b) return;
-    ({ close, prev: () => go(-1), next: () => go(1), show })[b.dataset.t]?.();
+    ({ close, prev: () => go(-1), next: () => go(1), show, nextchap: nextChapter })[b.dataset.t]?.();
   });
   addEventListener('keydown', (ev) => {
     if (!on) return;
@@ -117,7 +146,11 @@ const Tour = (() => {
   }, true);
 
   // New features since the last time it was seen: offer it once.
-  function maybeOffer() { if ((S.lib.settings.tourSeen || 0) < TOUR.length) setTimeout(() => { if (!S.modal) open(0); }, 3800); }
+  // The first time: the quick start only (the rest waits in Help). After an update that adds cards: those.
+  function maybeOffer() {
+    const seen = S.lib.settings.tourSeen || 0; if (seen >= TOUR.length) return;
+    setTimeout(() => { if (S.modal) return; if (!seen) chapter('start'); else open(0, all().slice(Math.max(0, seen - 1))); }, 3800); // new cards go just before the last one
+  }
 
-  return { open, close, handle, maybeOffer, isOpen: () => on };
+  return { open, close, handle, maybeOffer, chapter, chapters, isOpen: () => on };
 })();

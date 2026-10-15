@@ -20,6 +20,7 @@ const FA = require('./fsaccess');
 const PORT = 47617, EVERY = 6000, GONE = 25000, SHARE_PORTS = [47618, 47627];
 let sock = null, timer = 0, me = {}, peers = new Map(), send = () => {}, myId = '';
 const offers = new Map(); // files others offered us: oid -> where to fetch
+const hooks = new Map(); // message kind -> handler, for other features (romsync.js)
 const nameOk = (n) => { const b = path.basename(String(n || '')).replace(/[\x00-\x1f<>:"/\\|?*]/g, '_').replace(/^\.+/, '').trim().slice(0, 180); return b && !/\.part$/i.test(b) ? b : ''; };
 
 /* Sending a file to one Bladedeck: a tiny web server just for it, on one of ten known ports
@@ -98,6 +99,10 @@ function start(id) {
       send('lan-event', { kind: 'offer', oid, from: p.name, file });
     } else if (m.kind === 'got') {
       const p = peers.get(m.id); if (p && p.addr === rinfo.address) send('lan-event', { kind: 'got', from: p.name, name: String(m.name || '').slice(0, 180) });
+    } else if (hooks.has(m.kind)) {
+      // Other features' messages (ROM sync): only from a Bladedeck that said hello from that address.
+      const p = peers.get(m.id);
+      if (p && p.addr === rinfo.address) hooks.get(m.kind)(m, { id: p.id, name: p.name, pc: p.pc, addr: p.addr });
     } else if (m.kind === 'invite' || m.kind === 'poke') {
       // Only from a Bladedeck that said hello from that same address, and not more than one every 5 seconds.
       const p = peers.get(m.id);
@@ -120,17 +125,23 @@ function firewall() {
   if (!/^\s*ENABLED\s*=\s*yes/mi.test(conf)) return null;
   let rules = ''; try { rules = fs.readFileSync('/etc/ufw/user.rules', 'utf8'); } catch { /* not readable: assume no rule */ }
   if (/47617/.test(rules)) return null;
-  return { name: 'ufw', fix: 'sudo ufw allow proto udp from 192.168.0.0/16 to any port 47617 && sudo ufw allow proto tcp from 192.168.0.0/16 to any port 47618:47627' };
+  return { name: 'ufw', fix: 'sudo ufw allow proto udp from 192.168.0.0/16 to any port 47617 && sudo ufw allow proto tcp from 192.168.0.0/16 to any port 47618:47628' };
+}
+
+// What the page asked for, and whether this network may see us (netshare.js: home, or public allowed).
+let want = null, gate = () => true, idOf = () => '';
+function apply() {
+  if (!want || want.enabled === false || !gate()) { stop(); return false; }
+  const info = want;
+  me = { name: String(info.name || 'Player').slice(0, 40), pc: os.hostname(), playing: info.playing || null, level: +info.level || 1, titles: info.share ? (info.titles || []).slice(0, 600) : null };
+  start(idOf());
+  return true;
 }
 
 function register({ getWin, dataId }) {
   send = (ch, d) => { const w = getWin(); if (w && !w.isDestroyed()) w.webContents.send(ch, d); };
-  ipcMain.handle('lan-set', (_e, info) => {
-    if (!info || info.enabled === false) { stop(); return false; }
-    me = { name: String(info.name || 'Player').slice(0, 40), pc: os.hostname(), playing: info.playing || null, level: +info.level || 1, titles: info.share ? (info.titles || []).slice(0, 600) : null };
-    start(dataId());
-    return true;
-  });
+  idOf = dataId;
+  ipcMain.handle('lan-set', (_e, info) => { want = info || null; return apply(); });
   ipcMain.handle('lan-firewall', () => firewall());
   ipcMain.handle('lan-peers', () => [...peers.values()].map(({ addr, lastAsk, ...p }) => p));
   ipcMain.handle('lan-offer', async (_e, peerId, file) => {
@@ -177,4 +188,9 @@ function register({ getWin, dataId }) {
   });
 }
 
-module.exports = { register, stop, newId: () => crypto.randomBytes(8).toString('hex') };
+// For other features: a Bladedeck around now (with its address), a message to one, and messages of a kind.
+const peer = (id) => { const p = peers.get(String(id)); return p ? { id: p.id, name: p.name, pc: p.pc, addr: p.addr } : null; };
+function sendTo(id, msg) { const p = peers.get(String(id)); if (!p || !sock) return false; sock.send(Buffer.from(JSON.stringify({ ...msg, bd: 1, id: myId, name: me.name })), PORT, p.addr, () => {}); return true; }
+const on = (kind, fn) => hooks.set(kind, fn);
+
+module.exports = { register, stop, apply, firewall, setGate: (fn) => { gate = fn; }, peer, sendTo, on, myId: () => myId, newId: () => crypto.randomBytes(8).toString('hex') };

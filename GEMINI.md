@@ -1,5 +1,7 @@
 # Bladedeck: briefing for AI assistants
 
+**Start with `TEAM.md`**: roles, branches, the debug loop and the safety rules.
+
 **Names:** the owner sometimes calls this project "Steamblade" (its first name, and the name of the
 console-mode idea). Steamblade and Bladedeck are the same project: this repository.
 
@@ -13,6 +15,11 @@ as in progress.
 Bladedeck is a console-style game launcher (Electron 33) for Steam, emulators, native ports and any
 program, with a controller-first "console mode" and a windowed "PC mode". The owner (mangomalango)
 runs it on CachyOS, KDE Plasma on Wayland, Intel Arc graphics, and also builds a Windows version.
+
+**In Antigravity:** this file and `.agents/rules/bladedeck.md` load by themselves. Two workflows
+are ready: `/bladedeck-audit` (check a branch against SPEC.md: you are the team's auditor),
+`/bladedeck-review` (review the newest work into NIGHTLY-REVIEW-gemini.md) and
+`/bladedeck-test` (try the features in a safe test copy).
 
 ## Layout
 - `main.js`: the Electron main process: windows, launching games, library file, most IPC.
@@ -39,6 +46,9 @@ runs it on CachyOS, KDE Plasma on Wayland, Intel Arc graphics, and also builds a
 - The owner runs `~/AppImages/bladedeck.appimage`. Never overwrite it while Bladedeck is running
   (that crashed it). Ask them to close it, move the old file aside, then copy the new one in.
 - Never edit `library.json` while Bladedeck is running: its next save overwrites your edit.
+- Test with `npm run test-copy` (add `-- --real` for a copy of the owner's library): a scratch
+  userData, no controller, no peek helper, and every outward action refused (main.js TEST).
+  It quits by itself after three minutes; DevTools on port 9333 for scripted checks.
 - Never test with the real library or the real controller. Run a copy with `userData` pointed at a
   scratch folder, the gamepad stubbed (`navigator.getGamepads = () => []`), and every outward
   action (launching, window moves, sound changes, HID writes, kscreen-doctor changes, downloads)

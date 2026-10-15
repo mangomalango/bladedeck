@@ -221,6 +221,8 @@ const downloadsDir = () => { const d = app.getPath('downloads'); return d && pat
 const MANAGED = () => [path.join(os.homedir(), 'Games', 'itch'), path.join(os.homedir(), 'Games', 'Classics')];
 function settle(file, root, send, last = -1) {
   if (SKIP.test(path.basename(file)) || MANAGED().some((m) => file.startsWith(m + path.sep))) return;
+  // Inside a Wine or Proton prefix: a Windows game's own files and caches, not news.
+  if (/[\\/](drive_c|compatdata|shadercache|pfx)[\\/]/i.test(file)) return;
   const key = file;
   clearTimeout(seen.get(key)?.t);
   const t = setTimeout(async () => {

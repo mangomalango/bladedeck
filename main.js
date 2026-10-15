@@ -7,6 +7,27 @@ const { spawn } = require('child_process');
 const Peek = require('./peek');
 const Net = require('./net');
 
+/* A test copy (BLADEDECK_TEST=<a scratch folder>, started by `npm run test-copy`): its own
+   userData, no controller, no window helper, and nothing that reaches outside Bladedeck (games,
+   power, sound, screens, Steam, Bluetooth, the network neighbours, other apps) — those calls just
+   answer null and say so. Test copies once launched a real game and broke the running
+   Bladedeck's window tracking; this is so they cannot. */
+const TEST = process.env.BLADEDECK_TEST || '';
+if (TEST) {
+  app.setPath('userData', path.resolve(TEST));
+  const BLOCK = /^(launch|split-launch|sys-power|sys-brightness|sys-wifi-connect|sys-wifi-off|bt-(connect|pair|power|scan)|sound-(set|player-sink|follow)|ms-(open|close|extend|place-main|pin-sound|menu)|ds-set|pads-claim|win-act|focus-pid|proc-freeze|peek-\w+|steamlink-(sync|restart)|steam-sleep-fix|companion-(enable|ring|alarms)|lan-(set|offer|send|accept)|romsync-(pair|answer|sync)|netshare-firewall|net-(hello|poke)|dns-(system|app)|emu-install|emu-install-win|emu-gh-install|moonlight-open|mc-open|dock-open|webapp-open|capture-(record|replay|game|stop)|live-start|presence|discord-set|keep-on-top|open-link|fs-open|fs-reveal|bios-open|capture-open|extras-update|backup-restore|backup-import|xfer-to-phone|quit)$/;
+  const handle = ipcMain.handle.bind(ipcMain);
+  ipcMain.handle = (ch, fn) => handle(ch, BLOCK.test(ch) ? () => { console.log(`[test copy] blocked ${ch}`); return null; } : fn);
+  ipcMain.on('bd-test', (e) => { e.returnValue = true; });
+  // It quits by itself: at its time limit, or as soon as whatever started it is gone, so a test
+  // copy can never be left running (one was once, at full speed, for half an hour).
+  const until = Date.now() + (+process.env.BLADEDECK_TEST_SECONDS || 600) * 1000, parent = +process.env.BLADEDECK_TEST_PARENT || 0;
+  setInterval(() => {
+    let alive = true; if (parent) { try { process.kill(parent, 0); } catch { alive = false; } }
+    if (Date.now() > until || !alive) { console.log('[test copy] closing by itself'); app.exit(0); }
+  }, 2000).unref();
+} else ipcMain.on('bd-test', (e) => { e.returnValue = false; });
+
 // ---------------------------------------------------------------- defaults
 const DEFAULT_BLADES = [
   { id: 'home',   name: 'Home',      filter: { home: true } },
@@ -173,7 +194,7 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.once('ready-to-show', () => {
     win.show();
-    Peek.start(win, { dataDir: dataDir(), minimize: !!lib.settings.peekMinimize, handler: (ev) => { if (win) win.webContents.send('peek', ev); const p2 = require('./players').p2(); if (p2 && !p2.isDestroyed() && /^(windows|opened|gone)$/.test(ev.kind)) p2.webContents.send('peek', ev); } })
+    if (!TEST) Peek.start(win, { dataDir: dataDir(), minimize: !!lib.settings.peekMinimize, handler: (ev) => { if (win) win.webContents.send('peek', ev); const p2 = require('./players').p2(); if (p2 && !p2.isDestroyed() && /^(windows|opened|gone)$/.test(ev.kind)) p2.webContents.send('peek', ev); } })
       .then((m) => {
         if (win) win.webContents.send('peek', { kind: 'mode', mode: m });
         // Without KWin, list windows another way (Windows, or Linux on X11 with wmctrl).
@@ -227,8 +248,9 @@ else {
   app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
   app.whenReady().then(async () => {
     // Opened outside Steam: go again through Steam, so Steam gives the controller a gamepad layout.
-    if (await require('./steamlink').startThroughSteam(loadLib().settings).catch(() => false)) { app.quit(); return; }
-    ensureUserFiles(); createWindow(); setTimeout(prewarmSteam, 3000); require('./bluetooth').startup(loadLib().settings).catch(() => {});
+    if (!TEST && await require('./steamlink').startThroughSteam(loadLib().settings).catch(() => false)) { app.quit(); return; }
+    ensureUserFiles(); createWindow();
+    if (!TEST) { setTimeout(prewarmSteam, 3000); require('./bluetooth').startup(loadLib().settings).catch(() => {}); }
   });
   /* A helper program that is missing (more likely on Windows) or a bug in a background job must
      not stop Bladedeck with an error box: it goes to errors.log in Bladedeck's folder instead,
@@ -517,6 +539,7 @@ ipcMain.handle('scan-steam', (_e, custom) => {
   return { games };
 });
 
+const WINE_DIR = /^(drive_c|dosdevices|compatdata|shadercache|pfx|AppData|node_modules)$/i;
 ipcMain.handle('scan-roms', (_e, { exts, dirs }) => {
   const want = new Set(exts.map((x) => x.toLowerCase()));
   const found = [];
@@ -526,7 +549,8 @@ ipcMain.handle('scan-roms', (_e, { exts, dirs }) => {
     try { items = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
     for (const it of items) {
       const fp = path.join(dir, it.name);
-      if (it.isDirectory()) walk(fp, depth + 1);
+      // Wine and Proton prefixes hold a Windows install's caches, never games for an emulator.
+      if (it.isDirectory()) { if (!WINE_DIR.test(it.name) && !it.name.startsWith('.')) walk(fp, depth + 1); }
       else if (want.has(path.extname(it.name).slice(1).toLowerCase())) found.push(fp);
     }
   };
@@ -1030,6 +1054,7 @@ require('./realdebrid').register({ getWin: () => win, settings: () => loadLib().
 { const idFile = path.join(app.getPath('userData'), 'lan-id');
   const lanId = () => { try { return fs.readFileSync(idFile, 'utf8').trim(); } catch { const id = require('./lan').newId(); try { fs.writeFileSync(idFile, id); } catch { /* optional */ } return id; } };
   require('./lan').register({ getWin: () => win, dataId: lanId });
+  require('./netshare').register({ getSettings: () => loadLib().settings });
   app.on('will-quit', () => require('./lan').stop()); }
 require('./companion').register({ getWin: () => win, loadLib: () => loadLib() });
 require('./livecap').register();
@@ -1040,6 +1065,7 @@ require('./minecraft').register();
 require('./moonlight').register();
 require('./onlinemedia').register(() => loadLib().settings);
 require('./gameinfo').register(() => loadLib().settings);
+require('./romsync').register({ getWin: () => win, loadLib });
 require('./steaminput').register();
 require('./bluetooth').register();
 require('./steamlink').register({ command, loadLib });

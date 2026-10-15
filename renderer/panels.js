@@ -224,8 +224,10 @@ const Panels = (() => {
     let t = String(text || '').trim(); if (!t || !p.wv) return;
     if (!/^https?:\/\//i.test(t)) t = /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(t) ? `https://${t}` : `https://duckduckgo.com/?q=${encodeURIComponent(t)}`;
     if (!/^https:\/\//i.test(t)) t = t.replace(/^http:/i, 'https:');
-    p.wv.loadURL(t); p.wv.focus();
+    nav(p, t); p.wv.focus();
   }
+  // A view still starting (a panel just made) cannot loadURL yet: its address is set instead.
+  function nav(p, url) { try { p.wv.loadURL(url).catch(() => {}); } catch { p.wv.setAttribute('src', url); } }
 
   function handle(a) {
     const p = focused; if (!p) return false;
@@ -297,7 +299,7 @@ const Panels = (() => {
     p.handed = false;
     if (r?.url) {
       const id = (r.url.match(/[?&]v=([\w-]{11})/) || [])[1];
-      if (id) { if (!p.wv) wake(p); p.wv?.loadURL(`https://www.youtube.com/watch?v=${id}${r.t ? `&t=${r.t}s` : ''}`); }
+      if (id) { if (!p.wv) wake(p); if (p.wv) nav(p, `https://www.youtube.com/watch?v=${id}${r.t ? `&t=${r.t}s` : ''}`); }
     }
     // It comes back where it was (the mini player), without taking the controller.
     if (r?.visible !== false) { p.min = false; p.el.hidden = false; wake(p); place(p); tell(); }

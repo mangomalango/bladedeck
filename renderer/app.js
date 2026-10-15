@@ -292,6 +292,7 @@ function systemGroups() {
     ...(Secrets.has('toolbox') ? [{ id: 'sys-tool', title: "Rivet's Toolbox", sub: 'Secrets you have found', glyph: '⚒', run: () => Secrets.openToolbox() }] : [])
   ];
   return [
+    { id: 'sys-helphub', title: 'Confused? Start here', sub: 'Help: quick start, controls, guide, voice, browser, answers', glyph: '❓', run: () => Help.open() },
     { id: 'grp-lib', title: 'Games and library', sub: 'Add, scan, find art, get games, sources', glyph: '▦', children: [
       { id: 'sys-quick', title: 'Find everything', sub: 'Steam, GOG, Heroic, Moonlight and store launchers in one go', glyph: '✦', run: findEverything },
       { id: 'sys-add', title: 'Add a game or app', sub: 'Pick a program, Steam ID or game file', glyph: '+', run: () => editEntry() },
@@ -303,8 +304,9 @@ function systemGroups() {
       { id: 'sys-gog', title: 'Scan GOG games', sub: 'Find GOG installs and Heroic games', glyph: 'G', run: () => scanGog() },
       { id: 'sys-moon', title: 'Moonlight streaming', sub: 'Play games streamed from your other PCs', glyph: '☾', run: () => moonlightMenu() },
       { id: 'sys-art', title: 'Find missing art', sub: 'Covers and backgrounds from Steam and SteamGridDB', glyph: '🖼', run: () => Art.fillAll() },
+      { id: 'sys-romsync', title: 'ROM sync', sub: 'Your PCs share the ROMs each is missing, keeping room on their drives', glyph: '🔄', run: () => RomSync.open() },
       { id: 'sys-storage-lib', title: 'Storage map', sub: 'What takes the most to least space: games, media, caches', glyph: '🗄️', run: () => StorageMap.open() },
-      { id: 'sys-dl', title: 'Downloads', sub: 'What is downloading, and what finished', glyph: '⬇', run: () => Notify.open() }] },
+      { id: 'sys-dl', title: 'Downloads', sub: 'What is downloading, where it goes, extract', glyph: '⬇', run: () => WebDl.open() }] },
     { id: 'grp-soft', title: 'Gaming software', sub: 'Emulators, launchers, Minecraft and extras', glyph: '◉', children: [
       { id: 'sys-emu', title: 'Emulators', sub: 'Add, edit and scan game folders', glyph: '◉', run: manageEmulators },
       { id: 'sys-hdmi', title: 'Console (capture card)', sub: 'Play an Xbox, PlayStation or any console through an HDMI capture card', glyph: '📼', run: () => Hdmi.open() },
@@ -1173,13 +1175,13 @@ async function scanRoms(em) {
   if (!exts.length || !em.romDirs?.length) { toast(`Set game folders and file types for ${em.name} first.`, 'err'); return; }
   toast(`Scanning ${em.name} folders`);
   let files = await api.scanRoms({ exts, dirs: em.romDirs });
-  // PS4 games are folders: only their eboot.bin counts.
-  if (em.onlyNames) files = files.filter((f) => em.onlyNames.includes(baseName(f).toLowerCase()));
+  // Only files that are this emulator's games (PS4 and PS3: their eboot.bin), no caches from Wine prefixes either.
+  files = files.filter((f) => Watch.fits(f, em));
   const have = new Set(S.lib.entries.filter((e) => e.type === 'rom').map((e) => e.rom));
   let added = 0;
   for (const f of files) {
     if (have.has(f)) continue;
-    S.lib.entries.push({ id: uid(), type: 'rom', title: em.onlyNames ? cleanTitle(f.replace(/[\\/][^\\/]*$/, '')) : cleanTitle(f), rom: f, emulatorId: em.id, system: em.system || em.name, added: Date.now(), playtime: 0 });
+    S.lib.entries.push({ id: uid(), type: 'rom', title: Watch.romTitle(f, em), rom: f, emulatorId: em.id, system: em.system || em.name, added: Date.now(), playtime: 0 });
     added++;
   }
   save(); refresh();
@@ -1192,7 +1194,7 @@ function handleDrop(paths) {
   for (const p of paths) {
     const ext = (p.match(/\.([^./\\]+)$/) || [, ''])[1].toLowerCase();
     const em = S.lib.emulators.find((x) => extList(x).includes(ext));
-    if (em) made.push({ id: uid(), type: 'rom', title: cleanTitle(p), rom: p, emulatorId: em.id, system: em.system || em.name, added: Date.now(), playtime: 0 });
+    if (em) made.push({ id: uid(), type: 'rom', title: Watch.romTitle(p, em), rom: p, emulatorId: em.id, system: em.system || em.name, added: Date.now(), playtime: 0 });
     else if (prog.includes(ext) || !ext) made.push({ id: uid(), type: 'exe', title: cleanTitle(p), exe: p, added: Date.now(), playtime: 0 });
   }
   if (!made.length) { toast('That file type is not a program or a known emulator game.', 'err'); return; }
@@ -1311,7 +1313,7 @@ function openControls() {
 /* ---------------------------------------------------------------- settings */
 // Fewer, plainer pages: everything about running games and emulators is Gaming software, and
 // everything about playing with someone else in the room is Local multiplayer.
-const SET_TABS = [['general', 'General'], ['look', 'Look and sound'], ['games', 'Gaming software'], ['pads', 'Controllers'], ['multi', 'Local multiplayer'], ['rec', 'Recording and live view'], ['online', 'Accounts'], ['adv', 'Advanced']];
+const SET_TABS = [['general', 'General'], ['look', 'Look and sound'], ['games', 'Gaming software'], ['pads', 'Controllers'], ['multi', 'Local multiplayer'], ['net', 'Network & sharing'], ['rec', 'Recording and live view'], ['online', 'Accounts'], ['adv', 'Advanced']];
 let setTab = 0;
 function settingsTab(root, i) {
   setTab = (i + SET_TABS.length) % SET_TABS.length;
@@ -1319,6 +1321,8 @@ function settingsTab(root, i) {
   root.querySelectorAll('.set-tabs button').forEach((b, k) => b.classList.toggle('on', k === setTab));
   root.querySelectorAll('.set-sec').forEach((sec) => { sec.hidden = sec.dataset.sec !== id; });
   root.querySelector('.set-pages').scrollTop = 0;
+  SetLook.head(root, id, SET_TABS[setTab][1]);
+  const find = root.querySelector('.set-find'); if (find?.value) { find.value = ''; root.querySelector('.set')?.classList.remove('finding'); root.querySelectorAll('.set-sec [hidden].row, .set-sec > label[hidden]').forEach((x) => { x.hidden = false; }); }
   if (S.pad) PadNav.mark(root.querySelector('.set-tabs button.on'));
 }
 // Settings, opened on one page (after a dialog of its own closed it).
@@ -1394,10 +1398,10 @@ function openSettings() {
         <div class="btns"><button type="button" data-x="split">Split screen…</button></div>
         <h4 class="set-sub">Multi-screen: a screen each</h4>
         <div class="ms-box"><p class="note">Looking for screens…</p></div>
-        <h4 class="set-sub">Nearby: other Bladedecks</h4>
-        <div class="checks"><label><input type="checkbox" name="lanOn" ${st.lanOn !== false ? 'checked' : ''}> Show me to other Bladedecks nearby</label><label><input type="checkbox" name="lanShare" ${st.lanShare === true ? 'checked' : ''}> Share my game list with them</label></div>
+        <p class="note">Nearby (other Bladedecks on your network) is on the Network & sharing page.</p>
         <p class="note">Who is which player, and each controller's rumble and sound, are on the Controllers page.</p>
       </section>
+      <section class="set-sec" data-sec="net">${NetShare.settingsHtml(st)}</section>
       <section class="set-sec" data-sec="rec">${Capture.settingsHtml()}
         <h4 class="set-sub">Live view</h4>
         <div class="checks"><label><input type="checkbox" name="liveAuto" ${st.liveAuto !== false ? 'checked' : ''}> Live view starts by itself: the first time you jump out of a game it asks once, then it is just there</label></div>
@@ -1434,7 +1438,7 @@ function openSettings() {
       document.body.classList.toggle('depth', st.depth !== false); Atmos.apply();
       Object.assign(st, { steamInput: chk(root, 'steamInput'), prewarmSteam: chk(root, 'prewarmSteam'), shaderCache: chk(root, 'shaderCache'), gamemode: chk(root, 'gamemode'), padBackground: chk(root, 'padBackground'), soundFollow: chk(root, 'soundFollow'),
         sgdbKey: val(root, 'sgdbKey'), raUser: val(root, 'raUser'), raKey: val(root, 'raKey') });
-      Boot.setOn(st.bootAnim !== false); Guide.readSettings(root); Watch.readSettings(root); Capture.readSettings(root); Players.readControllers(root); Players.readMulti(root); Running.refresh();
+      Boot.setOn(st.bootAnim !== false); Guide.readSettings(root); NetShare.read(root); setTimeout(() => api.netshareApply?.(), 400); Watch.readSettings(root); Capture.readSettings(root); Players.readControllers(root); Players.readMulti(root); Running.refresh();
       if (peekWas !== st.peekMinimize) api.peekConfig({ minimize: st.peekMinimize });
       if (dirWas !== st.musicDir) Music.load(true).then(Music.draw);
       Sound.sync(); Showcase.reset(); Voice.syncWake?.();
@@ -1443,6 +1447,8 @@ function openSettings() {
     } }],
     onOpen: (root) => {
       Capture.settingsOpen(root);
+      SetLook.enhance(root, () => settingsTab(root, setTab)); SetLook.head(root, SET_TABS[setTab][0], SET_TABS[setTab][1]); NetShare.fill(root);
+      root.addEventListener('click', (ev) => { const b = ev.target.closest('[data-ns]'); if (b) NetShare.click(root, b); });
       root.addEventListener('change', (ev) => { if (ev.target.name === 'screenType') Atmos.screenTips(root); if (ev.target.name === 'soundPack') root.querySelectorAll('.pack-dir').forEach((x) => { x.hidden = ev.target.value !== 'custom'; }); });
       const omStats = () => api.onlineMediaStats().then((s) => { const el = $('.om-stats', root); if (el) el.textContent = !s.ytdlp ? `Needs yt-dlp (${s.install}).` : `${s.files} file${s.files === 1 ? '' : 's'} kept, ${(s.bytes / 1048576).toFixed(0)} MB${s.queued ? `, ${s.queued} still to get` : ''}. Each game is looked up once; Edit a game to pick a different clip or song.`; });
       omStats();
@@ -1771,7 +1777,7 @@ function bindInput() {
   Music.load().then(Music.draw);
   // Player 2's menu (multi-screen) is just a menu: the main one does the watching, music and network.
   if (Players.isP2()) { S.lib.settings.playerName = 'Player 2'; $('#who').textContent = 'Player 2'; Players.applySounds(); Guide.init(); Dock.draw(); Running.refresh(); return; }
-  Dock.draw(); Guide.init(); Watch.start(); ensureEmuApps(); Tour.maybeOffer(); Running.refresh();
+  Dock.draw(); Guide.init(); Watch.start(); NetShare.init(); ensureEmuApps(); Tour.maybeOffer(); Running.refresh();
   Friends.presence(); Players.applySounds(); Players.applyPad(); Extras.boot(); Roms.fixArgs();
   api.onDownloads((list) => Downloads.update(list));
   // First run: go and find everything so the library is never empty.

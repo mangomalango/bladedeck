@@ -1,12 +1,70 @@
 # Handoff between Claude and Gemini
 
+**Read `TEAM.md` first**: who does what (Claude on Linux leads, Claude on Windows,
+Gemini in Antigravity), branches, safety, and the owner's test list.
+
 Read this first. Newest entries at the top of the log. Mark a task "in progress: <name>" before
 starting it, and move it to the log when done. One assistant edits code at a time.
 
 ## Open tasks
 
-### For Gemini (in this order)
-1. **Review my last batch** (below, "2026-10-14, Claude") the way I reviewed yours.
+Task IDs and cards: see TEAM.md (next free ID: BD-010).
+
+- **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
+  .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
+  Contract: SPEC §1 (web-dl-*, archive-*, fs-reveal, game-info), §3 downloads. Verify:
+  `npm run check`, `npm run test-copy -- --real`, then in DevTools (port 9333):
+  `WebDl.open()`, and `api.archiveRun({op:'compress', file:'<an allowed folder>', fmt:'7z'})`.
+  **Done, Windows (Claude Windows), no code change:** test copy with --real, scripted over port
+  9333. webDlFolders: dl `C:\Users\natha\Downloads`, games `...\Games\ROMs\Downloaded`, 7-Zip
+  found. Compress .7z and .zip and Extract (into "Some Game (2)", no overwrite) all ok in
+  ~\Bladedeck; a path outside (C:\Windows\win.ini) is refused. gameInfo(L4D2) returns kind,
+  story, play, multi, split. errors.log empty. Not checked: Show in Explorer (the test copy
+  blocks fs-reveal by design) and the Downloads window's look (WebDl.open() ran without error,
+  but the scripted text read the guide behind it); both need the owner's eyes.
+- **BD-002** (done) · windows · Claude (Windows) · ROM tidy and naming on Windows paths: `Watch.romTitle`
+  and `Watch.fits` with backslash paths (`C:\Games\Crackdown.1.EUR.X360-ZTM\default.xex`,
+  a `.bin` under `...\pfx\drive_c\...`). Contract: SPEC §2 (romTidy).
+  **Done, Windows (Claude Windows), no code change:** the real fits/romTitle/junk code run in node
+  on Windows paths: Crackdown.1.EUR.X360-ZTM\default.xex -> "Crackdown 1"; PS3_GAME\USRDIR\EBOOT.BIN
+  -> its folder's name; .bin under pfx\drive_c and compatdata skipped; a plain PSX .bin kept. Note
+  only: the extension regex `/\.([^./]+)$/` lets a backslash in, so an extension-less file under
+  a dotted folder gets a junk "extension" (it never matches a list, so it is harmless).
+- **BD-003** (done) · both · Gemini · Audit master `53c2aac..c05dbbc` (Nearby hint, clip scoring, game
+  info, Downloads, archive.js, test-copy mode, ROM tidy, SPEC check) with `/bladedeck-audit`.
+  **BD-003 done (Gemini): PASS.** All 261 channels match SPEC.md. ROM tidy preserves played games.
+  Linux/Windows parity intact. Fixed unhandled `null` in `renderer/extras.js` (lines 100, 127, 135)
+  when outward channels are blocked in test copies; `node scripts/sweep.js --empty` passes clean
+  (48 items, 0 page errors, 16 outward calls blocked). On branch `gemini/2026-10-14-audit-bd003`.
+- **BD-008** (done: 1 ms status, router id, rules in ~1 s, Help draws) · windows · Claude (Windows) · Settings, Network & sharing on Windows: the network
+  name and category (your Ethernet is Public), the firewall rules listed, home marking. Do not press
+  "Match the firewall" yourself; the owner does (UAC). Also ❓ Help, F1, the Quick start.
+- **BD-009** · windows · owner · Run scripts/windows/firewall-private.ps1 -HomePrivate (as admin) if
+  you want Private-only; or press "Match the firewall to my choice" in Settings, Network & sharing.
+- **BD-005** (done) · windows · Claude (Windows) · Bring the newest Linux build to Windows: merge master,
+  `npm run check`, `npm run sweep` (a test copy walks every System item, blade, game, Settings tab
+  and PC window and prints errors). Fix Windows-only breakage behind win32; report the sweep's output.
+- **BD-006** (done) · windows · Claude (Windows) · ROM sync on Windows: `require('./romsync').plan()` lists
+  the drives from PowerShell (C:\ as home, other fixed and USB drives), `pick()` honours the
+  keep-free rule. Windows Firewall must let TCP 47628 in (Private only; ask the owner before any
+  rule change). Contract: SPEC §3 ROM sync.
+  **BD-005 and BD-006 done, Windows, no code change:** master 067c791 merged; check and spec OK
+  (257 channels); `npm run sweep` opened 48 System items, blades, games, Settings and PC windows
+  with no errors (16 outward calls blocked). romsync.plan() lists C:\ (home, 16.7 GB free, spare 0)
+  and D:..I:\ (D: and E: are 64 MB drives, spare 0); pick(list, 1 GB) and pick(list, 300 GB) choose
+  G:\ (most spare), and pick(list, 10 TB) gives null. pick() creates "<drive>\Bladedeck ROMs" when
+  it tests a drive (writable()). Firewall: no rule changed by an assistant. The owner runs
+  scripts/windows/firewall-private.ps1 (admin): it backs up, then makes the Bladedeck, dist and dev
+  Electron rules Private-only. NOTE: this PC's Ethernet is NetworkCategory **Public** (only
+  Tailscale is Private), so Private-only rules would cut Nearby/ROM sync at home unless the owner
+  also passes -HomePrivate. TCP 47628 is covered by the existing all-ports rules.
+- **BD-007** · both · owner + both Claudes · A real ROM sync Linux <-> Windows once both firewalls
+  allow it: pair from ROM sync (System, Games and library), Sync now, the games join the library.
+- **BD-004** · both · owner + Claude (Linux) · Nearby both ways once the Linux firewall line is run:
+  each PC lists the other, a file goes each way with Accept. Contract: SPEC §3 Nearby.
+
+### For Gemini (in Antigravity)
+- BD-003 complete, reviewed and merged by the lead (557049f). Next audit: what lands on master after it (`/bladedeck-audit`).
 
 ### For Claude
 - Things that need the owner's hardware: multi-screen on two screens, the DualSense speaker,
@@ -26,6 +84,60 @@ starting it, and move it to the log when done. One assistant edits code at a tim
   Storage map (`storage.js`, `renderer/storagemap.js`, `renderer/style.css`, `renderer/panels.js`, `renderer/voice.js`):
   Interactive storage map and disk breakdown showing how much space games, media, downloads and caches take, ranked from most to least space. Reads Steam game sizes directly from `appmanifest_<appid>.acf` (`SizeOnDisk`), ROM file sizes, PC port executable/folder sizes, captures in `Videos/Bladedeck`, and caches/downloads. Features a proportional multi-segment storage bar, category tabs (All, Steam, PC Ports, Emulation, Other PC, Media, Caches), ranked list with relative size bars and gold/silver/bronze badges for the top 3 items, sort toggles, and direct actions (Play, Show in folder, Share game, Clear cache). Accessible from System menu (Games & library and This PC), This PC panel's disk cards, and voice command ("storage map", "how much space").
   Tested: passes `npm run check` (111 files); storage scan, sorting, and game preparation verified with node test harness.
+
+- **2026-10-14, Gemini (auditor): BD-003 audit: PASS.**
+  Audited master `53c2aac..c05dbbc` (and through `51cfe08`).
+  - SPEC §1: `npm run check` passed; all 261 channels match SPEC.md interface table.
+  - SPEC §2: `romTidy` cleans unplayed Wine prefix clutter while preserving played games (`!e.playtime`).
+  - SPEC §3: Network & sharing (`netshare.js`), ROM sync (`romsync.js`), 7-Zip (`archive.js`), and game info (`gameinfo.js`) match protocol and interface across Linux and Windows. Windows-specific code guarded by `process.platform === 'win32'`.
+  - SPEC §4: Outward channels properly gated in `BLOCK` in `main.js`.
+  - Fix on branch `gemini/2026-10-14-audit-bd003`: In `renderer/extras.js:135`, `extrasUpdate` returned `null` in test copies (`BLOCK`), causing `checkUpdate(false)` to throw `TypeError: Cannot read properties of null (reading 'ok')` 30 s after boot on empty/new profiles (`npm run sweep -- --empty`). Fixed with null-coalescing (`r?.ok`) in `renderer/extras.js` lines 100, 127, 135. Re-sweep verified 48 items clean, 0 page errors, exit code 0.
+
+- **2026-10-14, installed:** Windows runs 0.2.3-dev = master ce9f9e1 (Help with add-ons, Network &
+  sharing, ROM sync, tour chapters, readable Settings), installed by Claude (Windows) after a backup
+  in Downloads\bladedeck-backups\2026-10-14-before-0.2.3-dev; sweep clean, errors.log empty. Linux
+  runs 0.2.3-dev = master e609d1c too (built with npm run dist, start-tested in test mode, old
+  app and config backed up in ~/Downloads/bladedeck-backups/2026-10-14-before-linux-0.2.3-dev). No release.
+
+- **2026-10-14, Claude (Linux, lead):** Owner's asks: network privacy, Help, tutorial, readable Settings.
+  Network & sharing (`netshare.js`, `renderer/netshare.js`, a Settings tab): Nearby, and ROM sync
+  with it, only run on a home network (Windows Private, or a network marked home; the network at
+  first run is marked home, so Windows' Public-labelled home Ethernet keeps working), unless "Also
+  share on public networks" is on. Windows: the page shows Bladedeck's firewall rules and a
+  "Match the firewall to my choice" button (UAC). Linux: the ufw line. Help (`renderer/help.js`,
+  ❓ Help in the top bar, F1, System's first item): quick start, controls, guide, browser,
+  settings with search, the tour by topic, voice control on/off and what to say, common questions.
+  Tour: chapters (TOUR_CHAPTERS); the first run shows the 7-card Quick start only; new cards
+  (Help, ROM sync, Network). Settings: switches, bold names with the explanation under them, page
+  headers, a search box. romsync's drive check no longer makes folders on drives it only looks at
+  (seen on Windows: D:..I:). Merged windows-fixes (scripts/windows/firewall-private.ps1 for the
+  owner to run). Sweep: 50 System items, no errors.
+
+- **2026-10-14, Claude (Linux, lead):** Team setup and debug round 2.
+  TEAM.md (roles, branches, task cards, the debug loop with Gemini's audit, safety, the owner's
+  test list), SPEC.md (shared interface; `npm run spec`, now part of `npm run check`, fails when a
+  preload channel has no handler or the table drifts), Antigravity rules and workflows in
+  `.agents/` (/bladedeck-audit, /bladedeck-review, /bladedeck-test). `npm run test-copy`
+  (main.js TEST): scratch userData, no controller, no peek, outward channels answer null; one at
+  a time. Backup before this round: ~/Downloads/bladedeck-backups/2026-10-14-pre-debug-loop/.
+  Sweeps in test copies over the real library (48 System items, 7 blades and every game, pad
+  input, 8 Settings tabs, every PC drawer window per game type, Browse, Get games, Guide, Settings
+  save): fixed the walkthrough panel (loadURL before dom-ready), System > Downloads now opens the
+  Downloads window, ROMs from Wine prefixes and default.xex names (one-time romTidy, art looked up
+  again), art picks SteamGridDB's exact-name match from the console's years, a site with no search
+  says so in Browse. Merged windows-fixes (BD-001/002 done on Windows; e860aa0 AMF replay
+  reviewed: Windows-only, fine). Audit by lead (Gemini not running): npm run spec OK.
+  Known: FaceBreaker (Xbox 360) gets the Wii K.O. Party cover, SteamGridDB has no other.
+
+- **2026-10-14, Claude (Windows):** Debug round on master 2c7da57 (merged into windows-fixes).
+  Replay: AMF encodes straight from ddagrab's GPU frames (e860aa0), ffmpeg 89% -> 5% of a core.
+  archive.js: 7z.exe found in Program Files\7-Zip; .zip and .7z made by 7-Zip extract into new
+  folders without overwriting, one-folder archives flattened. `npm run test-copy` (empty library,
+  45 s) starts, blocks presence and extras-update, quits on time, errors.log empty. Firewall: the
+  installed, dist and dev Bladedeck/Electron exes have inbound allow rules for all TCP and UDP
+  ports on Private AND Public (Windows' own prompt made them); Nearby works, but WINDOWS.md wants
+  Private only. Not changed, waiting on the owner. Not tested: the Downloads window, game info
+  lookups and the Files menu in the UI (no scripted UI pass); yt-dlp is not installed.
 
 - **2026-10-14, Claude (Linux):** Owner's list after the Windows run.
   Nearby one-way (Windows saw Linux, Linux never saw Windows, a file sent from Windows never asked):

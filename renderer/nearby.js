@@ -55,7 +55,7 @@ const Nearby = (() => {
           <div class="nb-who"><b>${esc(p.name)}</b><span>Level ${p.level}${p.pc ? ` · ${esc(p.pc)}` : ''}</span></div>
           <div class="nb-now">${p.playing ? `🎮 Playing <b>${esc(p.playing.title)}</b>${g ? ' · you have it' : ''}` : 'In the menus'}</div>
           ${b ? `<div class="nb-both">${b.length ? `${b.length} games you both have: ${b.slice(0, 8).map((e) => `<button type="button" data-inv="${esc(e.id)}">${esc(e.title)}</button>`).join('')}` : 'No games in common yet.'}</div>` : '<div class="nb-both note">They keep their game list to themselves.</div>'}
-          <div class="nb-act">${g ? `<button type="button" data-join="${esc(g.id)}">Join their game</button>` : ''}${S.playing ? '<button type="button" data-inv="playing">Invite to my game</button>' : ''}<button type="button" data-poke>👉 Poke</button><button type="button" data-file>📄 Send a file</button></div></div>`;
+          <div class="nb-act">${g ? `<button type="button" data-join="${esc(g.id)}">Join their game</button>` : ''}${S.playing ? '<button type="button" data-inv="playing">Invite to my game</button>' : ''}<button type="button" data-poke>👉 Poke</button><button type="button" data-file>📄 Send a file</button><button type="button" data-romsync>🔄 Sync ROMs</button></div></div>`;
       }).join('') : '<p class="note">Nobody nearby yet. Other Bladedecks on this Wi-Fi show up here within a few seconds.</p>';
     // They can see us while we cannot see them: this PC's firewall drops what they send.
     if (st.lanOn !== false && fw) root.insertAdjacentHTML('beforeend', `<div class="nb-fw"><b>This PC's firewall (${esc(fw.name)}) blocks other Bladedecks.</b><p class="note">They can see you, but you will not see them, and files they send never ask you. To let them in from your home network, run this once in a terminal:</p><code>${esc(fw.fix)}</code></div>`);
@@ -75,6 +75,7 @@ const Nearby = (() => {
           const card = ev.target.closest('[data-peer]'); if (!card) return;
           const id = card.dataset.peer, t = ev.target.closest('button'); if (!t) return;
           if (t.hasAttribute('data-file')) { closeModal(); setTimeout(() => Transfer.open(), 0); return; }
+          if (t.hasAttribute('data-romsync')) { closeModal(); setTimeout(() => RomSync.open(), 0); return; }
           if (t.hasAttribute('data-poke')) { await api.lanSend(id, { kind: 'poke' }); toast('Poked.'); Sound.play('pop'); return; }
           if (t.dataset.join) { const e = S.lib.entries.find((x) => x.id === t.dataset.join); closeModal(); S.sel = e; launch(e); return; }
           if (t.dataset.inv) {

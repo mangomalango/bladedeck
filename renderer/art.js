@@ -27,6 +27,18 @@ const Art = (() => {
     return (hit(e.system) || hit(e.rom) || hit(em?.system) || [])[1];
   }
 
+  /* Of SteamGridDB's matches, the one with exactly this name, from the years its console was
+     sold (Crackdown on Xbox 360 is the 2007 game, not the 1989 arcade one). Else its first. */
+  const ERA = [[/xbox 360/, 2005, 2017], [/playstation 3|\bps3\b/, 2006, 2018], [/playstation 2|\bps2\b/, 2000, 2014], [/\bwii u\b/, 2012, 2018], [/\bwii\b/, 2006, 2014],
+    [/gamecube/, 2001, 2008], [/\bxbox\b/, 2001, 2009], [/playstation 4|\bps4\b/, 2013, 2025], [/\bpsp\b/, 2004, 2015], [/switch/, 2017, 2030], [/nintendo ds|\bnds\b/, 2004, 2014], [/3ds/, 2011, 2020]];
+  function bestMatch(e, list) {
+    const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const era = e.type === 'rom' && ERA.find(([re]) => re.test(String(e.system || '').toLowerCase()));
+    const year = (m) => (m.release_date ? new Date(m.release_date * 1000).getFullYear() : 0);
+    const fits = (m) => !era || !year(m) || (year(m) >= era[1] && year(m) <= era[2]);
+    const same = list.filter((m) => norm(m.name) === norm(e.title));
+    return same.find(fits) || list.find(fits) || same[0] || list[0];
+  }
   async function sources(e, game) {
     const out = { cover: [], hero: [], logo: [] }, notes = [];
     if (e.type === 'steam' && e.appid) {
@@ -46,7 +58,7 @@ const Art = (() => {
       const r = await api.sgdb(`search/autocomplete/${encodeURIComponent(e.title)}`);
       if (!r.ok) { notes.push(r.error); return { out, notes, matches }; }
       matches = r.data.slice(0, 8);
-      const g = game ? matches.find((m) => m.id === game) || { id: game } : matches[0];
+      const g = game ? matches.find((m) => m.id === game) || { id: game } : bestMatch(e, matches);
       if (!g) { notes.push(`SteamGridDB has nothing called "${e.title}".`); return { out, notes, matches }; }
       base = `game/${g.id}`;
     }

@@ -148,7 +148,9 @@ async function start({ dir, out, ring, fps = 60 }) {
     const fmtName = snd.bits === 32 ? 'f32le' : snd.bits === 24 ? 's24le' : 's16le';
     audioIn.push('-thread_queue_size', '4096', '-f', fmtName, '-ar', String(snd.rate), '-ac', String(snd.ch), '-i', pipeName);
   }
-  const video = `ddagrab=output_idx=0:framerate=${fps}:draw_mouse=0,hwdownload,format=bgra`;
+  // AMF takes the grabbed frames straight from the graphics card. Copying each 4K frame down to
+  // the processor first cost most of a core (80% to 2% here); the others still need that copy.
+  const video = `ddagrab=output_idx=0:framerate=${fps}:draw_mouse=0${/_amf$/.test(e) ? '' : ',hwdownload,format=bgra'}`;
   const outArgs = ring
     ? ['-f', 'segment', '-segment_time', '5', '-segment_wrap', String(ring), '-reset_timestamps', '1', '-segment_format', 'matroska', out]
     : ['-movflags', '+faststart', out];

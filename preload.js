@@ -1,5 +1,8 @@
 'use strict';
-const { contextBridge, ipcRenderer, webUtils } = require('electron');
+const { contextBridge, ipcRenderer, webUtils, webFrame } = require('electron');
+
+// A test copy (main.js TEST) never sees the owner's controller: it reads it even in the background.
+if (ipcRenderer.sendSync('bd-test')) webFrame.executeJavaScript('navigator.getGamepads = () => []; window.__bdTest = true;');
 
 contextBridge.exposeInMainWorld('bladedeck', {
   load: () => ipcRenderer.invoke('load'),
@@ -170,6 +173,16 @@ contextBridge.exposeInMainWorld('bladedeck', {
   gameMusic: (e) => ipcRenderer.invoke('game-music', e),
   onlineMedia: (e, kind) => ipcRenderer.invoke('online-media', e, kind),
   gameInfo: (e) => ipcRenderer.invoke('game-info', e),
+  netshareStatus: () => ipcRenderer.invoke('netshare-status'),
+  netshareRules: () => ipcRenderer.invoke('netshare-rules'),
+  netshareFirewall: (pub) => ipcRenderer.invoke('netshare-firewall', pub),
+  netshareApply: () => ipcRenderer.invoke('netshare-apply'),
+  romsyncState: () => ipcRenderer.invoke('romsync-state'),
+  romsyncPair: (id) => ipcRenderer.invoke('romsync-pair', id),
+  romsyncAnswer: (id, yes) => ipcRenderer.invoke('romsync-answer', id, yes),
+  romsyncSync: (id) => ipcRenderer.invoke('romsync-sync', id),
+  romsyncSet: (id, o) => ipcRenderer.invoke('romsync-set', id, o),
+  onRomsync: (cb) => ipcRenderer.on('romsync-event', (_e, d) => cb(d)),
   onlineMediaAnother: (e, kind) => ipcRenderer.invoke('online-media-another', e, kind),
   onlineMediaInfo: (id) => ipcRenderer.invoke('online-media-info', id),
   onlineMediaStats: () => ipcRenderer.invoke('online-media-stats'),
