@@ -185,6 +185,13 @@ Task IDs and cards: see TEAM.md (next free ID: BD-032 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15, Claude (Windows), lead: quick replies now need LB held + A/B/X/Y (owner's pick, review finding 4).**
+  A plain in-game hold of a face button never sends. The badges read LB+A .. LB+Y. With replies on offer, LB pauses when
+  let go without a face button (before: on press); messages without replies are unchanged. The per-frame cap on the hold
+  is now 100 ms (50 made a 11 fps overlay take twice as long). Test copy, overlay driven by __bubbleTest: Y alone 1.5 s
+  sent nothing; LB+Y sent and closed; LB tap paused; LB+X let go early neither sent nor paused; View+LB+Y sent nothing;
+  RB = menu. check, test-replies, sweep pass. Not tested: a real controller, a real phone.
+
 - **2026-10-15, Claude (Windows), lead: BD-030 quick replies MERGED into bladedeck-nightly after a second-Claude review
   (BD-031, owner: "have a second Claude review BD-030 now in place of Gemini, then merge it if it passes").** Review:
   PASS, no blockers (replies only from the overlay, pick 0-3 only, fixed words, per pairing key, taken once, 3 min, Maps

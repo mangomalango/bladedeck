@@ -7,15 +7,16 @@
    Letting go pops it into the notification bar; the game keeps running and 4 seconds offer: wait to
    keep playing, LB to pause, RB for the menu. Letting go before a quarter full just sinks it back.
    Quick replies (BD-030), only when the phone can answer that app: four fixed phrases on A, B, X and
-   Y, sent by HOLDING the button about half a second while a ring fills. A tap (the game still runs
-   and gets the button too) never sends, and a button already down when the choice opened has to be
-   let go first. The bubble sends only the phrase's number; phonemsg.js holds the words. */
+   Y, sent by holding LB and HOLDING the button about half a second while a ring fills (owner's pick:
+   a plain in-game hold must never send one). A tap never sends, and a button already down when the
+   choice opened has to be let go first. With replies on offer, LB pauses when let go without one. The bubble sends only the phrase's number; phonemsg.js holds the words. */
 const tray = document.getElementById('tray'), choose = document.getElementById('choose'), rp = document.getElementById('rp');
 const FILL_MS = 900, FADE_MS = 15000, CHOOSE_MS = 4000, TOP = 24, REPLY_HOLD_MS = 550;
 const FACE = ['a', 'b', 'x', 'y'], FACE_LABEL = ['A', 'B', 'X', 'Y'];
 const live = []; // { msg, el, p, held, timer, from }
 let choosing = null, needRelease = false, forced = null, snap = '';
 let faceArmed = false, replyHold = null, sending = false; // replyHold: { k, ms }
+let lbWas = false, lbUsed = false; // LB is also the reply modifier: did a face button go with it?
 
 /* ---------------------------------------------------------- sound: a plip in, a faint rise up, a pop */
 let ctx = null, riser = null;
@@ -100,11 +101,12 @@ function startChoice(msg) {
   choosing = { msg, until: Date.now() + CHOOSE_MS };
   needRelease = true; // LB/RB count only once the combo is let go
   faceArmed = false; replyHold = null; sending = false; // A/B/X/Y count only once all four are up
+  lbWas = false; lbUsed = false;
   rp.innerHTML = '';
   if (Array.isArray(msg.replies)) {
     msg.replies.slice(0, 4).forEach((t, i) => {
       const s = document.createElement('span'); s.dataset.r = i;
-      const b = document.createElement('b'); b.textContent = FACE_LABEL[i];
+      const b = document.createElement('b'); b.textContent = 'LB+' + FACE_LABEL[i];
       const f = document.createElement('i'); f.className = 'fill';
       const w = document.createElement('em'); w.textContent = String(t);
       s.append(f, b, w); rp.appendChild(s);
@@ -170,23 +172,30 @@ function frame(now) {
   }
   if (choosing) {
     if (!st.lb && !st.rb && !st.lt && !st.rt) needRelease = false;
-    else if (!needRelease && st.lb && !st.rb) endChoice('pause');
+    else if (!needRelease && st.lb && !st.rb && !choosing.msg.replies) endChoice('pause');
     else if (!needRelease && st.rb && !st.lb) endChoice('menu');
+    // Replies on offer: LB pauses when it is let go, unless it was the modifier for a reply.
+    if (choosing && choosing.msg.replies && !needRelease) {
+      if (st.lb && FACE.some((k) => st[k])) lbUsed = true;
+      if (lbWas && !st.lb && !st.rb && !lbUsed && !sending) endChoice('pause');
+      if (!st.lb) lbUsed = false;
+      lbWas = st.lb;
+    }
     if (choosing && choosing.msg.replies && !sending) replies(st, dt);
     if (choosing && Date.now() > choosing.until) endChoice('keep');
   } else if (!combo) needRelease = false;
   if (live.length || choosing) requestAnimationFrame(frame); else running = false;
 }
-// Exactly one of A, B, X, Y held, after all four were up: its ring fills; let go early and it empties.
+// LB and exactly one of A, B, X, Y held, after all four were up: its ring fills; let go early and it empties.
 function replies(st, dt) {
   const down = FACE.map((f) => !!st[f]);
   if (!down.some(Boolean)) faceArmed = true;
   // View + Y / X are the walkthrough and record chords, not a reply: disarmed until the buttons are let go.
   if (st.back) faceArmed = false;
   const n = down.filter(Boolean).length, k = down.indexOf(true);
-  if (!faceArmed || n !== 1) { if (replyHold) fill(replyHold.k, 0); replyHold = null; return; }
+  if (!faceArmed || n !== 1 || !st.lb || st.rb) { if (replyHold) fill(replyHold.k, 0); replyHold = null; return; }
   if (!replyHold || replyHold.k !== k) { if (replyHold) fill(replyHold.k, 0); replyHold = { k, ms: 0 }; }
-  replyHold.ms += Math.min(dt, 50); // a stalled frame never counts as a long hold
+  replyHold.ms += Math.min(dt, 100); // a stalled frame never counts as a long hold
   choosing.until = Math.max(choosing.until, Date.now() + 400); // never runs out mid-hold
   fill(k, Math.min(1, replyHold.ms / REPLY_HOLD_MS));
   if (replyHold.ms >= REPLY_HOLD_MS) { replyHold = null; sendReply(k); }
