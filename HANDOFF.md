@@ -8,7 +8,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-Task IDs and cards: see TEAM.md (next free ID: BD-010).
+Task IDs and cards: see TEAM.md (next free ID: BD-011).
 
 - **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
   .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
@@ -65,6 +65,15 @@ Task IDs and cards: see TEAM.md (next free ID: BD-010).
 
 ### For Gemini (in Antigravity)
 - BD-003 complete, reviewed and merged by the lead (557049f). Next audit: what lands on master after it (`/bladedeck-audit`).
+- **BD-010** · windows · Gemini · `/bladedeck-review` of the Windows-only code, which has had no
+  bug review yet: wincapture.js, winaudio.js, winpad.js, winlist.js, procs.js (win32 guards),
+  system.js, steaminput.js, steamlink.js, netshare.js and romsync.js (win32 parts), and main.js
+  `prewarmSteam`, the 'launch' handler and `command()`. Look for: PowerShell or cmd quoting with
+  paths that hold spaces, quotes or `&`; spawn/execFile without an 'error' handler or windowsHide;
+  helpers left running after Bladedeck quits; hard-coded Linux paths reached on Windows. Read only
+  plus `npm run check`; do not run Bladedeck outside `npm run test-copy`. Write
+  NIGHTLY-REVIEW-gemini.md, fix only small certain things on `gemini/<date>-bd010`, commit, and
+  tell the owner the branch name. Claude (Windows) verifies each finding on this PC.
 
 ### For Claude
 - Things that need the owner's hardware: multi-screen on two screens, the DualSense speaker,
