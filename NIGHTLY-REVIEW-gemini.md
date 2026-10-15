@@ -258,9 +258,35 @@ Reproduced using a local HTTP server streaming a 20 MB archive slowly (`640 KB/s
 
 ---
 
+## 13. BD-043: Release-Candidate Audit for 0.2.5 (`git diff v0.2.4 origin/bladedeck-nightly`)
+**Result: PASS (0 blockers, 0 regressions, safe to ship as 0.2.5)**
+
+Audited all 15 commits since v0.2.4 (31 files changed, 433 insertions, 75 deletions):
+1. **Voice Wake Listener Focus & Resource Tracking (`renderer/voice.js`)**:
+   - `startWake()` guards against duplicate invocation with `wakeActive`. Idempotent.
+   - `stopWake()` explicitly stops MediaStream tracks (`wakeStream.getTracks().forEach(t => t.stop())`) and closes the AudioContext (`wakeCtx.close()`).
+   - `focus`, `blur`, and `deck-away` event listeners reliably sync state; when the launcher is blurred or away during gameplay, `syncWake()` triggers `stopWake()`.
+   - `onaudioprocess` verifies `!wakeActive || listening || away()`, halting audio chunk gathering immediately if focus is lost mid-speech.
+   - Microphone is never left streaming or decoding while a game runs.
+2. **Delayed Archive Extraction (`extractWhenDone` in `webdl.js` & `archive.js`)**:
+   - Two Extract clicks: once `d.extractWhenDone` is set, the button is suppressed in UI; subsequent IPC calls set the boolean idempotently.
+   - Cancel mid-way: `item.once('done')` resets `rec.extractWhenDone = false` and `rec.note = ''` when `state !== 'completed'`, cleanly preventing post-cancel extraction.
+   - Game downloads: `!x.rec.unpack` guard in `extractWhenDone` and `!d.game` in `finder.js:40` ensure game downloads follow standard automated unpack without conflicting triggers.
+3. **Responsive 4:3 Poster Aspect Ratio (`renderer/style.css`)**:
+   - Poster transitions from 2:3 (`--pw` width, `1.5 * --pw` height) to 4:3 (`2 * --pw` width, `1.5 * --pw` height) smoothly on `.pv-on`.
+   - In narrow windows or when Now Playing / Running panels are extended, `body.np-on .detail .poster, body.run-on .detail .poster` overrides `--pw: clamp(150px, 12vw, 220px)`, preserving exact 4:3 geometry without overflowing the flex `.info` container.
+4. **Android Java Audit (`android/src/dev/bladedeck/app/NotifyService.java`)**:
+   - Verified compilation readiness: all imports present (`ByteArrayOutputStream`, `InputStream`, `OutputStream`, `HttpURLConnection`, `URL`, `JSONObject`, `JSONArray`).
+   - Lambda thread capture: `json`, `url`, `auth`, `mine` are declared `final`.
+   - Exception handling: inner polling loop wraps response parsing in `try-catch` so malformed responses don't abort background polling; `InterruptedException` handled cleanly; `SEMANTIC_ACTION_REPLY` guarded by `SDK_INT >= 28`.
+
+---
+
 ## Summary
 - `npm run check`: **All 129 files pass, 276 channels answered**.
 - `npm run test-replies`: **21/21 assertions pass**.
 - `npm run test-pool`: **20/20 security assertions pass**.
-- BD-034: **Reproductions complete and findings documented**.
+- `node scripts/sweep.js`: **54 items opened, 0 errors**.
+- Result: **BD-043 audit: PASS**.
+
 
