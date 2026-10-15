@@ -215,9 +215,52 @@ Audited commits `128c5d6..3569f60` (`renderer/bubble.js`, `renderer/bubble.html`
 
 ---
 
+## 10. BD-033: Whole-Release Audit of v0.2.4 (`git diff v0.2.3 v0.2.4`)
+**Result: PASS (0 blockers, 0 drifts, 0 regressions)**
+
+Audited the complete v0.2.4 release (`git diff v0.2.3 v0.2.4`, 25 files changed, 900 insertions, 62 deletions) and release assets (`gh release view v0.2.4`).
+- All 129 files pass `npm run check`, 276 channels answered.
+- 21/21 assertions pass `npm run test-replies`, 20/20 pass `npm run test-pool`.
+- Full test copy sweep (`npm run sweep`) opened 54 System items with 0 page errors and 19 blocked outward calls.
+- Release notes verified accurate against code; open findings BD-031 #2, #7, #8, #9 evaluated as harmless notes.
+
+---
+
+## 11. BD-034: Reproducing Linux Feedback on Windows (Extract While Downloading & "Hey Blade")
+**Result: Reproductions Conclusive & Audited**
+
+### A. Extract While Downloading (Reproduced on Windows with Scratch Directory)
+Reproduced using a local HTTP server streaming a 20 MB archive slowly (`640 KB/s`) into an isolated test copy (`settings.dlDir` in temporary scratch folder).
+1. **Downloads Window (`web-dl-act` with `act: 'extract'`):**
+   - **What happens:** The action returns `{ res: true }` over IPC, but **nothing is unpacked**.
+   - **Root Cause:** In `webdl.js:129`, extraction is guarded by `rec.state === 'completed'`. While the file is downloading (`rec.state === 'progressing'`), the condition evaluates to false, silently ignoring the extraction request.
+   - **UI Glitch:** In `renderer/finder.js:39`, the "Extract" button is rendered whenever `d.archive && !d.unpacked`, regardless of `d.state`. As a result, users see an interactive "Extract" button on in-progress downloads, but clicking it produces no feedback and does nothing.
+   - **Fix Recommendation:** Guard button rendering in `renderer/finder.js:39` with `d.state === 'completed'`, and let `web-dl-act` return an explanatory error (e.g. `"Wait for the download to finish first."`) if invoked while downloading.
+2. **Files Panel (`archive-run` with `op: 'extract'`):**
+   - **What happens:** Fails with `{ ok: false, error: 'It did not finish. The original is untouched.' }`.
+   - **Root Cause:** In `archive.js:85`, `archive-run` immediately spawns `7z.exe x -y -o<dest> <file>`. Because Chromium is actively streaming and writing bytes into `<file>`, 7-Zip encounters an unexpected end-of-file / incomplete header, exiting with return code 2. `archive.js:56` deletes the temporary destination directory and maps the non-zero exit code to the user-facing error message `"It did not finish. The original is untouched."`.
+   - **Fix Recommendation (from Linux patch):** Have `archive-run` check active download records in `webdl` and immediately refuse with `"That file is still downloading. Wait for it to finish."`.
+
+### B. "Hey Blade" Voice Wake Word Audit on Windows (`renderer/voice.js` after `15f8bd5`)
+1. **Model Requirement:**
+   - `startWake()` checks `const st = await api.voiceStatus(); if (!st?.ready) return;`.
+   - On a fresh install or before Voice setup is completed, the sherpa-onnx model (~30 MB) is not present. Without it, `startWake()` silently exits. The user must click "Turn on voice" in Settings/Voice once to trigger `api.voiceDownload()`.
+2. **Windows Microphone Privacy Permission:**
+   - `navigator.mediaDevices.getUserMedia(...)` requires microphone permission.
+   - On Windows 10/11, if Windows Settings -> Privacy & security -> Microphone has "Let desktop apps access your microphone" toggled OFF, `getUserMedia` throws a `NotAllowedError`.
+   - In `voice.js:110`, the `catch { stopWake(); }` block is silent. If permission is denied at the OS level, wake word listening silently halts with no toast or console feedback.
+3. **AudioContext Sample Rate & Suspension:**
+   - `wakeCtx = new AudioContext({ sampleRate: 16000 });`
+   - While Chromium handles 16 kHz downsampling, if the AudioContext is created while the document or window is not in an active user-gesture state, Chromium may initialize the AudioContext in `'suspended'` state.
+   - If `wakeCtx.state === 'suspended'`, `onaudioprocess` will never trigger. Adding `if (wakeCtx.state === 'suspended') wakeCtx.resume();` guarantees processing begins immediately.
+4. **Pad Microphone Selection (`padMic`):**
+   - When `settings.padMic` is enabled, line 65 queries devices matching `/dualsense|wireless controller|sony|stadia/i`. On Windows, DualSense enumeration can yield virtual audio endpoints that carry no microphone stream unless configured as the default recording device.
+
+---
+
 ## Summary
 - `npm run check`: **All 129 files pass, 276 channels answered**.
 - `npm run test-replies`: **21/21 assertions pass**.
 - `npm run test-pool`: **20/20 security assertions pass**.
-- Result: **BD-032 audit: PASS**.
+- BD-034: **Reproductions complete and findings documented**.
 

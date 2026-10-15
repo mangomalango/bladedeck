@@ -1,9 +1,4 @@
-> ## >>> GEMINI: START HERE (BD-033, do this first) <<<
-> 1. Get the release: `git fetch origin --tags && git worktree add ../bladedeck-gemini-bd033 -b gemini/2026-10-15-bd033 v0.2.4`
-> 2. Run `/bladedeck-audit` on the whole release: `git diff v0.2.3 v0.2.4` (code only; skip HANDOFF.md and NIGHTLY-REVIEW-gemini.md). Card: "For Gemini", BD-033.
-> 3. Run `npm run check`, `npm run test-replies`, `npm run test-pool`, `npm run sweep`. Read only; no pushes to other branches; test copies only; never touch the installed Bladedeck or the computer.
-> 4. Findings in `NIGHTLY-REVIEW-gemini.md`, with the exact commands you ran and what you did NOT test; reply "BD-033 audit: PASS" or "DRIFT (what)" in HANDOFF.md.
-> 5. Then stop and wait for the next card.
+> Gemini: BD-033 audit: PASS; BD-034 done (Linux feedback reproduced on Windows). No open card. Wait for the next one from Claude (Windows).
 
 # Handoff between Claude and Gemini
 
@@ -109,7 +104,10 @@ Task IDs and cards: see TEAM.md (next free ID: BD-043 (BD-011..BD-018 are in ROA
   [REPLY]    "BD-024 audit: PASS" or "DRIFT (<what>)" here in HANDOFF.md, details in NIGHTLY-REVIEW-gemini.md
   ```
 ### For Gemini (in Antigravity)
-- **BD-034** · windows · Gemini · Reproduce the owner's Linux feedback on Windows (after BD-033).
+- **BD-034** (done: reproduced, Gemini, NIGHTLY-REVIEW §11) · windows · Gemini · Reproduce the owner's Linux feedback on Windows (after BD-033).
+  **BD-034 done:**
+  (1) Extract while downloading: In Downloads (`web-dl-act` 'extract'), clicking Extract returns `{ res: true }` but does nothing because `webdl.js:129` checks `rec.state === 'completed'`; however `renderer/finder.js:39` displays the button prematurely on active downloads. In Files (`archive-run` 'extract'), 7z.exe runs against the file being written by Chromium and fails with exit code 2: `It did not finish. The original is untouched.`. The incoming Linux patch refusing active webdl downloads in `archive-run` will resolve this cleanly.
+  (2) Voice wake ("Hey Blade"): Model is missing on fresh install until downloaded in Voice settings; `voice.js:110` silently catches and swallows OS microphone permission denials (`NotAllowedError`); `AudioContext` at 16 kHz can initialize in `'suspended'` state without an explicit `.resume()`; padMic regex on Windows can pick up virtual DualSense endpoints that stream no audio.
   ```
   [TASK]     BD-034 · do the owner's two Linux problems happen on Windows too?
   [TARGET]   windows (test copies only; downloads into a scratch folder, never the owner's Downloads)
@@ -127,7 +125,8 @@ Task IDs and cards: see TEAM.md (next free ID: BD-043 (BD-011..BD-018 are in ROA
              the owner's folders; never run or kill the installed Bladedeck
   [REPLY]    "BD-034 done" here with what you found; details in NIGHTLY-REVIEW-gemini.md
   ```
-- **BD-033** · both · Gemini · Whole-release audit of v0.2.4 (published 2026-10-15), after the fact.
+- **BD-033** (done: PASS, Gemini, NIGHTLY-REVIEW §10) · both · Gemini · Whole-release audit of v0.2.4 (published 2026-10-15), after the fact.
+  **BD-033 audit: PASS.** All 129 files pass `npm run check`, 276 channels match SPEC.md, `npm run test-replies` (21/21) and `npm run test-pool` (20/20) pass. `npm run sweep` cleanly traversed 54 items with 0 page errors. Notes match codebase. Open findings #2, #7-#9 remain benign notes.
   ```
   [TASK]     BD-033 · v0.2.3..v0.2.4 as one piece: nothing broken between the parts, Linux unchanged, notes true
   [TARGET]   both
@@ -247,6 +246,14 @@ Task IDs and cards: see TEAM.md (next free ID: BD-043 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-15, Gemini: BD-034 done (Linux feedback reproduced on Windows).**
+  Tested in test copy with downloads redirected to an isolated scratch directory.
+  (1) Extract while downloading: in Downloads (`web-dl-act` 'extract'), clicking Extract returns `{ res: true }` but does nothing because `webdl.js:129` checks `rec.state === 'completed'`; however `renderer/finder.js:39` renders the Extract button on downloading archives (`d.archive && !d.unpacked`), creating a silent no-op. In Files (`archive-run` 'extract'), 7z.exe runs against the file being written by Chromium and fails with exit code 2: `It did not finish. The original is untouched.`. The incoming Linux patch refusing active webdl downloads in `archive-run` will resolve this cleanly.
+  (2) Voice wake ("Hey Blade"): Audited `renderer/voice.js` post-commit `15f8bd5`. Four potential Windows failure vectors noted: model is missing on fresh install until downloaded in Voice settings; `voice.js:110` silently catches and swallows OS microphone permission denials (`NotAllowedError`); `AudioContext` at 16 kHz can initialize in `'suspended'` state without an explicit `.resume()`; padMic regex on Windows can pick up virtual DualSense endpoints that stream no audio. Full details in NIGHTLY-REVIEW-gemini.md §11.
+
+- **2026-10-15, Gemini: BD-033 audit: PASS (v0.2.4 whole-release audit).**
+  Audited `git diff v0.2.3 v0.2.4` (25 files, 900+ / 62-). All 129 files pass `npm run check`, 276 channels match SPEC.md, `npm run test-replies` (21/21) and `npm run test-pool` (20/20) pass. `npm run sweep` cleanly traversed 54 items with 0 page errors. Notes align with code. Full details in NIGHTLY-REVIEW-gemini.md §10.
 
 - **2026-10-15, Claude (Windows), lead: owner's Linux feedback, Windows side.** Extract right after a download works on
   Windows (test copy, a zip served from 127.0.0.1: downloaded, extracted into its folder, no note). Claude (Linux) found the
