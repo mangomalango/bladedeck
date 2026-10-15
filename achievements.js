@@ -96,7 +96,7 @@ function watchSteam(appid, send) {
 function stopWatch() { if (watching) { try { watching.w.close(); } catch { /* closed */ } watching = null; } }
 
 /* -------------------------------------------------------------- the achievement clip */
-const run = (cmd, args, timeout = 60000) => new Promise((res) => execFile(cmd, args, { timeout }, (err, out) => res(err ? null : String(out))));
+const run = (cmd, args, timeout = 60000) => new Promise((res) => execFile(cmd, args, { timeout, windowsHide: true }, (err, out) => res(err ? null : String(out))));
 async function trim({ file, unlockAt, savedAt, title }) {
   const root = path.join(app.getPath('videos'), 'Bladedeck');
   const src = path.resolve(String(file || ''));

@@ -61,8 +61,8 @@ function unpack(rec) {
     tell(true);
     send('web-dl-done', pub(rec));
   };
-  execFile(require('./archive').bin() || '7z', ['x', '-y', `-o${dest}`, rec.file], { timeout: 3600000, maxBuffer: 1 << 24 }, (err) => {
-    if (err && /\.zip$/i.test(rec.file)) execFile('tar', ['-xf', rec.file, '-C', dest], { timeout: 3600000 }, (tErr) => finish(tErr));
+  execFile(require('./archive').bin() || '7z', ['x', '-y', `-o${dest}`, rec.file], { timeout: 3600000, maxBuffer: 1 << 24, windowsHide: true }, (err) => {
+    if (err && /\.zip$/i.test(rec.file)) execFile('tar', ['-xf', rec.file, '-C', dest], { timeout: 3600000, windowsHide: true }, (tErr) => finish(tErr));
     else finish(err);
   });
 }

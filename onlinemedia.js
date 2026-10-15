@@ -72,7 +72,7 @@ function score(c, game, kind) {
 }
 function candidates(exe, e, kind) {
   const args = ['-q', '--no-warnings', '--flat-playlist', '--print', '%(id)s\t%(title)s\t%(duration)s\t%(live_status)s', `ytsearch12:${KINDS[kind].query(title(e))}`];
-  return new Promise((res) => execFile(exe, args, { timeout: 60000, maxBuffer: 1 << 20 }, (err, out) => {
+  return new Promise((res) => execFile(exe, args, { timeout: 60000, maxBuffer: 1 << 20, windowsHide: true }, (err, out) => {
     if (err && !out) return res(null);
     const list = String(out || '').trim().split('\n').filter(Boolean).map((l, rank) => { const [id, t, duration, live] = l.split('\t'); return { id, title: t || '', duration: parseFloat(duration), live, rank }; });
     res(list.map((c) => ({ ...c, s: score(c, bare(e), kind) })).filter((c) => c.s > -Infinity && /^[\w-]{6,20}$/.test(c.id)).sort((a, b) => b.s - a.s));
@@ -89,7 +89,7 @@ async function download(e, kind, skip) {
   const url = `https://www.youtube.com/watch?v=${c.id}`;
   const args = ['-q', '--no-warnings', '--no-playlist', '--no-part', ...KINDS[kind].args, '--download-sections', KINDS[kind].section(c.duration),
     '-o', `${base}.%(ext)s`, '--force-overwrites', '--print', 'after_move:%(filepath)s', url];
-  return new Promise((res) => execFile(exe, args, { timeout: 180000, maxBuffer: 1 << 20 }, (err, out) => {
+  return new Promise((res) => execFile(exe, args, { timeout: 180000, maxBuffer: 1 << 20, windowsHide: true }, (err, out) => {
     const file = String(out || '').trim().split('\n').pop();
     if (file && fs.existsSync(file)) return res({ file, name: c.title, url });
     // Offline, or YouTube refusing for a moment: try again later.

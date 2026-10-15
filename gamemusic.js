@@ -20,7 +20,7 @@ const PLAYS = /\.(ogg|oga|opus|mp3|flac|wav|m4a)$/i;           // the menu can p
 const CONVERTS = /\.(adx|hca|at3|at9|brstm|bcstm|bfstm|vag|xa|ogg|mp3|wav|aax|aix)$/i; // on a disc: worth trying with ffmpeg
 const GOOD = /music|bgm|\bost\b|soundtrack|theme|title|menu|main|track|song|stream|\bbg\b/i;
 const BAD = /sfx|\bse\b|se_|select|cursor|confirm|cancel|beep|blip|move|pickup|coin|sound.?effect|voice|\bvo\b|vo_|dialog|speech|narrat|ambien|amb_|foot|step|ui_|click|hit_|impact|explos|weapon|gun|jingle|fanfare|stinger|test|silence/i;
-const run = (cmd, args, timeout = 60000, opts = {}) => new Promise((res) => execFile(cmd, args, { timeout, maxBuffer: 64 << 20, ...opts }, (err, out) => res(err ? null : out)));
+const run = (cmd, args, timeout = 60000, opts = {}) => new Promise((res) => execFile(cmd, args, { timeout, maxBuffer: 64 << 20, windowsHide: true, ...opts }, (err, out) => res(err ? null : out)));
 const dir = () => path.join(app.getPath('userData'), 'game-music');
 const indexFile = () => path.join(app.getPath('userData'), 'game-music.json');
 let index = null;

@@ -15,7 +15,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const run = (cmd, args, timeout = 30000) => new Promise((res) => execFile(cmd, args, { timeout, encoding: 'buffer', maxBuffer: 16 << 20 }, (err, out) => res(err ? null : out)));
+const run = (cmd, args, timeout = 30000) => new Promise((res) => execFile(cmd, args, { timeout, encoding: 'buffer', maxBuffer: 16 << 20, windowsHide: true }, (err, out) => res(err ? null : out)));
 const h = os.homedir(), v = (id, ...p) => path.join(h, '.var/app', id, ...p), c = (...p) => path.join(h, '.config', ...p), d = (...p) => path.join(h, '.local/share', ...p);
 const doc = (...p) => path.join(h, 'Documents', ...p), ad = (...p) => path.join(process.env.APPDATA || path.join(h, 'AppData', 'Roaming'), ...p);
 const KINDS = [

@@ -30,7 +30,7 @@ function cli() {
 }
 
 function status() {
-  return new Promise((res) => execFile(cli(), ['status', '--json'], { timeout: 5000, maxBuffer: 8 << 20 }, (err, out) => {
+  return new Promise((res) => execFile(cli(), ['status', '--json'], { timeout: 5000, maxBuffer: 8 << 20, windowsHide: true }, (err, out) => {
     if (err) return res(null);
     try { res(JSON.parse(out)); } catch { res(null); }
   }));

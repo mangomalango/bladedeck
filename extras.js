@@ -12,7 +12,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const run = (cmd, args, timeout = 5000) => new Promise((res) => execFile(cmd, args, { timeout }, (err, out) => res(err ? null : String(out))));
+const run = (cmd, args, timeout = 5000) => new Promise((res) => execFile(cmd, args, { timeout, windowsHide: true }, (err, out) => res(err ? null : String(out))));
 const onPath = (cmd) => (process.env.PATH || '').split(path.delimiter).some((d) => d && fs.existsSync(path.join(d, cmd)));
 
 /* -------------------------------------------------------------- what is there */
@@ -94,7 +94,7 @@ async function backup() {
 const REPO = /^[\w.-]{1,39}\/[\w.-]{1,100}$/;
 function ghApi(path) {
   return new Promise((res) => {
-    try { require('child_process').execFile('gh', ['api', path], { timeout: 15000 }, (err, out) => { if (err) return res(null); try { res(JSON.parse(String(out))); } catch { res(null); } }); }
+    try { require('child_process').execFile('gh', ['api', path], { timeout: 15000, windowsHide: true }, (err, out) => { if (err) return res(null); try { res(JSON.parse(String(out))); } catch { res(null); } }); }
     catch { res(null); }
   });
 }

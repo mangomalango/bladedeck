@@ -26,7 +26,7 @@ const getJson = async (url) => {
   return r.json();
 };
 const wrap = (fn) => async (...a) => { try { return { ok: true, data: await fn(...a) }; } catch (err) { return { ok: false, error: String(err && err.message || err) }; } };
-const run = (cmd, args, timeout = 8000) => new Promise((res, rej) => execFile(cmd, args, { timeout, maxBuffer: 8 << 20 }, (err, out, errOut) => (err ? rej(new Error(String(errOut || err.message).trim())) : res(out))));
+const run = (cmd, args, timeout = 8000) => new Promise((res, rej) => execFile(cmd, args, { timeout, maxBuffer: 8 << 20, windowsHide: true }, (err, out, errOut) => (err ? rej(new Error(String(errOut || err.message).trim())) : res(out))));
 
 /* ---------------------------------------------------------------- free games */
 async function epic() {

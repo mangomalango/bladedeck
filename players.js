@@ -13,7 +13,7 @@ const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const run = (cmd, args, timeout = 6000) => new Promise((res) => execFile(cmd, args, { timeout }, (err, out) => res(err ? null : String(out))));
+const run = (cmd, args, timeout = 6000) => new Promise((res) => execFile(cmd, args, { timeout, windowsHide: true }, (err, out) => res(err ? null : String(out))));
 const read = (f) => { try { return fs.readFileSync(f, 'utf8').trim(); } catch { return ''; } };
 
 /* -------------------------------------------------------------- controllers */
