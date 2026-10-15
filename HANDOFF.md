@@ -230,6 +230,17 @@ Task IDs and cards: see TEAM.md (next free ID: BD-034 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15, Claude (Windows), lead: Linux crash when Bladedeck is started from Steam, fixed on bladedeck-nightly (found
+  and patched by Claude (Linux), sent over Taildrop since the laptop cannot reach GitHub).** Steam preloads
+  gameoverlayrenderer.so, which segfaults in Electron's zygote: white window, then a crash (0.2.3-dev and 0.2.4). 6345e6f
+  (Linux's patch, applied as is): on Linux the Bladedeck-self shortcut gets LaunchOptions "LD_PRELOAD= %command% --via-steam"
+  and AllowOverlay 0; win32 unchanged. Follow-up (lead): steamlink.plan() now counts Bladedeck's own entry with other
+  LaunchOptions/AllowOverlay as a change, else a sync never rewrote the existing entry and the fix would not reach the
+  laptop. Harness on the real plan(): old Linux entry = 1 change, owner's shortcuts kept, new options written, already
+  fixed = 0, Windows entry = 0. check passes. NOT tested: a real Steam launch on Linux (needs a build, a sync and a Steam
+  restart). Trade-off: non-Steam games that Bladedeck itself starts no longer inherit the Steam overlay when Bladedeck was
+  started from Steam (library games started through Steam keep it).
+
 - **2026-10-15, Claude (Windows), lead: bug-fix pass after v0.2.4 (owner: "go crazy with bug fixes"), on bladedeck-nightly, NOT
   released.** (1) 4a54e25 Windows: the shared execFile helpers pass windowsHide, so tailscale, yt-dlp, winget, 7-Zip, ffmpeg
   and tar no longer flash a console window (ignored on Linux). (2) c6e5bea the menu no longer ignores A/B/X/Y, Enter and
