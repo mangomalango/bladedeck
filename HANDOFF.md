@@ -1,4 +1,13 @@
-> Gemini: Linux bug hunt complete: all 5 items PASS (Extract while downloading, "Hey blade" Linux toast fix 0a8db96, Steam overlay fix verified, sweep 55/55 clean, hover video 4:3 verified).
+> ## >>> GEMINI: START HERE (a long queue: BD-043 to BD-048, in order, no need to wait between them) <<<
+> The owner wants you to work for a while on your own. Do the cards under "For Gemini" from BD-043 to BD-048 one after another.
+> For each card: a fresh worktree from the newest nightly (`git fetch origin && git worktree add ../bladedeck-gemini-<id> -b gemini/2026-10-16-<id> origin/bladedeck-nightly`),
+> then the work, then `npm run check`, then findings in `NIGHTLY-REVIEW-gemini.md` (commands you ran, what you did NOT test), a one-line reply under the card here,
+> commit and push YOUR branch. Then go straight to the next card.
+> Rules that never change: your own worktree and branch only; never merge; never push to anyone else's branch; test copies only, and in a test copy never
+> download, extract or write into the owner's folders (test copies now default to their own scratch Downloads; check `api.webDlFolders()` first);
+> never touch the installed Bladedeck, drivers, devices, services, the firewall, the registry, power settings, installs or passwords.
+> Fixes: allowed on your branch when the card says so, one commit per fix, each with a test or a scripted check; Claude (Windows) reviews and merges.
+> Stop early and write "BLOCKED (<why>)" under the card if anything needs the owner.
 
 # Handoff between Claude and Gemini
 
@@ -10,7 +19,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-Task IDs and cards: see TEAM.md (next free ID: BD-043 (BD-011..BD-018 are in ROADMAP.md)).
+Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROADMAP.md)).
 
 - **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
   .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
@@ -104,6 +113,64 @@ Task IDs and cards: see TEAM.md (next free ID: BD-043 (BD-011..BD-018 are in ROA
   [REPLY]    "BD-024 audit: PASS" or "DRIFT (<what>)" here in HANDOFF.md, details in NIGHTLY-REVIEW-gemini.md
   ```
 ### For Gemini (in Antigravity)
+- **BD-043** · both · Gemini · Release-candidate audit for 0.2.5: everything since v0.2.4.
+  ```
+  [TASK]     BD-043 · `git diff v0.2.4 origin/bladedeck-nightly` (code only) is safe to ship as 0.2.5
+  [INPUT]    15 commits: windowsHide on shared execFile helpers (4a54e25); menu A/B/X/Y no longer blocked by replies
+             (c6e5bea); bubble window gets no controller in test copies (f5a303a); bubble countdown bar (3c99d6f); phone
+             polls only when kept, semantic Reply, loop fixes (ecd8a23, Java, never compiled); constant-time pairing key
+             (fe34fa4); Linux Steam overlay fix + sync follow-up (6345e6f, 034ef38); test copies download to scratch
+             (48102c2); "Hey Blade" starts at launch and after games, mishearings, mic-blocked toast, AudioContext resume
+             (15f8bd5, 5ccebd9, 7e242dd, e823bb7); extract while downloading (b135719); hover video 4:3 (ccc31e3)
+  [DO]       /bladedeck-audit. Look hardest at: the wake listener's new focus/blur/deck-away calls (a mic left open while a
+             game runs? a stream started twice?); extractWhenDone (two Extract presses, cancel mid-way, a game download);
+             the 4:3 poster in a narrow window and with the Now Playing / Running panels out; the Java (read it as a
+             compiler would: imports, lambdas, effectively-final, checked exceptions)
+  [REPLY]    "BD-043 audit: PASS" or "DRIFT (<what>)"; fixes NOT allowed (list them for the lead)
+  ```
+- **BD-044** · windows · Gemini · Windows bug hunt, whole app, in a test copy (`npm run test-copy -- --real` and without --real).
+  ```
+  [TASK]     BD-044 · find what breaks when a person actually uses Bladedeck on Windows
+  [DO]       go through every System item, every Settings tab, PC mode, Files (open, Y menu), Downloads (with a file served
+             from 127.0.0.1 only), Updates (it only asks GitHub; never press Install), Feedback (write one in the test copy),
+             Help, the Guide, the storage map, the phone bubble test (Settings, Phone app, Show a test message), multi-player
+             menu, themes. Watch the DevTools console and the main process log for errors and warnings. For each problem:
+             steps, what you expected, what happened, file:line if you can find it
+  [REPLY]    "BD-044 done: N problems" with the list (worst first); fixes allowed on your branch for clear, small ones
+  ```
+- **BD-045** · both · Gemini · Every child process: hidden, handled, and gone when Bladedeck goes.
+  ```
+  [TASK]     BD-045 · a table of every spawn/execFile/exec in the repo (file:line, what it runs, which OS)
+  [DO]       for each: windowsHide on Windows, an 'error' handler (or a callback that handles err), a timeout where it can
+             hang, and whether it can outlive Bladedeck (quit, crash). Mark each OK / MISSING. 4a54e25 covered the shared
+             execFile helpers; check what is left (spawn with stdio, detached ones, Linux-only ones are fine to mark N/A
+             on Windows)
+  [REPLY]    "BD-045 done" with the count of MISSING; fixes allowed on your branch (one commit per file)
+  ```
+- **BD-046** · both · Gemini · BD-016 from ROADMAP.md: text and Settings polish pass, as a proposal.
+  ```
+  [TASK]     BD-046 · one voice everywhere: short, plain, friendly, sentence case, no jargon
+  [DO]       list every toast, label and Settings line that breaks the rule (file:line, now, suggested). Settings: one help
+             line per switch where missing, defaults marked. Do not change behaviour, ids, setting names or channel names
+  [REPLY]    "BD-046 done: N lines"; the text changes are allowed on your branch as ONE commit the owner can look at
+  ```
+- **BD-047** · both · Gemini · Controller-only check: every screen works without a mouse or keyboard.
+  ```
+  [TASK]     BD-047 · nothing traps the controller, nothing needs a mouse
+  [DO]       in a test copy, drive every dialog, panel and Settings tab with the pad actions only (handleInput('up'|'down'|
+             'left'|'right'|'a'|'b'|'x'|'y'|'lb'|'rb'|'start'|'back') over DevTools): can you reach every button, close
+             every dialog with B, and is the highlight always visible? List traps and unreachable controls
+  [REPLY]    "BD-047 done: N problems"; small fixes allowed on your branch
+  ```
+- **BD-048** · both · Gemini · More automatic checks, so these bugs stay fixed.
+  ```
+  [TASK]     BD-048 · turn today's fixes and your findings into scripted checks
+  [DO]       add to scripts/ (new files are fine; wire them into package.json as npm run test-<name>): the wake-word matcher
+             (renderer/voice.js regex: what wakes, what does not), steamlink.plan() (old self entry = 1 change, fixed = 0,
+             owner's shortcuts kept), webdl.extractWhenDone (a fake rec list), the bubble reply gesture (bubble.js logic
+             with forced pad states). Each script prints ok/FAIL lines and exits 1 on a failure, like scripts/replytest.js
+  [REPLY]    "BD-048 done" with the new commands; all on your branch
+  ```
 - **BD-034** (done: reproduced, Gemini, NIGHTLY-REVIEW §11) · windows · Gemini · Reproduce the owner's Linux feedback on Windows (after BD-033).
   **BD-034 done:**
   (1) Extract while downloading: In Downloads (`web-dl-act` 'extract'), clicking Extract returns `{ res: true }` but does nothing because `webdl.js:129` checks `rec.state === 'completed'`; however `renderer/finder.js:39` displays the button prematurely on active downloads. In Files (`archive-run` 'extract'), 7z.exe runs against the file being written by Chromium and fails with exit code 2: `It did not finish. The original is untouched.`. The incoming Linux patch refusing active webdl downloads in `archive-run` will resolve this cleanly.
@@ -246,6 +313,12 @@ Task IDs and cards: see TEAM.md (next free ID: BD-043 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-16, Claude (Windows), lead: long queue for Gemini (owner: "make a report for Gemini and me, Gemini will cook a while").**
+  BD-043 (0.2.5 release-candidate audit), BD-044 (Windows bug hunt, whole app), BD-045 (every child process), BD-046 (text
+  polish proposal, BD-016), BD-047 (controller-only check), BD-048 (scripted checks for today's fixes), in that order, each on
+  its own branch. State: bladedeck-nightly be1938a has 15 code fixes since v0.2.4 (listed in BD-043); the laptop runs the
+  nightly be1938a AppImage; 0.2.5 waits for the owner's testing and BD-043.
 
 - **2026-10-15, Gemini (Linux): Bug hunt completed on Linux (CachyOS Wayland).** Branch `gemini/2026-10-15-linux-debug`.
   1. **Extract while downloading (PASS)**:
