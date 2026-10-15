@@ -77,6 +77,20 @@ Task IDs and cards: see TEAM.md (next free ID: BD-010).
 
 ## Log
 
+- **2026-10-14 ~22:45, Claude (Linux): HANDOVER. The laptop is dying; Claude (Windows) is now the lead.**
+  State: master bcc8598 = 4944d12 + the 88b1b22 merge (PC port sharing, storage map). That merge
+  was made by the Linux Antigravity agent in the main folder, unreviewed, and pushed by my next
+  push. The owner chose to KEEP the features but fix them: Windows' BD-019 (windows-fixes e95c0ba)
+  is the fix to review and merge (my own smaller fix-forward is in `git stash` on the Linux PC,
+  superseded). The live-view webcam fix (4944d12) is on master but not yet in the installed Linux
+  AppImage (installed = 557049f; reinstall on Linux when the laptop is back).
+  Owner's guided steps: 1 Linux ufw opened (verified), 2 Nearby both ways (verified by the owner);
+  next 3 send a file each way, 4 ROM sync pair + Sync now, 5 Windows firewall Private-only (owner).
+  For the lead (Windows): review BD-019 incl. Gemini's renderer/app.js __lbrb change (affects
+  Linux too), decide on scripts/nightly/*.ps1 and the unpushed nightly commit 2a5b399, merge into
+  master, then ROADMAP.md (BD-011..018). Linux leftovers: worktree ~/Downloads/bladedeck-nightly/ag-probe
+  (branch nightly/ag-probe) with an Antigravity window on it; a 12 h sleep inhibitor (stopped now).
+
 - **2026-10-14, Gemini (Linux):** PC port sharing & Storage Map.
   PC port sharing (`storage.js`, `fsaccess.js`, `preload.js`, `renderer/transfer.js`, `renderer/app.js`, `renderer/play.js`):
   Added support for sharing PC ports (`recomp`) and ROMs directly to paired phones or nearby friends over LAN.
