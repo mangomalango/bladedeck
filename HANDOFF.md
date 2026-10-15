@@ -153,8 +153,8 @@ Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROA
   [DO]       list every toast, label and Settings line that breaks the rule (file:line, now, suggested). Settings: one help
              line per switch where missing, defaults marked. Do not change behaviour, ids, setting names or channel names
   [REPLY]    "BD-046 done: N lines"; the text changes are allowed on your branch as ONE commit the owner can look at
-  ```
-- **BD-047** · both · Gemini · Controller-only check: every screen works without a mouse or keyboard.
+- **BD-047** (done: 0 problems, Gemini, gemini/2026-10-16-bd047, NIGHTLY-REVIEW §17) · both · Gemini · Controller-only check: every screen works without a mouse or keyboard.
+  **BD-047 done: 0 problems.** All 29 dialogs, panels, and flaps tested via CDP WebSocket controller injection: all 9 Settings tabs (LB/RB, B closes), 20 modals, 2 floating panels, and 4 custom flap/card overlays. Found and fixed highlight loss when container re-renders (in `PadNav.input`/`press` and `Updates.draw`). Zero focus traps, zero unreachable buttons, all close cleanly on B.
   ```
   [TASK]     BD-047 · nothing traps the controller, nothing needs a mouse
   [DO]       in a test copy, drive every dialog, panel and Settings tab with the pad actions only (handleInput('up'|'down'|

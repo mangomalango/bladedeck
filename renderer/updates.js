@@ -60,7 +60,13 @@ const Updates = (() => {
   async function open() {
     const info = await api.updateInfo().catch(() => ({ version: '?' }));
     let root = null;
-    const draw = () => { const box = root && $('.up-box', root); if (box) box.innerHTML = body(info); };
+    const draw = () => {
+      const box = root && $('.up-box', root);
+      if (box) {
+        box.innerHTML = body(info);
+        if (S.pad && root) PadNav.current(root);
+      }
+    };
     openModal({ title: 'Updates', wide: true, html: `<div class="up-box">${body(info)}</div>`, buttons: [{ label: 'Done', primary: true }],
       onOpen: (r) => {
         root = r;

@@ -69,11 +69,19 @@ const PadNav = (() => {
     return true;
   }
 
-  function press(el) {
+  function press(el, root) {
     if (!el) return;
     if (isText(el)) { OSK.open(el); return; }
-    if (el.tagName === 'SELECT') { el.selectedIndex = (el.selectedIndex + 1) % el.options.length; el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('input', { bubbles: true })); Sound.play('tick'); return; }
+    if (el.tagName === 'SELECT') {
+      el.selectedIndex = (el.selectedIndex + 1) % el.options.length;
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      Sound.play('tick');
+      if (root && !hl?.isConnected) current(root);
+      return;
+    }
     el.click();
+    if (root && !hl?.isConnected) current(root);
   }
 
   // One step for any panel: returns true when it used the input.
@@ -81,14 +89,18 @@ const PadNav = (() => {
     const cur = current(root);
     if (cur?.tagName === 'SELECT' && (a === 'left' || a === 'right')) {
       cur.selectedIndex = Math.max(0, Math.min(cur.options.length - 1, cur.selectedIndex + (a === 'right' ? 1 : -1)));
-      cur.dispatchEvent(new Event('change', { bubbles: true })); cur.dispatchEvent(new Event('input', { bubbles: true })); Sound.play('tick'); return true;
+      cur.dispatchEvent(new Event('change', { bubbles: true })); cur.dispatchEvent(new Event('input', { bubbles: true })); Sound.play('tick');
+      if (!hl?.isConnected) current(root);
+      return true;
     }
     if (cur?.type === 'range' && (a === 'left' || a === 'right')) {
       a === 'right' ? cur.stepUp() : cur.stepDown();
-      cur.dispatchEvent(new Event('input', { bubbles: true })); cur.dispatchEvent(new Event('change', { bubbles: true })); Sound.play('tick'); return true;
+      cur.dispatchEvent(new Event('input', { bubbles: true })); cur.dispatchEvent(new Event('change', { bubbles: true })); Sound.play('tick');
+      if (!hl?.isConnected) current(root);
+      return true;
     }
     if (a === 'up' || a === 'down' || a === 'left' || a === 'right') { move(root, a); return true; }
-    if (a === 'a') { press(cur); return true; }
+    if (a === 'a') { press(cur, root); return true; }
     // Shoulder buttons jump a screenful through long lists.
     if (a === 'lb' || a === 'rb') { for (let i = 0; i < 5; i++) move(root, a === 'rb' ? 'down' : 'up'); return true; }
     return false;

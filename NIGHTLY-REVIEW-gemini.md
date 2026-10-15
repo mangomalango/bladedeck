@@ -258,9 +258,38 @@ Reproduced using a local HTTP server streaming a 20 MB archive slowly (`640 KB/s
 
 ---
 
-## Summary
-- `npm run check`: **All 129 files pass, 276 channels answered**.
-- `npm run test-replies`: **21/21 assertions pass**.
-- `npm run test-pool`: **20/20 security assertions pass**.
-- BD-034: **Reproductions complete and findings documented**.
+## 17. BD-047: Controller-Only Navigation Audit (Every Dialog, Panel, and Flap)
+**Result: PASS (0 traps, 0 unreachable controls; 1 highlight-loss race found and fixed)**
+
+Conducted an automated controller-driven audit via Chrome DevTools Protocol (CDP) WebSocket connected to an active Windows test copy on port 9444 (`S.pad = true`). The audit systematically opened, traversed in all 4 cardinal directions (`up`, `down`, `left`, `right`), and closed every screen and overlay using gamepad button mappings (`handleInput`).
+
+### A. Traversal & Highlight Audit Matrix
+All 29 screens, panels, and flaps were tested for initial highlight, full directional movement, and dismissal:
+1. **Settings (All 9 Tabs):**
+   - Tabs tested: *General, Look and sound, Gaming software, Controllers, Local multiplayer, Network & sharing, Recording and live view, Accounts, Advanced*.
+   - LB / RB bumper tab switching works seamlessly; every tab renders visible `.pad-hl` highlight on controls.
+   - B cleanly closes Settings without focus trap (`S.modal` clears).
+2. **Standard Modal Dialogs:**
+   - Downloads (`WebDl.open()`), Feedback (`Feedback.open()`), Storage map (`StorageMap.open()`), Help / Controls (`openControls()`), Look and menus (`Look.open()`), Nearby (`Nearby.open()`), Backup & restore (`Backup.open()`), Sources (`Roms.sources()`), Consoles (`Consoles.open()`), Minecraft (`Minecraft.open()`), Suggested extras (`Extras.open()`), Split screen (`SplitScreen.open()`), Captures gallery (`Capture.gallery()`), Bluetooth (`Bluetooth.open()`), Companion / Phone (`Companion.open()`), Send files / Transfer (`Transfer.open()`), Wallpaper (`Wallpaper.open()`), Music player (`Music.open()`), Aquarium (`Scenes.openTank()`), Profile (`Player.profile()`).
+   - Every dialog starts with clear `.pad-hl` on an actionable element (buttons, select, or input), navigates predictably on d-pad/stick directions, and closes cleanly on B (`modalInput` -> `closeModal()`).
+3. **Floating Panels:**
+   - Files floating panel (`Panels.show('files')`), This PC floating panel (`Panels.show('system')`).
+   - Focus is acquired on the first panel item (`.fl-it.pad-hl` / input); B closes the panel cleanly via `Panels.leave()`.
+4. **Side Flaps & Custom Overlays:**
+   - Guide flap (`Guide.open('pad')`) & Quick menu flap (`Guide.quick()`): Highlight visible on flap buttons; B cleanly shuts the flap (`Guide.close()`).
+   - Sound / Volume (`Volume.open()`): Sliding bottom card has `.vo-row.hl`; up/down navigates rows; left/right adjusts levels; B cleanly invokes `Volume.close()`.
+   - Quick Resume (`Resume.open()`): Card carousel has `.qr-card.cur`; left/right shifts cards; B cleanly closes.
+   - Notifications (`Notify.open()`): Aside drawer scrolls on up/down; X clears; B cleanly closes.
+   - Tour (`Tour.open()`): Multi-step guide navigates cards via left/right/A; X triggers Show Me; B cleanly closes.
+
+### B. Bug Found & Fixed: Highlight Loss on Container Re-renders
+- **Symptoms:**
+  1. In `Updates.open()`, upon opening, `check(false).then(draw)` runs asynchronously in the background. When `draw()` executed, it replaced `box.innerHTML = body(info);`, immediately disconnecting the `<select name="upChannel">` element that held `.pad-hl`. The highlight vanished until a manual atmos focus timer ran.
+  2. In `PadNav.input()`, changing a `<select>` or triggering an element click that causes the panel or modal to synchronously redraw (e.g. switching update channel from Release to Nightly) wiped the DOM element referenced by `PadNav.hl`. Because `input()` returned `true`, directional move logic was skipped and no highlight was re-rendered.
+- **Root Cause:**
+  `PadNav.hl` retained a reference to the detached DOM node (`!hl.isConnected`), while no active element in the freshly rendered DOM possessed `.pad-hl`.
+- **Fix:**
+  1. In `renderer/pad.js`: Updated `PadNav.input` and `PadNav.press` to check `if (!hl?.isConnected) current(root);` after dispatching `change`/`input` events and click actions. If the handler re-renders the container, `current(root)` immediately marks the element at `lastIndex` in the new DOM.
+  2. In `renderer/updates.js`: In `Updates.open()`, updated `draw()` to call `if (S.pad && root) PadNav.current(root);` after setting `box.innerHTML = body(info)`.
+- **Verification:** Re-ran audit script across all 29 screens: **0 problems found**. All 129 files passed `npm run check`.
 
