@@ -8,7 +8,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-Task IDs and cards: see TEAM.md (next free ID: BD-027 (BD-011..BD-018 are in ROADMAP.md)).
+Task IDs and cards: see TEAM.md (next free ID: BD-029 (BD-011..BD-018 are in ROADMAP.md)).
 
 - **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
   .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
@@ -105,7 +105,7 @@ Task IDs and cards: see TEAM.md (next free ID: BD-027 (BD-011..BD-018 are in ROA
 - **From the owner (2026-10-15): Claude (Windows) is in charge; you take only the small cards written for you here,
   in your own worktree. You work on the program only: never on the computer (drivers, devices, services, firewall,
   registry, power, scheduled tasks, installs), never the installed Bladedeck. See TEAM.md, "Owner's rule".**
-  Your next cards: BD-024 (audit BD-023), then BD-025. Nothing else until Claude (Windows) writes the next one.
+  Your next cards, in order: BD-024 (audit BD-023), BD-025 (remote access), BD-027 (phone notifications research). Nothing else until Claude (Windows) writes the next one.
 - **BD-025** · both · Gemini · Research only, no changes to any computer.
   ```
   [TASK]     BD-025 · the owner, away from home, can reach both PCs: see and use the desktop, play, and start
@@ -127,6 +127,28 @@ Task IDs and cards: see TEAM.md (next free ID: BD-027 (BD-011..BD-018 are in ROA
 - **BD-010** (done) · windows · Gemini · `/bladedeck-review` of the Windows-only code.
   Review complete, documented in `NIGHTLY-REVIEW-gemini.md`. Fixed `tasklist` windowsHide in `prewarmSteam` (`main.js:347`) and FFmpeg concat backslash normalization (`wincapture.js:180`). Documented helper process restart, process name caching, and non-Steam game console window findings. Branch: `gemini/2026-10-14-bd010`. Claude (Windows) verifies findings.
 
+- **BD-027** · both · Gemini · Research only, no changes to any computer. Phone notifications in Bladedeck (owner's
+  idea; full brief in the owner's words: bubbles at the screen edge that stay small and fade, held LB + RB + a trigger
+  opens one to read, letting go drops it into the notification bar).
+  ```
+  [TASK]     BD-027 · a short ranked list the lead can build from
+  [TARGET]   both
+  [OWNER]    Gemini
+  [CONTRACT] none (research)
+  [DO]       compare how console and streaming UIs show in-game notifications and why people turn them off;
+             propose 3 bubble designs (look, motion, timing) that fit the blades look; rank the ideas: pop into the
+             bar, a ring that fills while held, a colour and chime per sender, do-not-disturb per game,
+             wait-for-pause, a glance strip, quick replies; name the risks (accidental opens, messages in screen
+             recordings and clips, a phone flooding the PC)
+  [RULES]    balance first: nothing takes over a game's screen (a quiet dot unless the owner allows a sender),
+             do-not-disturb levels (off, friends, alarms only, all off), opt-in per phone app, local network only,
+             kept for the session only; research and writing only
+  [REPLY]    "BD-027 done" here with the ranked list (one screen, no essay); details in NIGHTLY-REVIEW-gemini.md
+  ```
+- **BD-028** · both · Claude (Windows) · After BD-024 and BD-027: build phone notifications. Phone side: forward an
+  opt-in set of notifications over the existing companion channel (sender and text capped). PC side: the bubble,
+  the hold-to-read gesture, the bar, do-not-disturb levels. Test copy with fake messages; nothing opens while a game
+  has the screen. Network-facing, so Gemini audits it before merge.
 ### For Claude
 - Things that need the owner's hardware: multi-screen on two screens, the DualSense speaker,
   the live view's remembered windows, Real-Debrid's file server with a real login, the
