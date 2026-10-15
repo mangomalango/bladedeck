@@ -147,7 +147,9 @@ Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROA
              on Windows)
   [REPLY]    "BD-045 done" with the count of MISSING; fixes allowed on your branch (one commit per file)
   ```
-- **BD-046** · both · Gemini · BD-016 from ROADMAP.md: text and Settings polish pass, as a proposal.
+- **BD-046** (done: 45 lines polished, Gemini, NIGHTLY-REVIEW §16) · both · Gemini · BD-016 from ROADMAP.md: text and Settings polish pass, as a proposal.
+  **BD-046 done: 45 lines polished**:
+  Proposal and implementation completed as ONE commit (`2026e0d`). 41 Settings switches given explicit title/help structure with defaults clearly marked (`Default: on.` or `Default: off.`) so SetLook renders them with bold headers and descriptive sub-labels. 4 toasts and labels polished for plain sentence case voice (`extras.js`, `storagemap.js`, `music.js`). No ids, channels, or setting keys changed. Full proposal table in NIGHTLY-REVIEW §16.
   ```
   [TASK]     BD-046 · one voice everywhere: short, plain, friendly, sentence case, no jargon
   [DO]       list every toast, label and Settings line that breaks the rule (file:line, now, suggested). Settings: one help

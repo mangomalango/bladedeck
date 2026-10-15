@@ -258,9 +258,71 @@ Reproduced using a local HTTP server streaming a 20 MB archive slowly (`640 KB/s
 
 ---
 
+## 16. BD-046: BD-016 Text and Settings Polish Pass
+**Result: 45 Lines Polished Across 8 Files (1 Commit: `2026e0d`)**
+
+### A. Settings Switches Polish Table (One Help Line per Switch, Defaults Marked)
+
+Every switch in Settings now conforms to `Title: Explanation. Default: on/off.` so that `SetLook.rows` cleanly splits it into a bold title and a dimmed subtitle with its default marked.
+
+| Setting Name | File:Line | Old Text | Suggested / Applied Text | Default |
+|---|---|---|---|---|
+| `curatedHome` | `app.js:1365` | Home shows a few picks for today under Favorites and Recently played | `Curated home: Picks for today appear under favorites and recently played. Default: on.` | On |
+| `runningList` | `app.js:1365` | Show what's running on the left | `Running games list: Show open games and apps on the left side of the screen. Default: on.` | On |
+| `voice` | `app.js:1365` | Voice commands (View + LB, Space or 🎤) | `Voice commands: Control menus and launch games with your voice (View + LB, Space, or 🎤). Default: off.` | Off |
+| `voiceWake` | `app.js:1365` | Active keyword: listen for "Hey Blade" | `Voice wake word: Listen for "Hey Blade" while the menu is open. Default: off.` | Off |
+| `showStats` | `app.js:1365` | Show processor, memory and temperature at the top (click it, or press I, for This PC) | `Performance stats: Show processor, memory, and temperature at the top (click or press I for details). Default: on.` | On |
+| `fx` | `app.js:1371` | Animations | `Menu animations: Smooth motion and transitions when moving between items. Default: on.` | On |
+| `intro` | `app.js:1371` | Launch intro | `Launch intro: Play a short animation when starting a game. Default: on.` | On |
+| `bootAnim` | `app.js:1371` | Boot animation | `Startup animation: Show the Bladedeck logo and sound when the app opens. Default: on.` | On |
+| `showcase` | `app.js:1371` | Play clips and pictures behind games | `Background showcase: Play video clips and artwork behind highlighted games. Default: on.` | On |
+| `depth` | `app.js:1373` | Depth and glass: layered, frosted panels and a lifted focus | `Depth and glass: Layered frosted panels and lifted cards for highlighted items. Default: on.` | On |
+| `livingBg` | `app.js:1373` | Living background: brighter by day, dimmer at night, a hue for each season | `Living background: Shift brightness and seasonal color hues with the time of day. Default: on.` | On |
+| `previewLoop` | `app.js:1373` | A highlighted game plays a short loop of your own clip (or one from online, see Sound) | `Preview clip loop: Play a short loop of your own recording or online clip for highlighted games. Default: on.` | On |
+| `playingBg` | `app.js:1373` | Back in the menu during a game: that game, blurred, behind the menu (a clip, or a still picture when the PC is busy) | `In-game menu background: Show the active game blurred behind menus when you switch back. Default: on.` | On |
+| `widget` | `app.js:1373` | Weather and date at the top (opens a calendar) | `Weather and clock: Show current weather, time, and date at the top of the screen. Default: on.` | On |
+| `sounds` | `app.js:1382` | Menu sounds | `Menu sound effects: Play clicks, chimes, and swooshes when moving through menus. Default: off.` | Off |
+| `ambient` | `app.js:1382` | Deep-sea ambience | `Ambient background audio: Gentle ocean ambience while browsing your library. Default: off.` | Off |
+| `soundFollow` | `app.js:1382` | Sound follows a game to another screen (the TV's speakers when it moves to the TV) | `Sound follows screen: Route game audio to the screen where the game is displayed. Default: on.` | On |
+| `hoverMusic` | `app.js:1382` | Play a game's own music when it stays highlighted for 3 seconds | `Hover music: Play a game's theme music when it stays highlighted for 3 seconds. Default: on.` | On |
+| `musicDuringGames` | `app.js:1387` | Keep music playing during games | `Background music in games: Keep your music queue playing after a game launches. Default: off.` | Off |
+| `onlineMedia` | `app.js:1389` | A game with no clip or music of its own on this PC gets a gameplay clip and its theme from YouTube, kept here | `Online media fetcher: Download gameplay clips and themes from YouTube for games without local media. Default: on.` | On |
+| `gameInfo` | `app.js:1390` | Show what each game is like (kind, story, multiplayer, split screen), looked up by name on Steam and Wikipedia | `Game summaries: Look up genre, player count, and story details from Steam and Wikipedia. Default: on.` | On |
+| `steamInput` | `app.js:1399` | Start games through Steam, so Steam Input works with every controller (Bladedeck adds them to Steam as non-Steam games, and opens itself through Steam too) | `Steam Input integration: Launch games through Steam so any controller layout and remapping works. Default: on.` | On |
+| `hideOnLaunch` | `app.js:1400` | Minimize Bladedeck while a game runs | `Minimize on launch: Hide the Bladedeck window while a game is running to save memory. Default: off.` | Off |
+| `autoFreeze` | `app.js:1400` | Pause games when I switch away | `Auto-pause background games: Suspend game processes and sound when switching back to the menu. Default: off.` | Off |
+| `quietWhilePlaying` | `app.js:1400` | Silence desktop pop-ups while playing | `Do not disturb in games: Silence desktop notifications while a game is active. Default: off.` | Off |
+| `peekMinimize` | `app.js:1400` | Minimize the game when peeking with Ctrl+M | `Minimize game on peek: Drop the game window when pressing Ctrl+M or View + Start. Default: off.` | Off |
+| `viewStartPeek` | `app.js:1400` | View + Start in a game brings up Bladedeck (off on Windows by default: switching away crashes some games) | `Controller peek shortcut: Press View + Start in a game to bring up the Bladedeck menu. Default: on (Linux), off (Windows).` | Both |
+| `achClips` | `app.js:1400` | Keep a clip of every achievement you unlock (30 seconds before to 5 after), shown behind the game | `Achievement moments: Record a 35-second replay clip whenever you unlock an achievement. Default: on.` | On |
+| `askStates` | `app.js:1402` | When an emulated game has save states, offer to continue from one | `Save state prompt: Offer to resume from recent save states when starting an emulated game. Default: on.` | On |
+| `romsFullscreen` | `app.js:1402` | Emulated games always fill the screen (Xenia, PCSX2, Dolphin and the rest) | `Fullscreen emulators: Automatically launch emulated games in full-screen mode. Default: on.` | On |
+| `prewarmSteam` | `app.js:1406` | Start Steam quietly when Bladedeck opens, so Steam games launch right away | `Prewarm Steam: Start Steam in the background on startup so games launch without waiting. Default: on.` | On |
+| `shaderCache` | `app.js:1406` | Big shader cache for games Bladedeck starts itself (fewer stutters, faster second starts) | `Expanded shader cache: Allow larger graphics caches to reduce gameplay stutter and load times. Default: on.` | On |
+| `gamemode` | `app.js:1406` | Run games with GameMode, if it is installed | `Feral GameMode: Request performance mode from the system while games run. Default: off.` | Off |
+| `padBackground` | `app.js:1416` | Let games and emulators hear the controller while Bladedeck's menu is in front | `Background controller input: Allow games to receive gamepad events while Bladedeck is focused. Default: off.` | Off |
+| `liveAuto` | `app.js:1431` | Live view starts by itself: the first time you jump out of a game it asks once, then it is just there | `Automatic live view: Show live gameplay automatically when jumping out of a running game. Default: on.` | On |
+| `lanOn` | `netshare.js:12` | Show me to other Bladedecks (see who is around, invite them, send files, ROM sync) | `Nearby visibility: Allow other Bladedecks on the local network to see this device. Default: on.` | On |
+| `lanShare` | `netshare.js:13` | Share my game list with them (so you can see which games you both have) | `Share game library: Allow nearby friends to see which titles you own for multiplayer. Default: off.` | Off |
+| `publicNetworks` | `netshare.js:14` | Also share on public networks (cafés, school, hotels: anyone there could see your name and what you play) | `Share on public networks: Enable network features on public Wi-Fi (cafés, schools, hotels). Default: off.` | Off |
+| `capMic` | `capture.js:186` | Record my microphone too | `Microphone recording: Include your microphone commentary in gameplay recordings and clips. Default: off.` | Off |
+| `guideRumble` | `guide.js:378` | Rumble the controller while pulling | `Trigger haptic rumble: Vibrate the controller while pulling open the guide flap. Default: off.` | Off |
+| `watchOn` | `shop.js:477` | Watch these folders and add new games straight away | `Automatic library watching: Scan watched folders and add new games as soon as they appear. Default: off.` | Off |
+
+### B. Toasts and Labels Voice Polish
+- `extras.js:117-118`: Replaced Title Case `"Discord Application ID"` with natural sentence case `"Discord application ID"`.
+- `storagemap.js:239`: Replaced abrupt `"Could not delete capture."` with friendly `"Could not delete this capture."`.
+- `music.js:33`: Replaced terse `"No music found. Pick a music folder in Settings."` with conversational `"No music was found. Choose a music folder in Settings."`.
+
+---
+
 ## Summary
 - `npm run check`: **All 129 files pass, 276 channels answered**.
 - `npm run test-replies`: **21/21 assertions pass**.
 - `npm run test-pool`: **20/20 security assertions pass**.
-- BD-034: **Reproductions complete and findings documented**.
+- BD-043: **Release-candidate audit PASS**.
+- BD-044: **Windows bug hunt complete (4 problems fixed)**.
+- BD-045: **Child process audit complete (12 missing properties remediated, 6 commits)**.
+- BD-046: **Text and Settings polish pass complete (45 lines polished, 1 commit `2026e0d`)**.
+
 
