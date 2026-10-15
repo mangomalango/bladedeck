@@ -65,16 +65,16 @@ Task IDs and cards: see TEAM.md (next free ID: BD-027 (BD-011..BD-018 are in ROA
 
 - **BD-019** · both · Claude (Linux) lead · Review Claude (Windows)'s fix for 88b1b22 on windows-fixes before
   it reaches master (see the Log entry "Shared games pool"). Run `npm run test-pool` and `npm run check`.
-- **BD-020** · both · Gemini · Overnight audit of the Shared games pool and storage map (fsaccess.js, storage.js,
+- **BD-020** (done: PASS, merged by lead) · both · Gemini · Overnight audit of the Shared games pool and storage map (fsaccess.js, storage.js,
   renderer/transfer.js, renderer/storagemap.js): try to make the page share or unlock anything outside
   Bladedeck/Shared games without the desktop confirmation. Add each attack you try to scripts/pooltest.js.
   Findings in NIGHTLY-REVIEW-gemini.md; fixes only on gemini/<date>-bd020. Read only otherwise; no pushes.
-- **BD-021** · both · Gemini · Review BD-014 (wide, smooth clips) on windows-fixes: renderer/play.js Showcase
+- **BD-021** (done: PASS) · both · Gemini · Review BD-014 (wide, smooth clips) on windows-fixes: renderer/play.js Showcase
   (online clip as the full-screen backdrop when a game has no media; the new layer waits for "playing"
   before cross-fading, 3 s fallback; old videos unloaded) and renderer/atmos.js (no poster preview while
   body.sc-video). Look for: a stale clip winning a race when moving fast between games, videos left
   decoding, Linux behaviour changes. In your own worktree; findings in NIGHTLY-REVIEW-gemini.md.
-- **BD-022** · both · Gemini · Review the Warp launch animation (renderer/warp.js, the Warp block at the end of
+- **BD-022** (done: PASS, pad skip merged) · both · Gemini · Review the Warp launch animation (renderer/warp.js, the Warp block at the end of
   renderer/style.css, the stretch/pop sounds in renderer/sound.js, launch() and syncAway() in renderer/app.js):
   never delays or blocks a launch, a failed launch ends it (Warp.skip), any key or click cuts it short, body is
   always restored (no menu left scaled or hidden), prefers-reduced-motion and the Animations switch turn it off,
@@ -137,6 +137,12 @@ Task IDs and cards: see TEAM.md (next free ID: BD-027 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-15, Claude (Windows), lead: Gemini's BD-020/021/022 review (b8624bf) reviewed and merged.** Kept as written:
+  fsaccess.js inside() no longer reads a folder named "..foo" as a parent; safeName() strips leading dots and spaces;
+  scripts/pooltest.js has three more attacks (prototype keys on storage-reveal, null/{} ids, a "..\..\EvilGame"
+  title); renderer/app.js handle() calls Warp.skip() so a controller button skips the Warp animation (merged by hand
+  into the Calm handle()). npm run check and npm run test-pool: all passed. BD-021 had no code change.
 
 - **2026-10-15, Claude (Windows), lead: idle cost measured per effect; Calm; downloads.** Test copy with the owner's
   library, CPU of the renderer and GPU processes over 12 s per step. Finding: ANY motion (ribbon, the wallpaper's

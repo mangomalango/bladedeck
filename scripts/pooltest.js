@@ -53,6 +53,10 @@ let fails = 0; const ok = (c, m) => { console.log(c ? 'ok  ' : 'FAIL', m); if (!
   ok(m.ok && !m.items.some((i) => i.path === secret) && m.items.some((i) => i.id === 'r1'), 'the storage map ignores games from the page');
   ok(!FA.allowed(secret) && !FA.allowed(rom), 'the storage map unlocks nothing');
   ok((await h['storage-reveal']({}, 'r1')) && revealed[0] === rom && !(await h['storage-reveal']({}, secret)), 'Show works by id only');
+  ok(!(await h['storage-reveal']({}, '__proto__')) && !(await h['storage-reveal']({}, 'toString')), 'prototype pollution on storage-reveal is refused');
+  ok(!(await h['xfer-prep-game']({}, null)).ok && !(await h['xfer-prep-game']({}, {})).ok, 'null and non-string game ids are safely rejected');
+  lib.entries.push({ id: 't1', type: 'rom', title: '..\\..\\EvilGame', rom: rom });
+  const t = await h['xfer-prep-game']({}, 't1'); ok(t.ok && FA.inside(t.path, shared), 'path traversal in game title is sanitized to pool directory');
   ok(FA.allowed(path.join(shared, 'Zelda.gba')), 'the pool copy can be sent');
   console.log(fails ? `${fails} FAILED` : 'all passed');
   fs.rmSync(home, { recursive: true, force: true });

@@ -32,7 +32,7 @@ function real(p) {
     rest = path.join(path.basename(cur), rest); cur = up;
   }
 }
-const inside = (p, root) => { const r = real(root), q = real(p); const rel = path.relative(r, q); return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel)); };
+const inside = (p, root) => { const r = real(root), q = real(p); const rel = path.relative(r, q); return rel === '' || (rel !== '..' && !rel.startsWith('..' + path.sep) && !rel.startsWith('../') && !path.isAbsolute(rel)); };
 const roots = () => [ROOT, ...grants.map((g) => g.path), ...session];
 function allowed(p) { return !!p && roots().some((r) => inside(p, r)); }
 function rootOf(p) { return roots().filter((r) => inside(p, r)).sort((a, b) => b.length - a.length)[0] || null; }
@@ -119,7 +119,7 @@ function sizeOf(src) {
   return n;
 }
 const fmt = (n) => (n >= 1073741824 ? `${(n / 1073741824).toFixed(1)} GB` : n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
-const safeName = (t) => String(t || 'game').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/[. ]+$/, '').trim().slice(0, 80) || 'game';
+const safeName = (t) => String(t || 'game').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/^[. ]+|[. ]+$/g, '').trim().slice(0, 80) || 'game';
 function uniqName(d, name) {
   const ext = path.extname(name), stem = name.slice(0, name.length - ext.length);
   let n = name; for (let i = 2; fs.existsSync(path.join(d, n)); i++) n = `${stem} (${i})${ext}`;

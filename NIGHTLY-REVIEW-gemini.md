@@ -1,72 +1,55 @@
-# Nightly Code Review: Windows Subsystems (BD-010)
+# Gemini Review: BD-020, BD-021, BD-022
 **Reviewer:** Gemini (in Antigravity)  
-**Date:** 2026-10-14  
-**Branch:** `gemini/2026-10-14-bd010` (tracks `gemini/2026-10-14-storage-debug` and `origin/master`)
+**Date:** 2026-10-15  
+**Branch:** `gemini/2026-10-15-bd020` in `..\bladedeck-gemini` (base: `origin/windows-fixes` `0f34c75`)
 
 ---
 
-## 1. Summary of Scope
-Audited all Windows-specific subsystems and modules:
-- `wincapture.js` (FFmpeg screen capture, loopback audio helper, replay ring joiner)
-- `winaudio.js` (Core Audio COM interop via persistent PowerShell process, volume/mute/endpoints)
-- `winpad.js` (XInput controller chord/combo listener via background PowerShell)
-- `winlist.js` (EnumWindows / DwmGetWindowAttribute top-level window manager and screen placement)
-- `procs.js` (Process tree suspension, WMI ancestor lookup, Steam appid detection)
-- `system.js` (Windows power states, Wi-Fi profile generation, WMI brightness)
-- `steaminput.js` (VDF parser and host_suspend controller binding cleaner)
-- `steamlink.js` (Shortcuts.vdf generator and launch wrapper scripts)
-- `netshare.js` & `romsync.js` (Network category, firewall rules, multi-drive space planning)
-- `main.js` (`prewarmSteam`, `command()`, `launch` handler, process cleanup hooks)
+## 1. BD-020: Shared Games Pool & Storage Map Security Audit
+**Result: PASS (with 2 fixes committed on `gemini/2026-10-15-bd020`)**
+
+### Verification & Attack Tests Added to `scripts/pooltest.js`
+- **Prototype Pollution on Reveal:** Verified `storage-reveal` ignores `__proto__` and `toString` requests; `shown` is a `Map` instance rather than a raw object.
+- **Null / Object Game IDs:** Tested that passing non-string/malformed payloads to `xfer-prep-game` fails gracefully without throwing.
+- **Path Traversal in Title:** Tested games with titles like `..\..\EvilGame`.
+- **Link / Junction Evasion:** Verified NTFS directory junctions (`docs-link`) and symlinks are completely omitted from the copied pool directory.
+- **Broad Root Isolation:** Confirmed games directly on root paths, desktop, or user root are blocked by `tooBroad()`.
+
+### Bug Found & Fixed
+1. **`fsaccess.js:35` `inside()` Boundary Check:**
+   - *Issue:* `!rel.startsWith('..')` treated any file whose name began with two dots (e.g. `.._something.gba`) as outside the root folder.
+   - *Fix:* Changed condition to:
+     `rel !== '..' && !rel.startsWith('..' + path.sep) && !rel.startsWith('../') && !path.isAbsolute(rel)`
+2. **`fsaccess.js:122` `safeName()` Dot Stripping:**
+   - *Issue:* `safeName()` stripped trailing dots/spaces with `/[. ]+$/`, but did not strip leading dots, allowing hidden or dot-prefixed filenames in the pool.
+   - *Fix:* Changed regex to `/^[. ]+|[. ]+$/g`.
+- **Test Suite Status:** `npm run test-pool` expanded from 17 to 20 assertions — all 20 passing cleanly.
 
 ---
 
-## 2. Verified Issues & Fixed in this Branch
+## 2. BD-021: Review of BD-014 Wide Smooth Backdrop Clips
+**Result: PASS (no code changes needed)**
 
-### 1. Prewarm Steam: Missing `windowsHide: true` on `tasklist` (`main.js:347`)
-- **Issue:** 3 seconds after Bladedeck startup, `prewarmSteam()` called `child_process.execFile('tasklist', ...)` without `{ windowsHide: true }`. On Windows, this caused a momentary black console window flash on launch.
-- **Fix:** Added `{ windowsHide: true }` to `execFile('tasklist', ...)`.
-- **Status:** Fixed and verified clean in `main.js`.
-
-### 2. FFmpeg Replay Ring Concat: Windows Backslash Escaping (`wincapture.js:180`)
-- **Issue:** `saveRing()` wrote ring segment paths into `join.txt` with raw Windows backslashes (`C:\Users\...`). In FFmpeg's concat demuxer file format, backslashes act as escape characters unless escaped (`\\`) or converted to forward slashes. A username starting with letters like `n`, `r`, or `t` can result in escape sequence corruption (e.g. `\n` parsed as a newline).
-- **Fix:** Replaced backslashes with forward slashes: `p.f.replace(/\\/g, '/').replace(/'/g, "'\\''")`. FFmpeg on Windows handles forward slashes cleanly across all versions.
-- **Status:** Fixed and verified in `wincapture.js`.
+Audited `Showcase` in `renderer/play.js` and `Atmos` in `renderer/atmos.js`:
+- **Race Condition Immunity:** `let turn = 0` and `mine !== turn` guard both the 350 ms play delay and the 3000 ms cross-fade fallback. Fast blade cycling cannot cause a stale video to swap in.
+- **Hardware Decoder Cleanup:** Prior layers explicitly call `.pause()`, `.removeAttribute('src')`, and `.load()`, forcing Chromium to drop the hardware video decoding context.
+- **Single Decoder Cap:** `renderer/atmos.js:101` checks `document.body.classList.contains('sc-video')` and halts the poster preview loop while Showcase is active, strictly capping active video decoders to 1.
+- **Focus / Deck-Away:** Videos pause immediately on `visibilitychange` or `deck-away` (when a game has focus).
 
 ---
 
-## 3. High-Priority Findings for Claude Night-Shift / Lead Review
+## 3. BD-022: Review of Warp Launch Animation
+**Result: PASS (enhanced controller skip support)**
 
-### 3. Persistent Helper Process Crash Recovery (`winlist.js`, `winpad.js`)
-- **Issue:** Both `winlist.js` and `winpad.js` spawn a persistent PowerShell background process on startup. If that PowerShell process terminates (e.g. due to system sleep/resume, transient OOM, or unhandled exception), `proc` is set to `null` by the exit handler, but is **never restarted**.
-- **Impact:** 
-  - `winlist.js`: `ask('list')` returns `'[]'` indefinitely. The dock, Quick Resume, and game window focus tracking stop functioning silently for the rest of the session.
-  - `winpad.js`: In-game controller chord detection (View+Menu, View+X recording, View+RB clip) permanently ceases.
-- **Recommendation:** Implement lazy auto-restart on query (similar to `winaudio.js:ask()` which calls `start()` before dispatching commands), or a restart counter with exponential backoff on unexpected exit.
-
-### 4. Process ID Reuse in Window Listing Cache (`winlist.js:35, 41-45`)
-- **Issue:** `BDWin.Name(int pid)` caches process names in a static `Dictionary<int, string> names`. Windows frequently reuses process IDs. When an application closes and a new process inherits its PID, `winlist.js` continues reporting the old process's name.
-- **Impact:** Can cause window matching, Steam guard, or process categorization to misattribute windows.
-- **Recommendation:** Clear `names.Clear()` on each poll enumeration in `List()`, or cache with process start time verification (`p.StartTime`).
-
-### 5. Console Window Stays Open for Non-Steam Games Launched via Steam (`steamlink.js:102-108`)
-- **Issue:** When Steam launches a non-Steam game that has custom environment variables, `steamlink.js` generates a `.cmd` batch script. On Windows 10/11, launching a `.cmd` file triggers `cmd.exe` (or Windows Terminal) in an interactive console window that stays open for the entire duration of the game.
-- **Cause:** `command()` in `main.js` unconditionally attaches `SHADER_ENV` and `SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS`, meaning `c.env` is never empty.
-- **Recommendation:**
-  1. Guard `SHADER_ENV` on Windows (`process.platform !== 'win32'`), as Mesa/DXVK environment variables are not utilized by native Windows games.
-  2. For games requiring environment variables, launch via a hidden Windows Script Host (`wscript.exe` / `.vbs`) or PowerShell runner using `-WindowStyle Hidden`.
-
-### 6. Single-Core Affinity on Windows (`main.js:401`)
-- **Issue:** `entry.oneCore` currently checks `process.platform === 'linux' && onPath('taskset')`. On Windows, older retro PC titles that lock up or crash on multi-core processors (e.g. early 2000s Direct3D titles) have no core-affinity enforcement.
-- **Recommendation:** When `entry.oneCore` is active on Windows, set affinity post-spawn via PowerShell `(Get-Process -Id $pid).ProcessorAffinity = 1` or a lightweight `kernel32.dll!SetProcessAffinityMask` call in `procs.js`.
-
-### 7. Synchronous Disk I/O Thrashing in `procs.steamInstallDirs()` (`procs.js:181-194`)
-- **Issue:** On Windows, `infoWin(pid)` calls `steamInstallDirs()` on every invocation. `steamInstallDirs()` reads `libraryfolders.vdf` and re-reads every `appmanifest_<appid>.acf` file across all mounted drives synchronously.
-- **Impact:** On systems with multiple libraries and hundreds of installed Steam titles, this creates unnecessary continuous disk and file descriptor churn.
-- **Recommendation:** Cache the `installdir -> appid` map with a TTL (e.g. 30 seconds), invalidated only when library size or directory timestamp changes.
+Audited `renderer/warp.js`, `renderer/style.css`, and `renderer/app.js`:
+- **Launch Non-Blocking:** `Warp.out(e)` executes concurrently with `api.launch`. Launch execution is never gated on animation frames.
+- **Viewport Restoration:** `end()` removes `.warping`, `.warp-back`, and `[data-warp]`, instantly restoring normal CSS transforms and opacities. On launch failure, `Warp.skip()` is triggered immediately.
+- **Accessibility & Preferences:** Both `@media (prefers-reduced-motion: reduce)` and the Settings toggle `fxOn()` bypass the animation.
+- **Improvement Added:** Added `Warp.skip()` into `handle(a)` in `renderer/app.js`. Previously only `keydown` and `mousedown` skipped the animation; pressing any button on a gamepad now immediately skips Warp as well.
 
 ---
 
-## 4. Verification & Health
-- `npm run check`: **PASS** (119 files verified, 264 channels answered).
-- `node scripts/sweep.js --empty`: **PASS** (50 system items opened, 0 errors, 16 test-copy outward channels blocked).
-- Git state: Committed on `gemini/2026-10-14-bd010`.
+## Summary
+- `npm run check`: **All 121 files pass, 267 channels answered**.
+- `npm run test-pool`: **20/20 security assertions pass**.
+- Branch ready for Claude (Windows) lead review: `gemini/2026-10-15-bd020`.

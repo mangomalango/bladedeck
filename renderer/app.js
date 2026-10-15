@@ -1529,7 +1529,7 @@ function calm(on) {
 const wake = () => { menuInputAt = Date.now(); calm(false); };
 setInterval(() => { if (!S.modal && Date.now() - menuInputAt > 60000) calm(true); }, 5000);
 for (const t of ['keydown', 'pointerdown', 'pointermove', 'wheel']) addEventListener(t, wake, { passive: true, capture: true });
-function handle(a) { wake(); Atmos.poke(); handleInput(a); hints(); if (a === 'up' || a === 'down' || a === 'left' || a === 'right') Players.bump(); }
+function handle(a) { Warp.skip(); wake(); Atmos.poke(); handleInput(a); hints(); if (a === 'up' || a === 'down' || a === 'left' || a === 'right') Players.bump(); }
 /* The hint bar says what the buttons do where you are, so Y reads "Close…" in the Running list
    and the dock rather than "Edit". */
 let hintsDefault = null, hintsNow = '';
