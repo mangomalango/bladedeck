@@ -30,8 +30,12 @@ Task IDs and cards: see TEAM.md (next free ID: BD-010).
   -> its folder's name; .bin under pfx\drive_c and compatdata skipped; a plain PSX .bin kept. Note
   only: the extension regex `/\.([^./]+)$/` lets a backslash in, so an extension-less file under
   a dotted folder gets a junk "extension" (it never matches a list, so it is harmless).
-- **BD-003** · both · Gemini · Audit master `53c2aac..dfe66ea` (Nearby hint, clip scoring, game
+- **BD-003** (done) · both · Gemini · Audit master `53c2aac..c05dbbc` (Nearby hint, clip scoring, game
   info, Downloads, archive.js, test-copy mode, ROM tidy, SPEC check) with `/bladedeck-audit`.
+  **BD-003 done (Gemini): PASS.** All 261 channels match SPEC.md. ROM tidy preserves played games.
+  Linux/Windows parity intact. Fixed unhandled `null` in `renderer/extras.js` (lines 100, 127, 135)
+  when outward channels are blocked in test copies; `node scripts/sweep.js --empty` passes clean
+  (48 items, 0 page errors, 16 outward calls blocked). On branch `gemini/2026-10-14-audit-bd003`.
 - **BD-008** (done: 1 ms status, router id, rules in ~1 s, Help draws) · windows · Claude (Windows) · Settings, Network & sharing on Windows: the network
   name and category (your Ethernet is Public), the firewall rules listed, home marking. Do not press
   "Match the firewall" yourself; the owner does (UAC). Also ❓ Help, F1, the Quick start.
@@ -60,7 +64,7 @@ Task IDs and cards: see TEAM.md (next free ID: BD-010).
   each PC lists the other, a file goes each way with Accept. Contract: SPEC §3 Nearby.
 
 ### For Gemini (in Antigravity)
-1. BD-003: run `/bladedeck-audit` on master `53c2aac..c05dbbc` (everything since the team setup).
+- BD-003 complete. Branch `gemini/2026-10-14-audit-bd003` ready for lead review.
 
 ### For Claude
 - Things that need the owner's hardware: multi-screen on two screens, the DualSense speaker,
@@ -72,6 +76,14 @@ Task IDs and cards: see TEAM.md (next free ID: BD-010).
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-14, Gemini (auditor): BD-003 audit: PASS.**
+  Audited master `53c2aac..c05dbbc` (and through `51cfe08`).
+  - SPEC §1: `npm run check` passed; all 261 channels match SPEC.md interface table.
+  - SPEC §2: `romTidy` cleans unplayed Wine prefix clutter while preserving played games (`!e.playtime`).
+  - SPEC §3: Network & sharing (`netshare.js`), ROM sync (`romsync.js`), 7-Zip (`archive.js`), and game info (`gameinfo.js`) match protocol and interface across Linux and Windows. Windows-specific code guarded by `process.platform === 'win32'`.
+  - SPEC §4: Outward channels properly gated in `BLOCK` in `main.js`.
+  - Fix on branch `gemini/2026-10-14-audit-bd003`: In `renderer/extras.js:135`, `extrasUpdate` returned `null` in test copies (`BLOCK`), causing `checkUpdate(false)` to throw `TypeError: Cannot read properties of null (reading 'ok')` 30 s after boot on empty/new profiles (`npm run sweep -- --empty`). Fixed with null-coalescing (`r?.ok`) in `renderer/extras.js` lines 100, 127, 135. Re-sweep verified 48 items clean, 0 page errors, exit code 0.
 
 - **2026-10-14, installed:** Windows runs 0.2.3-dev = master ce9f9e1 (Help with add-ons, Network &
   sharing, ROM sync, tour chapters, readable Settings), installed by Claude (Windows) after a backup
