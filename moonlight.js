@@ -134,7 +134,7 @@ function register() {
   ipcMain.handle('moonlight-open', () => {
     const ml = moonlight();
     if (!ml) { shell.openExternal('https://moonlight-stream.org/'); return { ok: false }; }
-    try { const c = spawn(ml.exe, ml.pre, { detached: true, stdio: 'ignore' }); c.on('error', () => {}); c.unref(); return { ok: true }; } catch (e) { return { ok: false, error: e.message }; }
+    try { const c = spawn(ml.exe, ml.pre, { detached: true, stdio: 'ignore', windowsHide: true }); c.on('error', () => {}); c.unref(); return { ok: true }; } catch (e) { return { ok: false, error: e.message }; }
   });
 }
 
