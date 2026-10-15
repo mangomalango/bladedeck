@@ -61,15 +61,39 @@ def started(res):
     msg({'token': str(res.get('restore_token', '')), 'started': True})
     fd = sc.OpenPipeWireRemote(state['session'], dbus.Dictionary({}, signature='sv')).take()
     node = int(streams[0][0])
+    # target-object wants the node's serial, not its id. Given the id, nothing matched and
+    # PipeWire fell back to the default video source: the webcam. So: the serial (looked up),
+    # and never a fallback; if the screen share cannot be found, the live view fails instead.
+    serial, size = None, [None]
+    try:
+        import subprocess
+        for o in json.loads(subprocess.run(['pw-dump', str(node)], capture_output=True, timeout=4).stdout or b'[]'):
+            if o.get('id') != node: continue
+            info = o.get('info') or {}
+            serial = info.get('props', {}).get('object.serial')
+            # Its picture size, for the height below (KDE leaves it out of the portal's answer).
+            for f in (info.get('params') or {}).get('EnumFormat', []):
+                z = f.get('size') if isinstance(f, dict) else None
+                if isinstance(z, dict) and isinstance(z.get('default'), dict): z = z['default']
+                if isinstance(z, dict) and z.get('width') and z.get('height'): size[0] = (int(z['width']), int(z['height'])); break
+    except Exception: pass
     w, fps = int(opt.get('width', 640)), int(opt.get('fps', 15))
     # No videorate and no frame rate in the caps: KDE's screen share refuses a fixed rate ("error set
     # output format: -22"). Frames are copied out of graphics memory (always-copy) and thinned out below.
-    pipe = Gst.parse_launch('pipewiresrc name=src do-timestamp=true always-copy=true ! videoconvert ! videoscale ! video/x-raw,format=BGRA,width=%d,pixel-aspect-ratio=1/1 ! appsink name=sink emit-signals=true max-buffers=1 drop=true sync=false' % w)
+    # KDE reports a broken pixel shape (1/2147483647) and the scaler overflows working out the
+    # height from it, so the height comes from the stream's own size and no borders are added.
+    sw, sh = size[0] or (streams[0][1].get('size') if len(streams[0]) > 1 else None) or (16, 9)
+    h = max(2, int(round(w * int(sh) / max(1, int(sw)))) // 2 * 2)
+    pipe = Gst.parse_launch('pipewiresrc name=src do-timestamp=true always-copy=true ! videoconvert ! videoscale add-borders=false ! video/x-raw,format=BGRA,width=%d,height=%d ! appsink name=sink emit-signals=true max-buffers=1 drop=true sync=false' % (w, h))
     src = pipe.get_by_name('src')
     src.set_property('fd', fd)
-    for k, v in (('target-object', str(node)), ('path', str(node)), ('keepalive-time', 500), ('always-copy', True)):
+    try: src.set_property('stream-properties', Gst.Structure.new_from_string('props, node.dont-fallback=(boolean)true, node.dont-reconnect=(boolean)true'))
+    except Exception: pass
+    target = (('target-object', str(serial)),) if serial is not None else (('path', str(node)),)
+    for k, v in target + (('keepalive-time', 500), ('always-copy', True)):
         try: src.set_property(k, v)
         except Exception: pass
+    msg({'node': node, 'serial': serial})
     gap = 1.0 / max(1, fps); state['last'] = 0.0
     def frame(sink):
         s = sink.emit('pull-sample')
