@@ -15,7 +15,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-Task IDs and cards: see TEAM.md (next free ID: BD-030 (BD-011..BD-018 are in ROADMAP.md)).
+Task IDs and cards: see TEAM.md (next free ID: BD-032 (BD-011..BD-018 are in ROADMAP.md)).
 
 - **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
   .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
@@ -109,6 +109,12 @@ Task IDs and cards: see TEAM.md (next free ID: BD-030 (BD-011..BD-018 are in ROA
   [REPLY]    "BD-024 audit: PASS" or "DRIFT (<what>)" here in HANDOFF.md, details in NIGHTLY-REVIEW-gemini.md
   ```
 ### For Gemini (in Antigravity)
+- **BD-031** · both · Gemini · Audit BD-030 (quick replies) on branch claude/bd030-quick-replies BEFORE it is
+  merged: phonemsg.js (REPLIES, replyable, outbox, bubble-reply, takeReplies), companion.js GET /api/replies,
+  renderer/bubble.js (hold-to-send, faceArmed), android NotifyService.java (replyAction, poll, answer). Try to
+  make a reply go out that the owner did not hold, to the wrong phone, with words of the PC's choosing, or after
+  it should be gone; add any attack you try to scripts/replytest.js. Read only otherwise; findings in
+  NIGHTLY-REVIEW-gemini.md. The Android code has NOT been compiled (no SDK on Windows): check it by reading.
 - **BD-029** · windows · Gemini · Review only: Windows helpers stop when Bladedeck quits or crashes.
   ```
   [TASK]     BD-029 · review the helper-termination change (winpad.js, wincapture.js)
@@ -182,6 +188,22 @@ Task IDs and cards: see TEAM.md (next free ID: BD-030 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-15, Claude (Windows CLI session, Opus): BD-030 quick replies, on branch claude/bd030-quick-replies,
+  NOT merged.** After the pop, a message the phone can answer also offers four fixed phrases on A, B, X, Y
+  (Sounds good, Can't talk busy right now, Give me 5 mins, In a match be there soon), sent by HOLDING the button
+  0.55 s (a ring fills); a tap never sends, and a button already down when the choice opened must be let go first.
+  Changed from the card for safety: the bubble sends only a phrase number (bubble-reply {id, pick}), never text;
+  the phrases live in phonemsg.js; the phone keeps the same four and posts nothing else. Phone: NotifyService finds
+  the app's reply action (RemoteInput, also the watch extension), sends a random ref with /api/notify, keeps the
+  action in memory, polls GET /api/replies every 3 s for up to 3 min, and answers through the app's own action.
+  PC: replies wait in memory per pairing key (max 10, 3 min), taken once; a dismissed or faded bubble can no
+  longer be answered. While replies are offered the menu ignores A/B/X/Y (bubbleFace), so a hold over the menu
+  cannot launch a game. The bar entry says "You replied: ...". Clicking a badge is not possible: the overlay is
+  click-through. Tests: npm run test-replies (22 attacks) pass; test-pool and check (276) pass; sweep 54 items, no
+  errors; test copy: tap A sent nothing, holding Y sent, the menu guard on and off, the bar entry. NOT tested: the
+  Android code (not compiled, needs android/build.sh on Linux), a real phone, a real controller in a game.
+  Next: BD-031 Gemini audit, then the lead reviews and merges.
 
 - **2026-10-15, Claude (Linux/cloud): Organize (a) and (b) built, on claude/bladedeck-helpers-termination-pwivp1** (same branch as the
   helper fix, merged with bladedeck-nightly 3da4110+; the cloud session may only push to this branch). (a) Settings, Advanced: blades

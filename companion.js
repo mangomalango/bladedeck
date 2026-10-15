@@ -153,6 +153,8 @@ async function handle(req, res) {
   }
   // A notification the phone forwards (only from apps ticked on the phone): a bubble (phonemsg.js).
   if (req.method === 'POST' && p === '/api/notify') return json(res, 200, require('./phonemsg').receive(dev.name, await body(req), dev.key));
+  // Quick replies the owner held on A/B/X/Y for this phone's messages (phonemsg.js), taken once.
+  if (p === '/api/replies') return json(res, 200, require('./phonemsg').takeReplies(dev.key));
   if (req.method === 'POST' && p === '/api/do') {
     const b = await body(req);
     const r = await ask('do', b, 15000);

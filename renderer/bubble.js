@@ -5,11 +5,17 @@
    message; only the header's own background is blurred (a still of what is behind it). The game is
    frozen while the combo is held and runs again on release (the menu does that, phonemsg.js tells it).
    Letting go pops it into the notification bar; the game keeps running and 4 seconds offer: wait to
-   keep playing, LB to pause, RB for the menu. Letting go before a quarter full just sinks it back. */
-const tray = document.getElementById('tray'), choose = document.getElementById('choose');
-const FILL_MS = 900, FADE_MS = 15000, CHOOSE_MS = 4000, TOP = 24;
+   keep playing, LB to pause, RB for the menu. Letting go before a quarter full just sinks it back.
+   Quick replies (BD-030), only when the phone can answer that app: four fixed phrases on A, B, X and
+   Y, sent by HOLDING the button about half a second while a ring fills. A tap (the game still runs
+   and gets the button too) never sends, and a button already down when the choice opened has to be
+   let go first. The bubble sends only the phrase's number; phonemsg.js holds the words. */
+const tray = document.getElementById('tray'), choose = document.getElementById('choose'), rp = document.getElementById('rp');
+const FILL_MS = 900, FADE_MS = 15000, CHOOSE_MS = 4000, TOP = 24, REPLY_HOLD_MS = 550;
+const FACE = ['a', 'b', 'x', 'y'], FACE_LABEL = ['A', 'B', 'X', 'Y'];
 const live = []; // { msg, el, p, held, timer, from }
 let choosing = null, needRelease = false, forced = null, snap = '';
+let faceArmed = false, replyHold = null, sending = false; // replyHold: { k, ms }
 
 /* ---------------------------------------------------------- sound: a plip in, a faint rise up, a pop */
 let ctx = null, riser = null;
@@ -36,7 +42,7 @@ const popSound = () => { tone(1600, 200, 0.07, 0.09, 'triangle'); tone(260, 60, 
 
 /* ---------------------------------------------------------- bubbles */
 const initial = (m) => (m.sender || m.app || '?').trim().charAt(0).toUpperCase();
-const report = () => window.bubble.up(live.length > 0 || !!choosing);
+const report = () => window.bubble.up(live.length > 0 || !!choosing, !!(choosing && choosing.msg.replies));
 function show(m) {
   const el = document.createElement('div');
   el.className = 'bub';
@@ -93,22 +99,46 @@ function pop(b) {
 function startChoice(msg) {
   choosing = { msg, until: Date.now() + CHOOSE_MS };
   needRelease = true; // LB/RB count only once the combo is let go
+  faceArmed = false; replyHold = null; sending = false; // A/B/X/Y count only once all four are up
+  rp.innerHTML = '';
+  if (Array.isArray(msg.replies)) {
+    msg.replies.slice(0, 4).forEach((t, i) => {
+      const s = document.createElement('span'); s.dataset.r = i;
+      const b = document.createElement('b'); b.textContent = FACE_LABEL[i];
+      const f = document.createElement('i'); f.className = 'fill';
+      const w = document.createElement('em'); w.textContent = String(t);
+      s.append(f, b, w); rp.appendChild(s);
+    });
+  }
+  rp.hidden = !rp.childElementCount;
   choose.classList.remove('on'); void choose.offsetWidth; choose.classList.add('on');
   report();
 }
-function endChoice(choice) {
+function endChoice(choice, replied = 0) {
   if (!choosing) return;
-  window.bubble.done({ msg: choosing.msg, opened: true, choice });
-  choosing = null; choose.classList.remove('on');
+  window.bubble.done({ msg: choosing.msg, opened: true, choice, replied });
+  choosing = null; replyHold = null; choose.classList.remove('on');
   report(); idleSoon();
+}
+// Held long enough: main queues the phrase for the phone; the badge says so, then the choice closes.
+async function sendReply(k) {
+  if (!choosing || sending) return;
+  sending = true;
+  const msg = choosing.msg, el = rp.querySelector(`[data-r="${k}"]`);
+  const ok = await window.bubble.reply(msg.id, k).catch(() => false);
+  if (!choosing || choosing.msg !== msg) return;
+  if (el) el.classList.add(ok ? 'sent' : 'fail');
+  tone(ok ? 1200 : 300, ok ? 1700 : 200, 0.09, 0.05);
+  choosing.until = Date.now() + 700; // a moment to see it, then gone
+  setTimeout(() => { if (choosing && choosing.msg === msg) endChoice('keep', ok ? k + 1 : 0); }, 700);
 }
 
 /* ---------------------------------------------------------- the controller */
 function pads() {
   if (forced) return forced; // tests
   const ps = [...(navigator.getGamepads?.() || [])].filter(Boolean);
-  const b = (i) => ps.some((g) => !!g.buttons[i]?.pressed || (g.buttons[i]?.value || 0) > 0.5);
-  return { lb: b(4), rb: b(5), lt: b(6), rt: b(7) };
+  const on = (i) => ps.some((g) => !!g.buttons[i]?.pressed || (g.buttons[i]?.value || 0) > 0.5);
+  return { lb: on(4), rb: on(5), lt: on(6), rt: on(7), a: on(0), b: on(1), x: on(2), y: on(3) };
 }
 function place(b) {
   const p = b.p, f = b.from || { left: 28, top: innerHeight - 90 };
@@ -142,13 +172,27 @@ function frame(now) {
     if (!st.lb && !st.rb && !st.lt && !st.rt) needRelease = false;
     else if (!needRelease && st.lb && !st.rb) endChoice('pause');
     else if (!needRelease && st.rb && !st.lb) endChoice('menu');
+    if (choosing && choosing.msg.replies && !sending) replies(st, dt);
     if (choosing && Date.now() > choosing.until) endChoice('keep');
   } else if (!combo) needRelease = false;
   if (live.length || choosing) requestAnimationFrame(frame); else running = false;
 }
+// Exactly one of A, B, X, Y held, after all four were up: its ring fills; let go early and it empties.
+function replies(st, dt) {
+  const down = FACE.map((f) => !!st[f]);
+  if (!down.some(Boolean)) faceArmed = true;
+  const n = down.filter(Boolean).length, k = down.indexOf(true);
+  if (!faceArmed || n !== 1) { if (replyHold) fill(replyHold.k, 0); replyHold = null; return; }
+  if (!replyHold || replyHold.k !== k) { if (replyHold) fill(replyHold.k, 0); replyHold = { k, ms: 0 }; }
+  replyHold.ms += dt;
+  choosing.until = Math.max(choosing.until, Date.now() + 400); // never runs out mid-hold
+  fill(k, Math.min(1, replyHold.ms / REPLY_HOLD_MS));
+  if (replyHold.ms >= REPLY_HOLD_MS) { replyHold = null; sendReply(k); }
+}
+function fill(k, p) { const f = rp.querySelector(`[data-r="${k}"] .fill`); if (f) f.style.transform = `scaleX(${p})`; }
 let idleT = 0;
 function idleSoon() { clearTimeout(idleT); idleT = setTimeout(() => { if (!live.length && !choosing) window.bubble.idle(); }, 900); }
 
 window.bubble.onShow(show);
 // For test copies: press and let go of the combo, or LB / RB, without a controller.
-window.__bubbleTest = { press: (s) => { forced = s ? { lb: false, rb: false, lt: false, rt: false, ...s } : null; loop(); }, state: () => ({ live: live.map((b) => ({ who: b.msg.sender, p: b.p, held: b.held })), choosing: !!choosing }) };
+window.__bubbleTest = { press: (s) => { forced = s ? { lb: false, rb: false, lt: false, rt: false, a: false, b: false, x: false, y: false, ...s } : null; loop(); }, state: () => ({ live: live.map((b) => ({ who: b.msg.sender, p: b.p, held: b.held })), choosing: !!choosing, replies: choosing ? [...rp.children].map((s) => s.className || 'idle') : [] }) };
