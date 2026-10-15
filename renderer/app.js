@@ -873,6 +873,8 @@ function openModal({ title, html, wide, className = '', buttons = [], onOpen }) 
   closeModal();
   S.modal = true;
   const root = $('#modal');
+  // A dialog opened over another (a question over the storage map) must not keep its LB/RB.
+  root.__lbrb = null;
   root.innerHTML = `<div class="dlg ${wide ? 'wide' : ''} ${className}" role="dialog" aria-modal="true"><h2>${esc(title)}</h2><div class="dlg-body">${html}</div>
     <div class="dlg-foot">${buttons.map((b, i) => `<button data-btn="${i}" class="${b.primary ? 'primary' : ''} ${b.danger ? 'danger' : ''} ${b.left ? 'left' : ''}">${esc(b.label)}</button>`).join('')}</div></div>`;
   root.classList.add('open');

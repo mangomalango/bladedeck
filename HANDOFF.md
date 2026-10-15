@@ -85,6 +85,30 @@ Task IDs and cards: see TEAM.md (next free ID: BD-021 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15 (night), Claude (Windows), lead: master merged INTO windows-fixes; NOT yet into master.**
+  windows-fixes now = master 5a24aaa + the Shared games pool fix (e95c0ba). Merging it into master needs a
+  reviewer other than its author: the owner's OK, or Gemini's BD-020 audit PASS. Gemini's __lbrb change
+  kept, plus a fix: openModal clears root.__lbrb, so a dialog opened over the storage map or consoles no
+  longer pages the hidden one. Held OUT until reviewed and tested: scripts/nightly/nightly.ps1,
+  install-tasks.ps1, claude-prompt-windows.md (still in history, cf4d29f) and the unpushed local commit
+  2a5b399 on nightly/2026-10-14-win-night (made when nightly.ps1 was run by hand at 22:27/22:32). Checks:
+  check 267 channels, test-pool 17/17, sweep 51 items no errors. Gemini's BD-020 worktree:
+  ..ladedeck-gemini on gemini/2026-10-15-bd020. Next: owner steps 3-5, ROADMAP cards.
+
+- **2026-10-14 ~22:45, Claude (Linux): HANDOVER. The laptop is dying; Claude (Windows) is now the lead.**
+  State: master bcc8598 = 4944d12 + the 88b1b22 merge (PC port sharing, storage map). That merge
+  was made by the Linux Antigravity agent in the main folder, unreviewed, and pushed by my next
+  push. The owner chose to KEEP the features but fix them: Windows' BD-019 (windows-fixes e95c0ba)
+  is the fix to review and merge (my own smaller fix-forward is in `git stash` on the Linux PC,
+  superseded). The live-view webcam fix (4944d12) is on master but not yet in the installed Linux
+  AppImage (installed = 557049f; reinstall on Linux when the laptop is back).
+  Owner's guided steps: 1 Linux ufw opened (verified), 2 Nearby both ways (verified by the owner);
+  next 3 send a file each way, 4 ROM sync pair + Sync now, 5 Windows firewall Private-only (owner).
+  For the lead (Windows): review BD-019 incl. Gemini's renderer/app.js __lbrb change (affects
+  Linux too), decide on scripts/nightly/*.ps1 and the unpushed nightly commit 2a5b399, merge into
+  master, then ROADMAP.md (BD-011..018). Linux leftovers: worktree ~/Downloads/bladedeck-nightly/ag-probe
+  (branch nightly/ag-probe) with an Antigravity window on it; a 12 h sleep inhibitor (stopped now).
+
 - **2026-10-14, Claude (Windows): Shared games pool, fixing 88b1b22 (PC port sharing and storage map).**
   The owner chose to keep both features and fix them: games can be seen, but nothing is shared until it
   is moved into a pool. (1) ~/Games is no longer an always-allowed root. (2) xfer-prep-game takes a
@@ -111,7 +135,7 @@ Task IDs and cards: see TEAM.md (next free ID: BD-021 (BD-011..BD-018 are in ROA
 - **2026-10-14, Gemini (Windows):** Windows Storage Map improvements & test-copy safety.
   Storage map on Windows (`storage.js`, `renderer/storagemap.js`, `renderer/app.js`, `main.js`):
   - Multi-drive support on Windows: `storage.disks()` now discovers drives `D:\` through `Z:\` in addition to C:\ and homedir, enabling the storage bar and item scan to recognize Steam and ROM libraries on secondary disks.
-  - Safe session access: Added `fsaccess.allowForSession` for all scanned storage items so clicking "Show" opens files located outside default ROOT/GAMES folders without security denials.
+  - Safe session access: Added `fsaccess.allowForSession` for all scanned storage items (superseded the same night by the Shared games pool: the map unlocks nothing and Show goes by id) so clicking "Show" opens files located outside default ROOT/GAMES folders without security denials.
   - Storage Map controller & modal cleanup: `renderer/app.js` now enables `__lbrb` bumper cycling for any modal registering `root.__lbrb` (including Storage Map category filtering). Replaced raw `confirm()` with `confirmAsk()` for TV/controller friendliness. Replaced dummy `fsRevoke` with `api.captureDelete(p)` and hooked `api.onlineMediaClear()` for the cache cleanup action.
   - Test-copy safety: Added `xfer-pack-game` to `BLOCK` regex in `main.js` to prevent 7z game packaging from running in test copies during automated sweeps.
   - Verification: `npm run check` clean (119 files, 264 channels); `node scripts/sweep.js --empty` passed (50 items opened, 0 errors, 16 blocked calls). Branch: `gemini/2026-10-14-storage-debug`.
