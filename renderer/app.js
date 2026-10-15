@@ -349,6 +349,8 @@ function systemGroups() {
       { id: 'sys-ctl', title: 'Controls', sub: 'Every button and key', glyph: '⌨', run: openControls },
       { id: 'sys-guide', title: 'Guide', sub: 'Quick questions about a game, or Bladedeck (hold LT and pull)', glyph: '?', run: () => Guide.open('pad') },
       { id: 'sys-pip', title: 'Walkthrough window', sub: 'A small YouTube that floats over your game', glyph: '📺', run: () => walkthrough() }] },
+    { id: 'sys-update', title: 'Updates', sub: Updates.label(), glyph: '⟳', run: () => Updates.open() },
+    { id: 'sys-feedback', title: 'Feedback and ideas', sub: 'Tell the team what to fix or add', glyph: '✎', run: () => Feedback.open() },
     { id: 'sys-set', title: 'Settings', sub: 'Name, look, gaming software, controllers, accounts', glyph: '⚙', run: openSettings },
     { id: 'sys-backup', title: 'Backup and restore', sub: 'Every choice and place you set, saved and brought back', glyph: '💾', run: () => Backup.open() },
     { id: 'sys-pc', title: 'Switch to PC mode', sub: 'Windowed library manager', glyph: '▣', run: () => setMode('pc') },
@@ -1785,7 +1787,7 @@ function bindInput() {
   // Player 2's menu (multi-screen) is just a menu: the main one does the watching, music and network.
   if (Players.isP2()) { S.lib.settings.playerName = 'Player 2'; $('#who').textContent = 'Player 2'; Players.applySounds(); Guide.init(); Dock.draw(); Running.refresh(); return; }
   Dock.draw(); Guide.init(); Watch.start(); NetShare.init(); ensureEmuApps(); Tour.maybeOffer(); Running.refresh();
-  Friends.presence(); Players.applySounds(); Players.applyPad(); Extras.boot(); Roms.fixArgs();
+  Friends.presence(); Players.applySounds(); Players.applyPad(); Extras.boot(); Updates.boot(); Roms.fixArgs();
   api.onDownloads((list) => Downloads.update(list));
   // First run: go and find everything so the library is never empty.
   if (!S.lib.entries.length) setTimeout(findEverything, 600);

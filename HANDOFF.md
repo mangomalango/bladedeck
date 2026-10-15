@@ -8,7 +8,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-Task IDs and cards: see TEAM.md (next free ID: BD-025 (BD-011..BD-018 are in ROADMAP.md)).
+Task IDs and cards: see TEAM.md (next free ID: BD-027 (BD-011..BD-018 are in ROADMAP.md)).
 
 - **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
   .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
@@ -105,7 +105,24 @@ Task IDs and cards: see TEAM.md (next free ID: BD-025 (BD-011..BD-018 are in ROA
 - **From the owner (2026-10-15): Claude (Windows) is in charge; you take only the small cards written for you here,
   in your own worktree. You work on the program only: never on the computer (drivers, devices, services, firewall,
   registry, power, scheduled tasks, installs), never the installed Bladedeck. See TEAM.md, "Owner's rule".**
-  Your next card: BD-024 (audit BD-023). Nothing else until Claude (Windows) writes the next one.
+  Your next cards: BD-024 (audit BD-023), then BD-025. Nothing else until Claude (Windows) writes the next one.
+- **BD-025** · both · Gemini · Research only, no changes to any computer.
+  ```
+  [TASK]     BD-025 · the owner, away from home, can reach both PCs: see and use the desktop, play, and start
+             Bladedeck updates
+  [TARGET]   both (Windows 11 Home PC "micromango": Tailscale up at 100.64.194.64, Sunshine running; CachyOS
+             laptop "mangos": Tailscale at 100.114.178.97; phone: Pixel on the same tailnet)
+  [OWNER]    Gemini
+  [CONTRACT] none
+  [DO]       compare the ways that fit what is already installed: Moonlight to Sunshine over Tailscale (games and
+             desktop), Tailscale SSH (Linux), RustDesk / Chrome Remote Desktop (Windows 11 Home has no RDP host),
+             waking a sleeping PC from afar (Wake-on-LAN through a tailnet device), and what Bladedeck's own phone
+             app already does over Tailscale (companion.js). For each: what the owner taps, what is safe, what it
+             costs. Pick one setup to recommend and write the owner's steps in plain words.
+  [RULES]    research and writing only: install nothing, change no settings, open no ports, on any PC
+  [REPLY]    "BD-025 done" here with the recommendation; the full comparison in NIGHTLY-REVIEW-gemini.md on
+             gemini/<date>-bd025. Claude (Windows) reviews it before the owner acts on it.
+  ```
 - BD-003 complete, reviewed and merged by the lead (557049f). Next audit: what lands on master after it (`/bladedeck-audit`).
 - **BD-010** (done) · windows · Gemini · `/bladedeck-review` of the Windows-only code.
   Review complete, documented in `NIGHTLY-REVIEW-gemini.md`. Fixed `tasklist` windowsHide in `prewarmSteam` (`main.js:347`) and FFmpeg concat backslash normalization (`wincapture.js:180`). Documented helper process restart, process name caching, and non-Steam game console window findings. Branch: `gemini/2026-10-14-bd010`. Claude (Windows) verifies findings.
@@ -120,6 +137,26 @@ Task IDs and cards: see TEAM.md (next free ID: BD-025 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-15, Claude (Windows), lead: BD-026, System, Updates and System, Feedback and ideas (owner's ask).**
+  New: updater.js (update-info, update-check, update-install, event update-progress), feedback.js (feedback-add,
+  feedback-list, feedback-folder), renderer/updates.js (Updates and Feedback screens), scripts/buildinfo.js
+  (build-info.json: the commit a build is made from; run by npm run dist and CI). Updates: two channels, Releases
+  (GitHub's latest release) and Nightly (bladedeck-nightly); lists every commit between the installed build and the
+  new one (merges and housekeeping left out) plus release notes; Update downloads the release's .exe or .AppImage,
+  checks size and SHA-256, then the Windows installer runs silently and restarts Bladedeck, or the AppImage is
+  swapped in by rename and Bladedeck relaunches. Checked 40 s after start and every 6 h; a toast, a system
+  notification, and "Update ready" on the System item. Feedback: Fix or Idea, saved with the build (version,
+  commit, OS, PC) and where in Bladedeck, to ~/Bladedeck/Feedback/feedback.md; the assistants read it each round
+  (TEAM.md, step 1). Shared files: main.js (two registers; update-check/install blocked in test copies), preload.js,
+  renderer/app.js (two System items, Updates.boot), renderer/extras.js (its automatic update check moved to
+  Updates), renderer/index.html, renderer/style.css, package.json (files, dist runs buildinfo), CI (buildinfo step),
+  SPEC.md (written: 274 channels; the 7 new ones are intended). Tested: check, spec, update checks against GitHub
+  (old build on Nightly lists 8 fixes; head shows up to date; Release: v0.2.1 is older than 0.2.3-dev), the real
+  v0.2.1 installer downloaded and checksum-checked with the install step stubbed, and both screens plus a saved
+  feedback entry in a test copy. Not tested: a real install and restart (needs a newer release). Open: Nightly has
+  no download until CI publishes a "nightly" pre-release on each push to bladedeck-nightly; that is outward-facing,
+  so it waits for the owner's yes.
 
 - **2026-10-15, Claude (Windows), lead: the shared branch is now `bladedeck-nightly` (owner's call).** The code and
   builds cover Windows and Linux, so "windows-fixes" is retired: `bladedeck-nightly` starts where windows-fixes ended

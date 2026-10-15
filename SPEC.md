@@ -274,6 +274,13 @@ that list in main.js.
 | `onOpenFile(fn)` | `ready-for-files` | send | roms.js |
 | `extrasBackup()` | `extras-backup` | call | extras.js |
 | `extrasUpdate(repo)` | `extras-update` | call | extras.js |
+| `updateInfo()` | `update-info` | call | updater.js |
+| `updateCheck(o)` | `update-check` | call | updater.js |
+| `updateInstall()` | `update-install` | call | updater.js |
+| `onUpdateProgress(fn)` | `update-progress` | event | main process sends it |
+| `feedbackAdd(o)` | `feedback-add` | call | feedback.js |
+| `feedbackList()` | `feedback-list` | call | feedback.js |
+| `feedbackFolder()` | `feedback-folder` | call | feedback.js |
 | `padsClaim()` | `pads-claim` | call | players.js |
 | `dsStatus()` | `ds-status` | call | players.js |
 | `stadiaStatus()` | `stadia-status` | call | players.js |

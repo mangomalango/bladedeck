@@ -143,7 +143,7 @@ const Extras = (() => {
     if (!s.extrasSeen && (s.tourSeen || 0) > 0) setTimeout(() => { if (!S.modal) open(); }, 6000);
     if (s.backupWeekly && Date.now() - (s.lastBackup || 0) > 7 * DAY) setTimeout(() => backupNow(true), 60000);
     if (s.updateRepo === undefined) { s.updateRepo = 'mangomalango/bladedeck'; s.updateCheck = true; save(); }
-    if (s.updateRepo && s.updateCheck && Date.now() - (s.lastUpdateCheck || 0) > DAY) setTimeout(() => checkUpdate(false), 30000);
+    // The automatic check is System, Updates' job now (renderer/updates.js); this one is by hand only.
   }
 
   return { open, list, boot, backupNow, checkUpdate };

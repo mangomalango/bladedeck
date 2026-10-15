@@ -79,7 +79,9 @@ tasks) and a card. Whoever opens a task writes the card; Gemini writes most of t
 ## The debug loop
 
 1. **Find:** a test-copy sweep (`npm run test-copy`, DevTools on port 9333), Gemini's review, or
-   something the owner reports.
+   something the owner reports. **Read the owner's feedback first** at the start of each round:
+   `~/Bladedeck/Feedback/feedback.md` on each PC (written from System, Feedback and ideas). Turn each
+   "Status: new" entry into a task card, then change its line to "Status: BD-0xx" (or "done").
 2. **Claim** it in HANDOFF.md.
 3. **Fix** it on your branch, as small as it can be.
 4. **Check:** `npm run check`, then a test copy that shows the fix working.
