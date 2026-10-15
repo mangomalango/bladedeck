@@ -336,7 +336,7 @@ function prewarmSteam() {
   const lib = loadLib();
   if (lib.settings.prewarmSteam === false || !lib.entries.some((e) => e.type === 'steam')) return;
   if (process.platform === 'linux') {
-    require('child_process').execFile('pgrep', ['-x', 'steam'], (err) => {
+    require('child_process').execFile('pgrep', ['-x', 'steam'], { timeout: 5000 }, (err) => {
       if (!err) return; // already running
       const exe = onPath('steam');
       const flat = !exe && flatpakHas('com.valvesoftware.Steam');
@@ -344,10 +344,10 @@ function prewarmSteam() {
       try { const c = spawn(exe || onPath('flatpak') || '/usr/bin/flatpak', exe ? ['-silent'] : ['run', 'com.valvesoftware.Steam', '-silent'], { detached: true, stdio: 'ignore' }); c.on('error', () => {}); c.unref(); } catch { /* no Steam */ }
     });
   } else if (process.platform === 'win32') {
-    require('child_process').execFile('tasklist', ['/FI', 'IMAGENAME eq steam.exe', '/NH'], { windowsHide: true }, (err, out) => {
+    require('child_process').execFile('tasklist', ['/FI', 'IMAGENAME eq steam.exe', '/NH'], { timeout: 5000, windowsHide: true }, (err, out) => {
       if (err || /steam\.exe/i.test(String(out))) return;
       const pf = [process.env['ProgramFiles(x86)'], process.env.ProgramFiles].filter(Boolean).map((d) => path.join(d, 'Steam', 'steam.exe')).find((p) => fs.existsSync(p));
-      if (pf) try { const c = spawn(pf, ['-silent'], { detached: true, stdio: 'ignore' }); c.on('error', () => {}); c.unref(); } catch { /* no Steam */ }
+      if (pf) try { const c = spawn(pf, ['-silent'], { detached: true, stdio: 'ignore', windowsHide: true }); c.on('error', () => {}); c.unref(); } catch { /* no Steam */ }
     });
   }
 }
