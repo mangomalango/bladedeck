@@ -312,7 +312,7 @@ function systemGroups() {
     { id: 'sys-helphub', title: 'Confused? Start here', sub: 'Help: quick start, controls, guide, voice, browser, answers', glyph: '❓', run: () => Help.open() },
     { id: 'grp-lib', title: 'Games and library', sub: 'Add, scan, find art, get games, sources', glyph: '▦', children: [
       { id: 'sys-quick', title: 'Find everything', sub: 'Steam, GOG, Heroic, Moonlight and store launchers in one go', glyph: '✦', run: findEverything },
-      { id: 'sys-sort', title: 'Sort the game lists', sub: 'Now: ' + SORT_NAMES.find(([v]) => v === (S.lib.settings.consoleSort || 'auto'))[1] + '. Press to change (right stick click does it too)', glyph: '⇅', run: cycleConsoleSort },
+      { id: 'sys-sort', title: 'Sort the game lists', sub: 'Now: ' + SORT_NAMES.find(([v]) => v === (S.lib.settings.consoleSort || 'auto'))[1] + '. Press to change (a right stick click does it too)', glyph: '⇅', run: cycleConsoleSort },
       { id: 'sys-add', title: 'Add a game or app', sub: 'Pick a program, Steam ID or game file', glyph: '+', run: () => editEntry() },
       { id: 'sys-romfile', title: 'Open a game file', sub: 'Play any ROM or disc image right away, full screen', glyph: '💿', run: () => Roms.pickAndPlay() },
       { id: 'sys-get', title: 'Get games', sub: 'Free games, homebrew and emulators', glyph: '⬇', run: () => Shop.open() },
@@ -1303,7 +1303,7 @@ const CONTROLS = [
     ['Pop bubbles (Sky Bubbles theme)', '', 'click them']
   ]],
   ['Music', [
-    ['Play or pause', 'Right stick click in PC mode', 'M'],
+    ['Play or pause', 'Hold the right stick in (a click in PC mode)', 'M'],
     ['Sort the game lists (console mode)', 'Right stick click', 'O'],
     ['Previous or next song', 'tap LT / RT', '[ / ]'],
     ['Song list', '', 'the ☰ button, or System, Music']
@@ -1647,8 +1647,7 @@ function handleInput(a) {
   if (Running.handle(a)) return;
   if (Dock.handle(a)) return;
   if (NowPlaying.handle(a)) return;
-  // Right stick click: sorts the game lists on the console blades (owner's pick); music play/pause stays on M, the ☰ button and PC mode.
-  if (a === 'music') { if (S.mode === 'console' && !S.modal) cycleConsoleSort(); else Music.toggle(); return; }
+  if (a === 'music') { Music.toggle(); return; }
   if (a === 'help') { openControls(); return; }
   if (a === 'voice') { Voice.listen(); return; }
   if (a === 'pc') { openThisPc(); return; }
@@ -1736,7 +1735,7 @@ function bindInput() {
   // View + Menu together is the controller's Ctrl+M, and works while a game has focus too, so
   // View and Menu on their own act when let go, once it is clear they were not that pair.
   const prev = {}, rep = {}, prevStick = {}, stickLet = {}, stickBounce = {};
-  let paired = false, viewAt = 0, viewHeld = false;
+  let paired = false, viewAt = 0, viewHeld = false, r3At = 0, r3Held = false;
   (function poll(now) {
     requestAnimationFrame(poll);
     // Every controller this menu listens to (all of them, or in multi-screen just this player's).
@@ -1760,7 +1759,7 @@ function bindInput() {
     Object.assign(prevStick, stick);
     const sd = (d) => stick[d] && !stickBounce[d];
     const st = { up: b(12) || sd('up'), down: b(13) || sd('down'), left: b(14) || sd('left'), right: b(15) || sd('right'),
-      a: b(0), b: b(1), x: b(2), y: b(3), lb: b(4), rb: b(5), lt: b(6), rt: b(7), back: b(8), start: b(9), ach: b(10), music: b(11), vol: b(16) };
+      a: b(0), b: b(1), x: b(2), y: b(3), lb: b(4), rb: b(5), lt: b(6), rt: b(7), back: b(8), start: b(9), ach: b(10), r3: b(11), vol: b(16) };
     // In multi-screen it is this player's own: pause the game and show their menu, or go back.
     if (st.back && st.start && !paired) { paired = true; if (Players.on()) Players.toggleMenu(); else if (viewStartPeek()) api.peekToggle(); }
     // View + Y: the walkthrough window. View + X: record. View + RB: save the last moments. In games too.
@@ -1793,6 +1792,13 @@ function bindInput() {
       else if ((k === 'y' || k === 'x' || k === 'rb' || k === 'lb') && st.back) { /* View + Y / X / RB / LB are chords */ }
       else if (k === 'lt' || k === 'rt') { if (!st[k] && prev[k] && (!Guide.isTrigger(k) || Guide.tapped())) { Secrets.bump(); handle(k); } }
       else if (k === 'back' && st.back && !paired && !viewHeld && viewAt && now - viewAt > 550) { viewHeld = true; handle('resume'); }
+      /* Right stick: a click sorts the game lists in console mode (owner's pick), held half a second it plays or
+         pauses the music; a click in PC mode or over a dialog is play/pause as before. */
+      else if (k === 'r3') {
+        if (st.r3 && !prev.r3) { r3At = now; r3Held = false; }
+        else if (st.r3 && !r3Held && now - r3At > 550) { r3Held = true; Secrets.bump(); handle('music'); }
+        else if (!st.r3 && prev.r3 && !r3Held) { Secrets.bump(); handle(S.mode === 'console' && !S.modal ? 'sort' : 'music'); }
+      }
       else if (k === 'back' || k === 'start') { if (!st[k] && prev[k] && !paired && !(k === 'back' && viewHeld)) { Secrets.bump(); handle(k); } }
       else if (st[k] && !prev[k]) { Secrets.bump(); handle(k); rep[k] = now + 420; }
       else if (st[k] && dir && now > rep[k]) { handle(k); rep[k] = now + 90; }

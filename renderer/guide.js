@@ -23,7 +23,7 @@ const GUIDE_TIPS = [
   ['Get cover art', 'art artwork cover picture background logo steamgriddb', 'Edit a game (Y) and choose Artwork. Steam games get Steam\'s own art for free. Add a SteamGridDB key in Settings, Accounts for art for anything, then System, Find missing art fills in your whole library.'],
   ['Achievements', 'retroachievements achievements trophies emulator', 'Add your RetroAchievements name and web API key in Settings, Accounts. Emulated games then show your progress; press R or click the left stick to see the list.'],
   ['Games start slowly', 'slow start stutter shader compile cache faster loading', 'Bladedeck starts Steam quietly when it opens, so Steam games skip Steam\'s own start-up. In Steam, Settings, Downloads, turn on Shader Pre-Caching and "Allow background processing of Vulkan shaders" so shaders build while you\'re away.'],
-  ['Music', 'music song play pause skip', 'M or a right-stick click plays and pauses. Tap LT or RT to skip. Pick the folder in Settings.'],
+  ['Music', 'music song play pause skip', 'M, or holding the right stick in, plays and pauses (a right-stick click sorts the game lists). Tap LT or RT to skip. Pick the folder in Settings.'],
   ['Change the menu letters and icons', 'font letters icons tabs size look menus', 'System, Look and menus. Pick a font, capitals or small capitals, the size, and whether blade tabs show names, icons, or both.'],
   ['Add a game', 'add game library steam gog emulator rom', 'Drop a game, shortcut or ROM on the window, or use Add in PC mode. Steam and GOG games are found by the buttons in PC mode.'],
   ['Favorites', 'favorite star', 'Press X on a game to star it. Starred games have their own blade.']

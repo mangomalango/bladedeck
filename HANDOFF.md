@@ -190,6 +190,14 @@ Task IDs and cards: see TEAM.md (next free ID: BD-032 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15, Claude (Windows), lead: music play/pause is now HOLD the right stick in (owner: keep sort on the right
+  stick, put music somewhere more comfortable).** Console mode: right stick click = sort the game lists; holding it in
+  half a second = play/pause (fires once while held, nothing on let-go). PC mode and over a dialog: a click is play/pause
+  as before. Also fixed: keyboard M sorted instead of playing music in console mode since bcee3bb (the pad and M shared
+  the "music" action; the pad now sends its own "r3"). Controls list, Guide and tour updated. Tested in a test copy with
+  a fake controller through Players.pads(): click sorted, hold toggled music once, M toggled music, a PC-mode click
+  toggled music. check (129 files, 276 channels) and sweep (54 items, no errors) pass. Not tested: a real controller.
+
 - **2026-10-15, Claude (Windows), lead: helper fix + Organize + right-stick sort merged into bladedeck-nightly; Gemini's
   results recorded.** Fast-forwarded nightly to claude/bladedeck-helpers-termination-pwivp1 (bcee3bb: right stick click
   sorts the game lists in console mode, M / ☰ / PC mode keep music play/pause). Gemini: BD-024 PASS, BD-029 PASS, BD-025
