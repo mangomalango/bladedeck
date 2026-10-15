@@ -160,6 +160,14 @@ Task IDs and cards: see TEAM.md (next free ID: BD-029 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15, Claude (Linux): Windows helpers now stop when Bladedeck quits or crashes.** winlist.js, winaudio.js and
+  the loopback sound helper already end on stdin/pipe close. winpad.js (controller) never read stdin, so it now
+  watches the Bladedeck process and exits when it is gone. wincapture.js: ffmpeg only quits on "q", so a small
+  PowerShell watcher per capture kills it once Bladedeck is gone (and ends when ffmpeg does). `npm run check` passes.
+  NOT tested on Windows (written on Linux): on a Windows test copy, start a recording, kill Bladedeck from Task
+  Manager, and confirm powershell (pad) and ffmpeg are gone within ~1 s. A killed mp4 recording is unfinished
+  (no moov); the replay ring's .mkv pieces stay playable.
+
 - **2026-10-15, Claude (Windows), lead: BD-028 round 1 + review fixes (owner's go).** Look: a soft glass orb at the bottom (the
   sender's picture inside); a plip on arrival and a faint rising tone while it floats up; it opens into a header across
   the top (left, not centred) with the sender's picture, name and up to 3 lines, and only the header's own background is

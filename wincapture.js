@@ -80,6 +80,12 @@ function helper(dir) {
   fs.writeFileSync(helperFile, PS1('if ($args[0] -eq "fmt") { [Console]::Out.WriteLine([BDLoop]::Format()) } else { [BDLoop]::Run() }'));
   return helperFile;
 }
+/* ffmpeg lives on if Bladedeck crashes (it only quits on "q"), so a small watcher kills it once Bladedeck
+   is gone. It ends by itself when ffmpeg does. The sound helper needs none: it dies on the broken pipe. */
+function watchdog(pid) {
+  const code = `$f=Get-Process -Id ${pid | 0} -ErrorAction SilentlyContinue; $b=Get-Process -Id ${process.pid | 0} -ErrorAction SilentlyContinue; if(!$f -or !$b){ if($f){$f.Kill()}; exit }; while(!$f.HasExited -and !$b.HasExited){ Start-Sleep -Milliseconds 500 }; if(!$f.HasExited){ $f.Kill() }`;
+  try { const w = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', code], { stdio: 'ignore', windowsHide: true }); w.on('error', () => {}); return w; } catch { return null; }
+}
 const ps = (args, opts) => spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', helperFile, ...args], { windowsHide: true, ...opts });
 
 // ffmpeg from the PATH, or where winget puts Gyan's build.
@@ -158,6 +164,8 @@ async function start({ dir, out, ring, fps = 60 }) {
   const proc = spawn(ff, args, { stdio: ['pipe', 'ignore', 'pipe'], windowsHide: true });
   let errText = ''; proc.stderr.on('data', (d) => { errText = (errText + d).slice(-2000); });
   proc.on('error', () => {});
+  const dog = proc.pid ? watchdog(proc.pid) : null;
+  proc.on('exit', () => { if (dog) try { dog.kill(); } catch { /* gone */ } });
   const stop = () => new Promise((res) => {
     if (proc.exitCode !== null) { cleanup(); return res(); }
     proc.once('exit', () => { cleanup(); res(); });

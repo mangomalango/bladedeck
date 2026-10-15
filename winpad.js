@@ -7,7 +7,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const PS1 = `
+const PS1 = (parent) => `
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
@@ -27,8 +27,11 @@ public static class BDPad {
   }
 }
 '@
+# Stop when Bladedeck is gone (a quit or a crash): this helper never reads its stdin, so it watches the process.
+$parent = $null; try { $parent = [System.Diagnostics.Process]::GetProcessById(${parent}) } catch { exit }
 $was = $false; $wasY = $false; $wasX = $false; $wasRb = $false
 while ($true) {
+  if ($parent.HasExited) { break }
   $b = [BDPad]::Buttons()
   # BACK is 0x20, START is 0x10, Y is 0x8000.
   $now = (($b -band 0x30) -eq 0x30)
@@ -55,7 +58,7 @@ function start(dir, onChord, onPip = () => {}) {
   // time (2 s up to a minute), so View + Menu and the recording combos keep working.
   again = () => start(dir, onChord, onPip);
   const file = path.join(dir, 'bladedeck-pad.ps1');
-  try { fs.writeFileSync(file, PS1); } catch { return; }
+  try { fs.writeFileSync(file, PS1(process.pid)); } catch { return; }
   proc = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', file], { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
   proc.stdout.setEncoding('utf8');
   proc.stdout.on('data', (d) => { if (/chord/.test(d)) onChord(); for (const k of ['pip', 'rec', 'clip']) if (new RegExp(k).test(d)) onPip(k); });
