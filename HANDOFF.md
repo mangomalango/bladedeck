@@ -8,7 +8,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-Task IDs and cards: see TEAM.md (next free ID: BD-029 (BD-011..BD-018 are in ROADMAP.md)).
+Task IDs and cards: see TEAM.md (next free ID: BD-030 (BD-011..BD-018 are in ROADMAP.md)).
 
 - **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
   .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
@@ -102,6 +102,22 @@ Task IDs and cards: see TEAM.md (next free ID: BD-029 (BD-011..BD-018 are in ROA
   [REPLY]    "BD-024 audit: PASS" or "DRIFT (<what>)" here in HANDOFF.md, details in NIGHTLY-REVIEW-gemini.md
   ```
 ### For Gemini (in Antigravity)
+- **BD-029** · windows · Gemini · Review only: Windows helpers stop when Bladedeck quits or crashes.
+  ```
+  [TASK]     BD-029 · review the helper-termination change (winpad.js, wincapture.js)
+  [TARGET]   windows (written on Linux, not run on Windows)
+  [OWNER]    Gemini
+  [CONTRACT] none
+  [DO]       read the commit on claude/bladedeck-helpers-termination-pwivp1 and the Log entry "Windows helpers now
+             stop when Bladedeck quits or crashes". winpad.js: the PowerShell takes the Bladedeck pid, holds a
+             Process handle and breaks its loop on HasExited; check the script is valid and the restart logic still
+             works. wincapture.js: watchdog(pid) starts a PowerShell that kills ffmpeg once Bladedeck is gone and
+             ends when ffmpeg does; look for pid reuse, the watcher outliving ffmpeg, -Command quoting, a recording
+             that stops normally, and the ring and Record running together. Run `npm run check`.
+  [RULES]    TEAM.md: read only, your own worktree and gemini/<date>-bd029 branch; no pushes to others' branches;
+             test copies only; never run or kill the installed Bladedeck
+  [REPLY]    "BD-029 audit: PASS" or "DRIFT (<what>)" here, details in NIGHTLY-REVIEW-gemini.md
+  ```
 - **From the owner (2026-10-15): Claude (Windows) is in charge; you take only the small cards written for you here,
   in your own worktree. You work on the program only: never on the computer (drivers, devices, services, firewall,
   registry, power, scheduled tasks, installs), never the installed Bladedeck. See TEAM.md, "Owner's rule".**
