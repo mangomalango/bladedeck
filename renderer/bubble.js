@@ -11,7 +11,7 @@
    badge fills (owner's pick; LB because the right stick is a game's camera, and a plain in-game push
    must never send one). A flick never sends, and a stick already pushed when the choice opened has to
    come back to the middle first. With replies on offer, LB pauses when let go without one. The bubble sends only the phrase's number; phonemsg.js holds the words. */
-const tray = document.getElementById('tray'), choose = document.getElementById('choose'), rp = document.getElementById('rp');
+const tray = document.getElementById('tray'), choose = document.getElementById('choose'), rp = document.getElementById('rp'), bar = choose.querySelector('.bar');
 const FILL_MS = 900, FADE_MS = 15000, CHOOSE_MS = 4000, TOP = 24, REPLY_HOLD_MS = 550;
 // The reply directions on the right stick, in the order of the phrases (phonemsg.js REPLIES).
 const DIRS = ['rup', 'rdown', 'rright', 'rleft'], DIR_LABEL = ['↑', '↓', '→', '←'];
@@ -191,6 +191,8 @@ function frame(now) {
       lbWas = st.lb;
     }
     if (choosing && choosing.msg.replies && !sending) replies(st, dt);
+    // The bar shows the time really left: a reply being held keeps the choice open.
+    if (choosing) bar.style.transform = `scaleX(${Math.max(0, Math.min(1, (choosing.until - Date.now()) / CHOOSE_MS)).toFixed(3)})`;
     if (choosing && Date.now() > choosing.until) endChoice('keep');
   } else if (!combo) needRelease = false;
   if (live.length || choosing) requestAnimationFrame(frame); else running = false;
