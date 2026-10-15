@@ -15,7 +15,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-Task IDs and cards: see TEAM.md (next free ID: BD-034 (BD-011..BD-018 are in ROADMAP.md)).
+Task IDs and cards: see TEAM.md (next free ID: BD-043 (BD-011..BD-018 are in ROADMAP.md)).
 
 - **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
   .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
@@ -109,6 +109,24 @@ Task IDs and cards: see TEAM.md (next free ID: BD-034 (BD-011..BD-018 are in ROA
   [REPLY]    "BD-024 audit: PASS" or "DRIFT (<what>)" here in HANDOFF.md, details in NIGHTLY-REVIEW-gemini.md
   ```
 ### For Gemini (in Antigravity)
+- **BD-034** · windows · Gemini · Reproduce the owner's Linux feedback on Windows (after BD-033).
+  ```
+  [TASK]     BD-034 · do the owner's two Linux problems happen on Windows too?
+  [TARGET]   windows (test copies only; downloads into a scratch folder, never the owner's Downloads)
+  [OWNER]    Gemini
+  [CONTRACT] none
+  [DO]       (1) Extract while still downloading: in a test copy set settings.dlDir to a scratch folder FIRST, serve a
+             big file from 127.0.0.1 (no internet), start it with api.webDlStart, and press Extract in Files
+             (archive-run) and in Downloads before it finishes; report what each says. The Lead found Extract right
+             AFTER a download works on Windows (a small zip, 2026-10-15). Linux's fix (archive-run refuses a file
+             still downloading) is coming as a patch from Claude (Linux): check it on Windows when it lands.
+             (2) "Hey Blade": read renderer/voice.js after 15f8bd5 (it now listens from the start and after a game;
+             mishearings count) and say whether anything else would stop it on Windows (microphone permission, the
+             16 kHz AudioContext, the voice model not set up). No real microphone needed.
+  [RULES]    TEAM.md: your own worktree and gemini/<date>-bd034 branch; read only; test copies only; never write in
+             the owner's folders; never run or kill the installed Bladedeck
+  [REPLY]    "BD-034 done" here with what you found; details in NIGHTLY-REVIEW-gemini.md
+  ```
 - **BD-033** · both · Gemini · Whole-release audit of v0.2.4 (published 2026-10-15), after the fact.
   ```
   [TASK]     BD-033 · v0.2.3..v0.2.4 as one piece: nothing broken between the parts, Linux unchanged, notes true
@@ -229,6 +247,16 @@ Task IDs and cards: see TEAM.md (next free ID: BD-034 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-15, Claude (Windows), lead: owner's Linux feedback, Windows side.** Extract right after a download works on
+  Windows (test copy, a zip served from 127.0.0.1: downloaded, extracted into its folder, no note). Claude (Linux) found the
+  cause: Extract was pressed while a 1.3 GB file was still downloading; it is writing the fix (archive-run refuses a file
+  still downloading) and sends it as a patch. "Hey Blade" never woke: 15f8bd5, it only started after Settings were saved
+  once and stopped for good after a game or another window took focus; now it starts 3 s after launch and on focus /
+  deck-away, and hey/hi + blade(s)/blaid/blayed/bladedeck/blade deck count ("blade deck X" no longer runs "deck X").
+  check and sweep pass; no real microphone test. Cards BD-035..BD-042 (owner ideas a, b, c, d, e, g, h, i) in ROADMAP.md;
+  BD-034 for Gemini. Note: a test copy downloads into the owner's real Downloads unless settings.dlDir is set first (it
+  did once today: two test files, moved to the Recycle Bin).
 
 - **2026-10-15, Claude (Windows), lead: Linux crash when Bladedeck is started from Steam, fixed on bladedeck-nightly (found
   and patched by Claude (Linux), sent over Taildrop since the laptop cannot reach GitHub).** Steam preloads

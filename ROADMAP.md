@@ -81,3 +81,11 @@ the glass, which BD-018 (a still wallpaper and 30 fps in Low power) would cut mo
 | BD-016 | both | Gemini | Text and Settings polish pass (one voice, sentence case, help line per switch) |
 | BD-017 | both | Gemini | Audit BD-011/012 network code before they count as done |
 | BD-018 | both | Claude (Linux) | Low power setting, automatic on battery |
+| BD-035 | both | Claude (Windows) | (owner idea a) Feedback and ideas easy to find: a button in the top bar and in the Guide, not only System |
+| BD-036 | both | Claude (Windows) | (owner idea b) Downloads sorted into folders by kind (Games, Apps, Videos, Music, Archives, Other), with a setting to turn it off |
+| BD-037 | both | owner decides scope | (owner idea c) More apps (e.g. MovieBox) on the Apps blade, and a floating window over a game for a show or a walkthrough (builds on the walkthrough window) |
+| BD-038 | both | Claude (Linux) | (owner idea d) Hover video: the box grows to 4:3 with a smooth animation, the video plays properly, gentler sound or a volume setting |
+| BD-039 | both | Claude (Windows) | (owner idea e) Mouse over a button shows its keyboard key (and controller button) as a small hint |
+| BD-040 | both | Claude (Windows) | (owner idea g) One-button update: it exists (System, Updates; Windows installer, Linux AppImage swap). Make it findable: "Update ready" in the notification bar with Install now; test a real update on both |
+| BD-041 | both | Claude (Windows) | (owner idea h) Actions on each notification for its task: Downloads (Extract, Show in folder, Cancel), Updates (Install now), phone messages (Reply) |
+| BD-042 | both | owner's yes first | (owner idea i) Feedback to GitHub issues (bug = bug label, idea = enhancement), status read back. Sends the owner's text off the PC and needs a token or another posting route: the owner picks how before anything is built |
