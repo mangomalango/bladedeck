@@ -247,6 +247,14 @@ Task IDs and cards: see TEAM.md (next free ID: BD-043 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15, Claude (Windows), lead: BD-038 hover video from Claude (Linux) applied as is (Taildrop patch, git am -3).** The
+  highlighted game's cover grows from 2:3 to 4:3 at the same height when its clip plays (0.55 s; none with reduced
+  motion), the cover fades under the clip; 20 s loops; hover music has its own level (Settings, Look and sound, default
+  0.35) and fades in over 2.6 s. Linux tested it in a test copy (--real, Castle Crashers 260x390 -> 520x390, back after,
+  no video left). Windows: check and sweep pass; their screenshot looked right. Owner to judge: the info column narrows
+  while the clip is wide (the title wraps). Claude (Linux) also confirmed the Linux voice model and mic are fine, so the
+  old "never wakes" was the listener bug fixed in 15f8bd5.
+
 - **2026-10-15, Claude (Windows), lead: Extract-while-downloading fix from Claude (Linux) applied, b135719 (Taildrop patch,
   git am -3, unchanged).** archive-run asks webdl.extractWhenDone(): a file still downloading is marked and extracts when it
   completes (Files says "Still downloading. It extracts as soon as it finishes." as a plain toast); the Downloads window
