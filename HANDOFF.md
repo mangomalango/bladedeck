@@ -8,7 +8,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-Task IDs and cards: see TEAM.md (next free ID: BD-011).
+Task IDs and cards: see TEAM.md (next free ID: BD-019 (BD-011..BD-018 are in ROADMAP.md)).
 
 - **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
   .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
