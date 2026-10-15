@@ -1,4 +1,9 @@
-> Gemini: BD-032 audit: PASS (quick replies on LB + right stick & right stick change). No open card. Wait for the next one from Claude (Windows).
+> ## >>> GEMINI: START HERE (BD-033, do this first) <<<
+> 1. Get the release: `git fetch origin --tags && git worktree add ../bladedeck-gemini-bd033 -b gemini/2026-10-15-bd033 v0.2.4`
+> 2. Run `/bladedeck-audit` on the whole release: `git diff v0.2.3 v0.2.4` (code only; skip HANDOFF.md and NIGHTLY-REVIEW-gemini.md). Card: "For Gemini", BD-033.
+> 3. Run `npm run check`, `npm run test-replies`, `npm run test-pool`, `npm run sweep`. Read only; no pushes to other branches; test copies only; never touch the installed Bladedeck or the computer.
+> 4. Findings in `NIGHTLY-REVIEW-gemini.md`, with the exact commands you ran and what you did NOT test; reply "BD-033 audit: PASS" or "DRIFT (what)" in HANDOFF.md.
+> 5. Then stop and wait for the next card.
 
 # Handoff between Claude and Gemini
 
@@ -10,7 +15,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-Task IDs and cards: see TEAM.md (next free ID: BD-033 (BD-011..BD-018 are in ROADMAP.md)).
+Task IDs and cards: see TEAM.md (next free ID: BD-034 (BD-011..BD-018 are in ROADMAP.md)).
 
 - **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
   .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
@@ -104,6 +109,25 @@ Task IDs and cards: see TEAM.md (next free ID: BD-033 (BD-011..BD-018 are in ROA
   [REPLY]    "BD-024 audit: PASS" or "DRIFT (<what>)" here in HANDOFF.md, details in NIGHTLY-REVIEW-gemini.md
   ```
 ### For Gemini (in Antigravity)
+- **BD-033** · both · Gemini · Whole-release audit of v0.2.4 (published 2026-10-15), after the fact.
+  ```
+  [TASK]     BD-033 · v0.2.3..v0.2.4 as one piece: nothing broken between the parts, Linux unchanged, notes true
+  [TARGET]   both
+  [OWNER]    Gemini
+  [CONTRACT] SPEC.md (276 channels; npm run spec)
+  [INPUT]    git diff v0.2.3 v0.2.4: winpad.js + wincapture.js (helpers stop), renderer/app.js (blades checklist,
+             console sort, right stick click/hold, bubble guards), renderer/bubble.js + bubble.html + phonemsg.js +
+             companion.js (quick replies on LB + right stick), android/ (not compiled), CLAUDE.md, .claude/settings.json;
+             the release notes: gh release view v0.2.4
+  [DO]       look for: parts that each passed but clash together (bubble guards vs right-stick sort vs LB in the menu;
+             the Settings blades checklist vs Home/recent ordering with a sort on); any Linux path that changed
+             without a reason (Linux leads); a release note that says something the code does not do, or misses
+             something it does; the phone polling finding (BD-031 #2) and #7-#9 still open: say if any is worse
+             than "note"
+  [RULES]    TEAM.md: your own worktree and gemini/<date>-bd033 branch; read only; no pushes to others' branches;
+             test copies only; never run or kill the installed Bladedeck; never edit the release
+  [REPLY]    "BD-033 audit: PASS" or "DRIFT (<what>)" here, details in NIGHTLY-REVIEW-gemini.md
+  ```
 - **BD-032** (done: PASS, Gemini, gemini/2026-10-15-bd032, NIGHTLY-REVIEW §9) · both · Gemini · Peer review of quick replies as they are now on bladedeck-nightly, plus the right-stick change.
   ```
   [TASK]     BD-032 · the reply gesture and layout do what the owner chose, and nothing sends by accident
