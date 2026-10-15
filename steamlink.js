@@ -82,8 +82,8 @@ function shortcutFiles() {
   return out;
 }
 const steamRunning = () => new Promise((res) => {
-  if (win) execFile('tasklist', ['/FI', 'IMAGENAME eq steam.exe', '/NH'], { windowsHide: true }, (err, out) => res(!err && /steam\.exe/i.test(String(out))));
-  else execFile('pgrep', ['-x', 'steam'], (err) => res(!err));
+  if (win) execFile('tasklist', ['/FI', 'IMAGENAME eq steam.exe', '/NH'], { timeout: 5000, windowsHide: true }, (err, out) => res(!err && /steam\.exe/i.test(String(out))));
+  else execFile('pgrep', ['-x', 'steam'], { timeout: 5000 }, (err) => res(!err));
 });
 
 /* -------------------------------------------------------------- ids */
@@ -226,13 +226,13 @@ function steamCmd(args) {
 async function restartAndSync() {
   const c = steamCmd(['-shutdown']); if (!c) return { ok: false, error: 'Steam was not found.' };
   if (await steamRunning()) {
-    const k = spawn(c[0], c[1], { detached: true, stdio: 'ignore' }); k.on('error', () => {}); k.unref();
+    const k = spawn(c[0], c[1], { detached: true, stdio: 'ignore', windowsHide: true }); k.on('error', () => {}); k.unref();
     const t0 = Date.now();
     while (await steamRunning()) { if (Date.now() - t0 > 60000) return { ok: false, error: 'Steam did not close. Close it from its menu (Steam, Exit) and try again.' }; await new Promise((r) => setTimeout(r, 1500)); }
     await new Promise((r) => setTimeout(r, 1500)); // its last write of the file
   }
   const r = await sync({ force: true });
-  const s = steamCmd(['-silent']); if (s) { const k = spawn(s[0], s[1], { detached: true, stdio: 'ignore' }); k.on('error', () => {}); k.unref(); }
+  const s = steamCmd(['-silent']); if (s) { const k = spawn(s[0], s[1], { detached: true, stdio: 'ignore', windowsHide: true }); k.on('error', () => {}); k.unref(); }
   return r;
 }
 
