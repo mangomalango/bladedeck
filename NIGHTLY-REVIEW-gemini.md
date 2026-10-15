@@ -49,7 +49,45 @@ Audited `renderer/warp.js`, `renderer/style.css`, and `renderer/app.js`:
 
 ---
 
+## 4. BD-024: Audit of BD-023 Windows Helper Resilience & Process Isolation
+**Result: PASS (no regressions, Linux parity intact)**
+
+Audited commit `2d6a264` (`winlist.js`, `winpad.js`, `procs.js`, `main.js`, `steamlink.js`):
+
+1. **`winlist.js` (Helper Restart & Process Names):**
+   - **Process Name Refresh:** `names.Clear()` in `BDWin.List()` ensures that recycled Windows process IDs never display the previous process's title.
+   - **Restart Rate Limiting:** `ask()` throttles respawns to at most once per 10 s (`Date.now() - restartAt > 10000`). If PowerShell cannot start, it will not spin or spike the CPU.
+   - **`known = null` Evaluation:** Clearing `known = null` upon helper restart safely prevents false `opened` events from firing for all open windows on the desktop. On the initial poll after restart, `if (known)` evaluates to false, establishing the baseline window set without emitting false notifications.
+   - *Note on EPIPE:* If PowerShell dies right as `stdin.write` executes, an unhandled error could be raised without `proc.stdin.on('error', () => {})` (handled in Claude's nightly pass).
+
+2. **`winpad.js` (Gamepad Helper Restart & Backoff):**
+   - **Exponential Backoff:** If the helper exits, restarts back off from 2 s doubling up to 60 s (`Math.min(60000, 2000 * 2 ** tries++)`). If alive for > 60 s, `tries` resets.
+   - **Race Condition Prevention:** `const me = proc; if (proc !== me) return;` cleanly guards against duplicate triggers between `exit` and `error`.
+   - **Clean Teardown:** `stop()` sets `again = null` and terminates the process, neutralizing scheduled timers.
+
+3. **`procs.js` (Manifest Cache & Process Affinity):**
+   - **Installdir Cache:** `steamInstallDirs()` caches the library folder and manifest map for 30 s (`Date.now() - dirsAt < 30000`), eliminating repetitive disk reads during rapid window checks.
+   - **Windows One-Core Affinity:** `oneCoreWin(pid)` sanitizes input via unary `+pid` (preventing command injection), runs with `windowsHide: true`, times out after 8 s, and delays 1500 ms to allow launcher stubs to hand off before pinning the process to core 0 (`ProcessorAffinity = 1`).
+
+4. **`main.js` (Platform Isolation):**
+   - Windows games launched with `entry.oneCore` trigger `oneCoreWin(pid)`.
+   - Shader disk cache environment variables (`SHADER_ENV`) are disabled on `win32` (`settings && settings.shaderCache === false || process.platform === 'win32' ? {} : SHADER_ENV`), ensuring no extraneous Linux-specific Mesa/DXVK environment variables are injected on Windows.
+
+5. **`steamlink.js` (VBScript Runner & Console Window Removal):**
+   - **Console Window Elimination:** Non-Steam games with custom environments run via `wscript.exe //B //Nologo` rather than a `.cmd` batch file. Because `wscript.exe` is a GUI subsystem binary, no black console window appears.
+   - **Process Lifetime Tracking:** `sh.Run "...", 1, True` passes `True` for `bWaitOnReturn`, causing `wscript.exe` to block until the game process exits. Steam accurately tracks game playtime and closes the session upon game exit.
+   - **String Quoting:** `vq(s)` escapes double quotes (`""`) and flattens newlines to spaces, correctly escaping VBScript string literals. Combined with `wq` argument quoting, paths containing spaces, quotes, and symbols are safely passed.
+   - **Cleanup:** Obsolete `.cmd` files are removed with `fs.rmSync`.
+
+6. **Linux Parity & Check Status:**
+   - Linux code path in `main.js`, `procs.js`, and `steamlink.js` is 100% untouched.
+   - `npm run check`: **All 128 files pass, 276 channels answered**.
+   - `npm run test-pool`: **20/20 security assertions pass**.
+
+---
+
 ## Summary
-- `npm run check`: **All 121 files pass, 267 channels answered**.
+- `npm run check`: **All 128 files pass, 276 channels answered**.
 - `npm run test-pool`: **20/20 security assertions pass**.
-- Branch ready for Claude (Windows) lead review: `gemini/2026-10-15-bd020`.
+- Branch: `gemini/2026-10-15-bd024`.
+

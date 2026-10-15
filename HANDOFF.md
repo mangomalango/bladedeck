@@ -83,24 +83,9 @@ Task IDs and cards: see TEAM.md (next free ID: BD-029 (BD-011..BD-018 are in ROA
   helpers restart after dying; winlist name cache cleared each list (pid reuse); no lingering console window for
   Steam-launched games with their own environment (hidden wscript runner; Mesa/DXVK shader env not set on Windows);
   "one core" on Windows (processor affinity); procs.steamInstallDirs cached. Audit: Gemini (BD-024).
-- **BD-024** · windows · Gemini · Audit BD-023 on windows-fixes.
-  ```
-  [TASK]     BD-024 · BD-023's five fixes do what BD-010 asked, and nothing else changed
-  [TARGET]   windows (main.js and steamlink.js are shared: Linux must behave exactly as before)
-  [OWNER]    Gemini
-  [CONTRACT] none (no channel or library key changed; npm run spec: 267 channels OK)
-  [INPUT]    winlist.js (names.Clear in List; ask() restarts startWin at most every 10 s; stop() ends it),
-             winpad.js (restart after exit, 2 s doubling to 60 s; stop() cancels), procs.js (steamInstallDirs
-             cached 30 s; oneCoreWin sets ProcessorAffinity = 1 after 1.5 s), main.js (oneCoreWin after spawn on
-             win32; SHADER_ENV not set on win32), steamlink.js (Windows games with their own environment: a .vbs
-             run by wscript //B instead of a .cmd; the old .cmd is removed)
-  [DO]       /bladedeck-review on those hunks. Look for: a restart loop when PowerShell cannot start at all, a
-             known=null reset firing false "opened" events, a .vbs quoting hole (quotes, %, & in paths or values),
-             Steam tracking the game through wscript (does the session end when the game closes?), any Linux change
-  [RULES]    TEAM.md: your own worktree and gemini/<date>-bd024 branch; read only on windows-fixes; no pushes to
-             others' branches; test copies only
-  [REPLY]    "BD-024 audit: PASS" or "DRIFT (<what>)" here in HANDOFF.md, details in NIGHTLY-REVIEW-gemini.md
-  ```
+- **BD-024** (done: PASS) · windows · Gemini · Audit BD-023 on windows-fixes / bladedeck-nightly.
+  All five fixes verified: winlist process name cache clearing prevents stale process titles; winlist restart throttled to 10s and known=null prevents false opened events; winpad exponential backoff prevents CPU spinning; procs manifest cache saves synchronous disk I/O; oneCoreWin sanitizes PID and hides window; steamlink .vbs runner eliminates persistent console window and blocks until game exit so Steam tracks playtime; SHADER_ENV disabled on Windows; Linux parity 100% intact. Branch: `gemini/2026-10-15-bd024`. Full report in `NIGHTLY-REVIEW-gemini.md`.
+
 ### For Gemini (in Antigravity)
 - **From the owner (2026-10-15): Claude (Windows) is in charge; you take only the small cards written for you here,
   in your own worktree. You work on the program only: never on the computer (drivers, devices, services, firewall,
@@ -159,6 +144,19 @@ Task IDs and cards: see TEAM.md (next free ID: BD-029 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-15, Gemini (in Antigravity): BD-024 audit: PASS.** Audited BD-023 (commit 2d6a264) in worktree
+  `bladedeck-gemini` on branch `gemini/2026-10-15-bd024`. Verified: (1) `winlist.js` `names.Clear()` clears process name
+  cache on every `List()` call to prevent recycled PIDs from showing stale titles; `ask()` throttles restarts to once
+  per 10 s; resetting `known = null` upon helper restart prevents false `opened` events from firing on existing desktop
+  windows; (2) `winpad.js` restarts with exponential backoff (2 s doubling to 60 s) preventing CPU spinning if PowerShell
+  cannot start; (3) `procs.js` caches `steamInstallDirs` for 30 s avoiding repeated manifest file reads; `oneCoreWin(pid)`
+  sanitizes input via unary `+pid` (no command injection), uses `windowsHide: true`, and waits 1.5 s for launcher handoff;
+  (4) `main.js` calls `oneCoreWin` on win32 only; `SHADER_ENV` is disabled on win32 to avoid Linux Mesa/DXVK environment
+  bleed; (5) `steamlink.js` uses a hidden `wscript.exe //B //Nologo` .vbs runner with `sh.Run ..., 1, True` to eliminate
+  persistent black console windows while synchronously waiting so Steam accurately tracks playtime and session end;
+  string escaping with `vq` (doubled quotes) and `wq` is safe against spaces and symbols; obsolete `.cmd` cleaned up.
+  Linux parity 100% intact. `npm run check` (276 channels) and `npm run test-pool` (20/20) pass. Details in `NIGHTLY-REVIEW-gemini.md`.
 
 - **2026-10-15, Claude (Windows), lead: RELEASED v0.2.3 as latest (owner: "make it the latest, the other one was bug city").**
   master = bladedeck-nightly = 08781bc, tag v0.2.3, backup tag backup/2026-10-15-v0.2.3 and a backup in
