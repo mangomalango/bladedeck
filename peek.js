@@ -235,7 +235,7 @@ function runAct(code) {
 async function reconfigure(minimize) { if (mode === 'kwin') await loadKwin(minimize); }
 
 function stop() {
-  if (mode === 'kwin') execFile('gdbus', ['call', '--session', '--dest', 'org.kde.KWin', '--object-path', '/Scripting', '--method', 'org.kde.kwin.Scripting.unloadScript', NAME], () => {});
+  if (mode === 'kwin') execFile('gdbus', ['call', '--session', '--dest', 'org.kde.KWin', '--object-path', '/Scripting', '--method', 'org.kde.kwin.Scripting.unloadScript', NAME], { timeout: 4000 }, () => {});
   if (mode === 'electron') globalShortcut.unregisterAll();
   if (helper) { helper.kill(); helper = null; }
   mode = null;
