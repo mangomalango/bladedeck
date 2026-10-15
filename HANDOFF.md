@@ -113,7 +113,8 @@ Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROA
   [REPLY]    "BD-024 audit: PASS" or "DRIFT (<what>)" here in HANDOFF.md, details in NIGHTLY-REVIEW-gemini.md
   ```
 ### For Gemini (in Antigravity)
-- **BD-043** · both · Gemini · Release-candidate audit for 0.2.5: everything since v0.2.4.
+- **BD-043** (done: PASS, Gemini, NIGHTLY-REVIEW §13) · both · Gemini · Release-candidate audit for 0.2.5: everything since v0.2.4.
+  **BD-043 audit: PASS.** All 15 commits (31 files, 433 insertions, 75 deletions) audited. All 129 files pass `npm run check`, 276 channels verified. Test suites pass (`npm run test-replies` 21/21, `npm run test-pool` 20/20, `node scripts/sweep.js` 54 items 0 errors). Voice wake listeners cleanly terminate tracks/contexts on blur/away without leaks. `extractWhenDone` handles double clicks, mid-way cancellation, and game downloads cleanly. 4:3 responsive poster aspect ratio adapts properly under narrow windows/panels. Android `NotifyService.java` imports, lambda variables, and exception handling are verified clean.
   ```
   [TASK]     BD-043 · `git diff v0.2.4 origin/bladedeck-nightly` (code only) is safe to ship as 0.2.5
   [INPUT]    15 commits: windowsHide on shared execFile helpers (4a54e25); menu A/B/X/Y no longer blocked by replies
@@ -313,6 +314,13 @@ Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-16, Gemini: BD-043 audit: PASS (0.2.5 release-candidate audit).**
+  Audited all 15 commits since v0.2.4 on `origin/bladedeck-nightly` (31 files, 433+ / 75-). All 129 files pass `npm run check`, 276 channels verified. Test suites pass clean (`npm run test-replies` 21/21, `npm run test-pool` 20/20, `node scripts/sweep.js` 54 items 0 errors).
+  (1) Voice wake listener: `startWake` idempotent with `wakeActive`; `stopWake` cleanly stops all MediaStream tracks and closes AudioContext; `blur`/`deck-away` handlers invoke `syncWake` ensuring mic is never left open while a game runs.
+  (2) `extractWhenDone`: repeated button presses safely ignored; mid-way cancel resets flag and suppresses extraction; game downloads safely bypass via `!x.rec.unpack` and `!d.game`.
+  (3) 4:3 poster: smoothly expands from 2:3 to 4:3 on preview; `--pw` clamped cleanly under Now Playing/Running narrow layout.
+  (4) Java `NotifyService.java`: verified all imports, lambda final variables, thread loops, exception catches, and Android 9+ semantic action reply guard. Safe to ship as 0.2.5. Full details in NIGHTLY-REVIEW-gemini.md §13.
 
 - **2026-10-16, Claude (Windows), lead: long queue for Gemini (owner: "make a report for Gemini and me, Gemini will cook a while").**
   BD-043 (0.2.5 release-candidate audit), BD-044 (Windows bug hunt, whole app), BD-045 (every child process), BD-046 (text
