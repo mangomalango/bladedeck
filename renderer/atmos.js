@@ -103,9 +103,10 @@ const Atmos = (() => {
       const v = document.createElement('video');
       v.className = 'pv-loop'; v.muted = true; v.playsInline = true; v.src = fileUrl(m.path);
       let from = 0;
-      v.addEventListener('loadedmetadata', () => { from = isFinite(v.duration) && v.duration > 12 ? Math.random() * (v.duration - 10) : 0; v.currentTime = from; v.play().catch(() => {}); }, { once: true });
-      // Eight seconds, again and again.
-      v.addEventListener('timeupdate', () => { if (v.currentTime > from + 8) v.currentTime = from; });
+      v.addEventListener('loadedmetadata', () => { from = isFinite(v.duration) && v.duration > 30 ? Math.random() * (v.duration - 22) : 0; v.currentTime = from; v.play().catch(() => {}); }, { once: true });
+      // Twenty seconds, again and again (short clips just loop whole).
+      v.loop = true;
+      v.addEventListener('timeupdate', () => { if (v.currentTime > from + 20) v.currentTime = from; });
       v.addEventListener('playing', () => poster.classList.add('pv-on'), { once: true });
       poster.appendChild(v);
     }, 1200) };

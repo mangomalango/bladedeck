@@ -10,7 +10,8 @@ const HoverMusic = (() => {
   const found = new Map(); // game id -> file or null
   let sel = null, since = 0, playingFor = null, fadeT = 0, asking = null;
   const on = () => S.lib?.settings.hoverMusic !== false;
-  const level = () => Math.min(1, (S.lib.settings.musicVolume ?? 0.7) * 0.8);
+  // Its own level (Settings, Look and sound), gentle by default: under the menu, not over it.
+  const level = () => Math.max(0, Math.min(1, S.lib.settings.hoverMusicVolume ?? 0.35));
 
   function fade(to, ms, then) {
     clearInterval(fadeT);
@@ -38,7 +39,7 @@ const HoverMusic = (() => {
     try { await audio.play(); } catch { playingFor = null; return; }
     if (playingFor !== e.id) return;
     Music.duck(true); Sound.setAmbientLevel(0.1, 0.8);
-    fade(level(), 1400);
+    fade(level(), 2600);
   }
   function stop(now) {
     if (!playingFor) return;
