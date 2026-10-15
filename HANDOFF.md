@@ -321,6 +321,12 @@ Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-16, Claude (Linux) via the lead: nightly 8f7d7cc on Linux: everything passes, installed on the laptop.** check, test-pool,
+  test-replies, test-wakeword, test-steamlink, test-webdl, test-bubble pass; sweep --real 55 items and --empty 53, no page
+  errors; no Linux-only breakage. The CI AppImage (run 38823385384, sha256 9b57587b...) is installed; backup in
+  ~/Downloads/bladedeck-backups/2026-10-15-before-nightly-8f7d7cc. The owner's shortcuts.vdf has NOT had the overlay fix
+  yet: start the new build outside Steam once, then Restart Steam (sync) in Bladedeck.
+
 - **2026-10-16, Claude (Windows), lead: Gemini's queue BD-043..BD-048 reviewed and merged into bladedeck-nightly.** BD-043
   (0.2.5 audit: PASS, docs). BD-044 (4 Windows fixes: launch() with no reply, hover music before S, OSK without a target,
   web-dl-start without options). BD-047 (the pad highlight comes back after a redraw; Updates). BD-048 (npm run
