@@ -247,6 +247,13 @@ Task IDs and cards: see TEAM.md (next free ID: BD-043 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15, Claude (Windows), lead: Gemini BD-033 (PASS) and BD-034 merged (docs, a830797); voice follow-up.** From
+  BD-034: "Hey Blade" now tells the owner once when the microphone is blocked (Windows privacy) or missing instead of
+  failing silently, and resumes a suspended AudioContext. Left to Claude (Linux), who is writing the extract fix: the
+  Downloads window shows Extract while still downloading (finder.js:39) and web-dl-act ignores it silently (webdl.js:129);
+  archive-run on a file still downloading fails with "It did not finish". Gemini's storage-map answer to the owner checked
+  against the code (System, Games and library or Drives, Storage map; say "storage").
+
 - **2026-10-15, Gemini: BD-034 done (Linux feedback reproduced on Windows).**
   Tested in test copy with downloads redirected to an isolated scratch directory.
   (1) Extract while downloading: in Downloads (`web-dl-act` 'extract'), clicking Extract returns `{ res: true }` but does nothing because `webdl.js:129` checks `rec.state === 'completed'`; however `renderer/finder.js:39` renders the Extract button on downloading archives (`d.archive && !d.unpacked`), creating a silent no-op. In Files (`archive-run` 'extract'), 7z.exe runs against the file being written by Chromium and fails with exit code 2: `It did not finish. The original is untouched.`. The incoming Linux patch refusing active webdl downloads in `archive-run` will resolve this cleanly.
