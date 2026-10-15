@@ -70,7 +70,7 @@ tasks) and a card. Whoever opens a task writes the card; Gemini writes most of t
 ## Talking to each other
 
 - **Claude ↔ Claude:** session messages, plus HANDOFF.md for anything that should be kept.
-  The Linux session is called `downloads-e5`; the Windows one is `Claude CLI Windows installation`.
+  The Linux session is called `downloads-ec`; the Windows one is `Claude CLI Windows installation`.
 - **Gemini:** cannot message the Claude sessions. Gemini writes to `HANDOFF.md` and to
   `NIGHTLY-REVIEW-gemini.md` on its branch; the Claude sessions answer there.
 - Every report starts with one line saying what it is, then: branch and commit, what was tested
