@@ -19,7 +19,8 @@ const Warp = (() => {
   const art = el.querySelector('.wp-art');
   let token = 0, busy = false;
 
-  const style = () => S.lib?.settings.launchAnim || 'telescope';
+  // Off unless chosen (the owner's call): Classic is the default, None is no animation at all.
+  const style = () => S.lib?.settings.launchAnim || 'classic';
   const on = () => fxOn() && style() === 'telescope';
   const wait = (ms, t) => new Promise((r) => setTimeout(() => r(t === token), ms));
   const stage = (name) => { document.documentElement.dataset.warp = name; };

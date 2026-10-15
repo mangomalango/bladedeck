@@ -414,16 +414,18 @@ async function launch(e) {
   if (player && (e.type === 'steam' || (e.type === 'gog' && !e.exe))) toast(`${e.title} starts through ${e.type === 'steam' ? 'Steam' : 'Heroic'}, so it sees every controller.`);
   const { __state, ...plain } = e;
   const pending = api.launch({ entry: __state ? { ...plain, stateFile: __state } : plain, emulator, settings: S.lib.settings, player });
-  // Telescope (warp.js) runs alongside the real launch; the classic tracers and intro when it is off.
+  // Warp (warp.js, only when chosen) runs alongside the real launch; Classic is the tracers, ripple
+  // and intro; None goes straight in.
   const warp = Warp.on() ? Warp.out(e) : null;
-  const arrived = warp ? Promise.resolve() : FX.tracers(el);
+  const plainStart = S.lib.settings.launchAnim === 'none';
+  const arrived = warp || plainStart ? Promise.resolve() : FX.tracers(el);
   const r = await pending;
   // Started through Steam (Steam Input): Steam's launch pop-ups get the same cover as a Steam game.
   if (r.ok && r.viaSteam && !cover) { cover = true; api.keepOnTop(true); guardSteam(); }
   if (!r.ok) { Warp.skip(); el?.classList.remove('charging'); FX.fizzle(el); toast(r.error, 'err'); launching = false; if (cover) { api.keepOnTop(false); steamGuard = null; } return; }
   await arrived;
   el?.classList.remove('charging');
-  if (!warp) { FX.ripple(el); Sound.play('ripple'); Intro.play(e); }
+  if (!warp && !plainStart) { FX.ripple(el); Sound.play('ripple'); Intro.play(e); }
   e.lastPlayed = Date.now(); markDay(e); save();
   S.playing = { id: e.id, t: Date.now(), pid: r.pid, tracked: !(e.type === 'steam' || (e.type === 'gog' && !e.exe) || r.viaSteam), covered: cover, steamIds: r.steamIds || null };
   if (opened) { const p0 = S.playing, o = opened; isGameWindow(p0, o).then((ok) => { if (ok && !p0.winPid) { p0.winPid = o.pid; uncoverSteam(p0); } }); }
@@ -1353,7 +1355,7 @@ function openSettings() {
       </section>
       <section class="set-sec" data-sec="look">
         <label>Theme<select name="theme">${S.themes.map((t) => `<option value="${t.id}" ${t.id === st.theme ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
-        <label>Into the game<select name="launchAnim"><option value="telescope" ${(st.launchAnim || 'telescope') === 'telescope' ? 'selected' : ''}>Telescope: the menu falls away, then the game slams in</option><option value="classic" ${(st.launchAnim || 'telescope') === 'classic' ? 'selected' : ''}>Classic: a ripple and the intro</option></select></label>
+        <label>Into the game<select name="launchAnim">${[['classic', 'Classic: a ripple and the intro'], ['telescope', 'Warp: the menu falls away, then the game slams in'], ['none', 'None: straight into the game']].map(([v, n]) => `<option value="${v}" ${(st.launchAnim || 'classic') === v ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
         <div class="checks"><label><input type="checkbox" name="fx" ${st.fx !== false ? 'checked' : ''}> Animations</label><label><input type="checkbox" name="intro" ${st.intro !== false ? 'checked' : ''}> Launch intro</label><label><input type="checkbox" name="bootAnim" ${st.bootAnim !== false ? 'checked' : ''}> Boot animation</label><label><input type="checkbox" name="showcase" ${st.showcase !== false ? 'checked' : ''}> Play clips and pictures behind games</label></div>
         <label class="range-row">Clip and picture strength<input type="range" name="showcaseAlpha" min="0.2" max="1" step="0.05" value="${st.showcaseAlpha ?? 0.6}"></label>
         <div class="checks"><label><input type="checkbox" name="depth" ${st.depth !== false ? 'checked' : ''}> Depth and glass: layered, frosted panels and a lifted focus</label><label><input type="checkbox" name="livingBg" ${st.livingBg !== false ? 'checked' : ''}> Living background: brighter by day, dimmer at night, a hue for each season</label><label><input type="checkbox" name="previewLoop" ${st.previewLoop !== false ? 'checked' : ''}> A highlighted game plays a short loop of your own clip (or one from online, see Sound)</label><label><input type="checkbox" name="playingBg" ${st.playingBg !== false ? 'checked' : ''}> Back in the menu during a game: that game, blurred, behind the menu (a clip, or a still picture when the PC is busy)</label><label><input type="checkbox" name="widget" ${st.widget !== false ? 'checked' : ''}> Weather and date at the top (opens a calendar)</label></div>
@@ -1451,7 +1453,7 @@ function openSettings() {
       if (peekWas !== st.peekMinimize) api.peekConfig({ minimize: st.peekMinimize });
       if (dirWas !== st.musicDir) Music.load(true).then(Music.draw);
       Sound.sync(); Showcase.reset(); Voice.syncWake?.();
-      st.launchAnim = val(root, 'launchAnim') || 'telescope';
+      st.launchAnim = val(root, 'launchAnim') || 'classic';
       applyTheme(val(root, 'theme')); $('#who').textContent = st.playerName; Player.header(); S.bi = 0; S.pcNav = 'blade:0'; save();
       if (S.mode === 'console') renderConsole(); else renderPc();
     } }],
@@ -1807,6 +1809,9 @@ function bindInput() {
   if (Players.isP2()) { S.lib.settings.playerName = 'Player 2'; $('#who').textContent = 'Player 2'; Players.applySounds(); Guide.init(); Dock.draw(); Running.refresh(); return; }
   Dock.draw(); Guide.init(); Watch.start(); NetShare.init(); ensureEmuApps(); Tour.maybeOffer(); Running.refresh();
   Friends.presence(); Players.applySounds(); Players.applyPad(); Extras.boot(); Updates.boot(); Roms.fixArgs();
+  // Warp became optional (the owner's call): a saved "telescope" was the old default, so it goes
+  // back to Classic once; choosing Warp again in Settings keeps it.
+  if (!S.lib.settings.launchAnimOptIn) { if (S.lib.settings.launchAnim === 'telescope') S.lib.settings.launchAnim = 'classic'; S.lib.settings.launchAnimOptIn = true; save(); }
   api.onDownloads((list) => Downloads.update(list));
   // First run: go and find everything so the library is never empty.
   if (!S.lib.entries.length) setTimeout(findEverything, 600);
