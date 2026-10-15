@@ -129,7 +129,12 @@ Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROA
              compiler would: imports, lambdas, effectively-final, checked exceptions)
   [REPLY]    "BD-043 audit: PASS" or "DRIFT (<what>)"; fixes NOT allowed (list them for the lead)
   ```
-- **BD-044** · windows · Gemini · Windows bug hunt, whole app, in a test copy (`npm run test-copy -- --real` and without --real).
+- **BD-044** (done: 4 problems found and fixed, Gemini, NIGHTLY-REVIEW §14) · windows · Gemini · Windows bug hunt, whole app, in a test copy (`npm run test-copy -- --real` and without --real).
+  **BD-044 done: 4 problems (all 4 fixed on gemini/2026-10-16-bd044, check clean).**
+  1. `renderer/pad.js:123`, `127`: OSK close race condition (`target = null` before CSS fade finishes) threw `Cannot read properties of null (reading 'value')`. Fixed with `isOpen = () => !el.hidden && target != null` and null guards in `draw()`, `put()`, `del()`.
+  2. `renderer/app.js:441`: `launch()` unhandled rejection on null launch return. Fixed with optional chaining `r?.ok` and `r?.error`.
+  3. `renderer/hovermusic.js:54`: `ReferenceError: S is not defined` during script load race (`hovermusic.js` loaded before `app.js`). Fixed with `if (typeof S === 'undefined') return;`.
+  4. `webdl.js:129`: `web-dl-start` destructuring crash on null argument. Fixed with `opts || {}`.
   ```
   [TASK]     BD-044 · find what breaks when a person actually uses Bladedeck on Windows
   [DO]       go through every System item, every Settings tab, PC mode, Files (open, Y menu), Downloads (with a file served
@@ -315,6 +320,13 @@ Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-16, Gemini: BD-044 done: 4 problems found and fixed (Windows bug hunt).**
+  Tested in real and isolated test copies across Files, Downloads (local HTTP server), Updates, Feedback, Guide, Help, Storage Map, Companion notification bubbles, Multiplayer menu, and Themes.
+  1. `renderer/pad.js:123`, `127`: OSK close race condition (`target = null;` before 200 ms CSS transition finishes) threw floods of `Cannot read properties of null (reading 'value')`. Fixed with `isOpen = () => !el.hidden && target != null;` and null guards in `draw()`, `put()`, `del()`.
+  2. `renderer/app.js:441`: `launch()` unhandled rejection on null launch return. Fixed with optional chaining `r?.ok` and `r?.error`.
+  3. `renderer/hovermusic.js:54`: `ReferenceError: S is not defined` during script load race (`hovermusic.js` loaded before `app.js`). Fixed with `if (typeof S === 'undefined') return;`.
+  4. `webdl.js:129`: `web-dl-start` destructuring crash on null argument. Fixed with `opts || {}`.
+  `npm run check`, `npm run test-replies`, and `npm run test-pool` all pass clean on `gemini/2026-10-16-bd044`. Full details in NIGHTLY-REVIEW-gemini.md §14.
 - **2026-10-16, Gemini: BD-043 audit: PASS (0.2.5 release-candidate audit).**
   Audited all 15 commits since v0.2.4 on `origin/bladedeck-nightly` (31 files, 433+ / 75-). All 129 files pass `npm run check`, 276 channels verified. Test suites pass clean (`npm run test-replies` 21/21, `npm run test-pool` 20/20, `node scripts/sweep.js` 54 items 0 errors).
   (1) Voice wake listener: `startWake` idempotent with `wakeActive`; `stopWake` cleanly stops all MediaStream tracks and closes AudioContext; `blur`/`deck-away` handlers invoke `syncWake` ensuring mic is never left open while a game runs.

@@ -51,6 +51,7 @@ const HoverMusic = (() => {
 
   // Watch what is highlighted, a few times a second.
   setInterval(() => {
+    if (typeof S === 'undefined') return;
     const e = S.sel && !S.sel.run && S.sel.id ? S.sel : null;
     const ok = on() && e && !S.playing && !S.modal && deckFocused() && !document.body.classList.contains('away');
     if (e !== sel) { sel = e; since = performance.now(); stop(); }

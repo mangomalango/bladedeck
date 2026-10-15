@@ -120,11 +120,12 @@ const OSK = (() => {
   // Panels redraw as you type (a search refreshing its results); keep typing into the new box.
   const live = () => { if (target && !target.isConnected && sel) target = document.querySelector(sel) || target; return target; };
 
-  const isOpen = () => !el.hidden;
+  const isOpen = () => !el.hidden && target != null;
   const keyAt = (rr, cc) => ROWS[rr][Math.min(cc, ROWS[rr].length - 1)];
   const show = (k) => (LABEL[k] || (sym && SYM[k] ? SYM[k] : shift ? k.toUpperCase() : k));
 
   function draw() {
+    if (!target) return;
     const v = target.value;
     const pre = esc(v.slice(0, caret)), post = esc(v.slice(caret));
     el.innerHTML = `<div class="osk-card">
@@ -136,13 +137,14 @@ const OSK = (() => {
 
   function put(text) {
     live();
+    if (!target) return;
     const v = target.value;
     target.value = v.slice(0, caret) + text + v.slice(caret);
     caret += text.length; changed();
   }
   function del() {
     live();
-    if (!caret) return;
+    if (!target || !caret) return;
     const v = target.value;
     target.value = v.slice(0, caret - 1) + v.slice(caret); caret--; changed();
   }
