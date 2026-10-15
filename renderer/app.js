@@ -215,6 +215,20 @@ document.addEventListener('error', (ev) => {
 
 /* ---------------------------------------------------------------- library queries */
 const byTitle = (a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' });
+// The orders a game list can be put in (PC mode's Sort box, and console mode's "Sort the game lists").
+const SORTS = {
+  title: byTitle,
+  played: (a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0),
+  most: (a, b) => (b.playtime || 0) - (a.playtime || 0),
+  added: (a, b) => (b.added || 0) - (a.added || 0)
+};
+const SORT_NAMES = [['auto', 'Default order'], ['title', 'Title'], ['played', 'Recently played'], ['most', 'Most played'], ['added', 'Recently added']];
+function cycleConsoleSort() {
+  const st = S.lib.settings, i = SORT_NAMES.findIndex(([v]) => v === (st.consoleSort || 'auto'));
+  st.consoleSort = SORT_NAMES[(i + 1) % SORT_NAMES.length][0]; save();
+  toast('Game lists: ' + SORT_NAMES.find(([v]) => v === st.consoleSort)[1]);
+  if (S.mode === 'console') setBlade(S.bi, true);
+}
 
 /* Home, Switch-style: not everything you own, just what you are likely to want now.
    Continue (the last few), then a few picks with a reason each: your big game lately, something
@@ -280,6 +294,8 @@ function bladeItems(b) {
   if (f.favorite) list = list.filter((e) => e.favorite);
   if (f.home) return homeSections(list);
   if (f.recent) return list.filter((e) => e.lastPlayed).sort((a, c) => c.lastPlayed - a.lastPlayed).slice(0, +f.recent || 12);
+  const by = SORTS[S.lib.settings.consoleSort];
+  if (by) return list.sort(by);
   return list.sort((a, c) => (c.favorite ? 1 : 0) - (a.favorite ? 1 : 0) || (a.system || '').localeCompare(c.system || '') || byTitle(a, c));
 }
 
@@ -296,6 +312,7 @@ function systemGroups() {
     { id: 'sys-helphub', title: 'Confused? Start here', sub: 'Help: quick start, controls, guide, voice, browser, answers', glyph: '❓', run: () => Help.open() },
     { id: 'grp-lib', title: 'Games and library', sub: 'Add, scan, find art, get games, sources', glyph: '▦', children: [
       { id: 'sys-quick', title: 'Find everything', sub: 'Steam, GOG, Heroic, Moonlight and store launchers in one go', glyph: '✦', run: findEverything },
+      { id: 'sys-sort', title: 'Sort the game lists', sub: 'Now: ' + SORT_NAMES.find(([v]) => v === (S.lib.settings.consoleSort || 'auto'))[1] + '. Press to change', glyph: '⇅', run: cycleConsoleSort },
       { id: 'sys-add', title: 'Add a game or app', sub: 'Pick a program, Steam ID or game file', glyph: '+', run: () => editEntry() },
       { id: 'sys-romfile', title: 'Open a game file', sub: 'Play any ROM or disc image right away, full screen', glyph: '💿', run: () => Roms.pickAndPlay() },
       { id: 'sys-get', title: 'Get games', sub: 'Free games, homebrew and emulators', glyph: '⬇', run: () => Shop.open() },
@@ -790,13 +807,7 @@ function pcItems() {
   else list = (pcNavs().find((n) => n.key === nav) || pcNavs()[0]).items();
   const q = S.search.trim().toLowerCase();
   if (q) list = list.filter((e) => e.title.toLowerCase().includes(q));
-  const sorts = {
-    title: byTitle,
-    played: (a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0),
-    most: (a, b) => (b.playtime || 0) - (a.playtime || 0),
-    added: (a, b) => (b.added || 0) - (a.added || 0)
-  };
-  return S.sort === 'auto' ? list : [...list].sort(sorts[S.sort]);
+  return S.sort === 'auto' ? list : [...list].sort(SORTS[S.sort]);
 }
 
 function renderPc() {
@@ -1426,7 +1437,11 @@ function openSettings() {
         <div style="display:flex;gap:8px;align-items:center"><button type="button" data-x="ratest">Check RetroAchievements</button><span class="note ra-res"></span></div>
       </section>
       <section class="set-sec" data-sec="adv">
-        <label>Blades (JSON). Rename, reorder, remove, or add filters. Each blade is { "name", "filter": { "types": [...], "system": "...", "emulator": "id", "favorite": true, "recent": 12 } }.<textarea name="blades" rows="9">${esc(JSON.stringify(st.blades, null, 2))}</textarea></label>
+        <p class="note">Blades: tick the ones to show and use ▲ ▼ to move them. System always stays.</p>
+        <div class="blade-pick" data-bp></div>
+        <details><summary>Edit as JSON (advanced)</summary>
+                <label>Blades (JSON). Rename, reorder, remove, or add filters. Each blade is { "name", "filter": { "types": [...], "system": "...", "emulator": "id", "favorite": true, "recent": 12 } }.<textarea name="blades" rows="9">${esc(JSON.stringify(st.blades, null, 2))}</textarea></label>
+        </details>
         <div class="btns" style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-x="backup">Backup and restore…</button><button type="button" data-x="themes">Open themes folder</button><button type="button" data-x="css">Show custom.css</button><button type="button" data-x="blades">Reset blades</button></div>
         <p class="note">Themes are JSON files in the themes folder. custom.css is loaded last and can restyle anything.</p>
       </section>
@@ -1458,7 +1473,7 @@ function openSettings() {
       if (S.mode === 'console') renderConsole(); else renderPc();
     } }],
     onOpen: (root) => {
-      Capture.settingsOpen(root);
+      Capture.settingsOpen(root); BladePick.wire(root);
       SetLook.enhance(root, () => settingsTab(root, setTab)); SetLook.head(root, SET_TABS[setTab][0], SET_TABS[setTab][1]); NetShare.fill(root);
       root.addEventListener('click', (ev) => { const b = ev.target.closest('[data-ns]'); if (b) NetShare.click(root, b); });
       root.addEventListener('change', (ev) => { if (ev.target.name === 'screenType') Atmos.screenTips(root); if (ev.target.name === 'soundPack') root.querySelectorAll('.pack-dir').forEach((x) => { x.hidden = ev.target.value !== 'custom'; }); });
@@ -1505,10 +1520,55 @@ function openSettings() {
       }
       if (x === 'themes') api.openThemes();
       if (x === 'css') api.openCss();
-      if (x === 'blades') $('[name=blades]', root).value = JSON.stringify(S.defaultBlades, null, 2);
+      if (x === 'blades') { $('[name=blades]', root).value = JSON.stringify(S.defaultBlades, null, 2); BladePick.draw(root); }
     }); }
   });
 }
+
+/* Settings, Advanced: the blades as a checklist. It reads and writes the JSON box below it, so Save and the
+   hand-edited JSON keep working. A blade that is unticked is kept in the list (greyed) so it can come back. */
+const BladePick = {
+  stash: new Map(),
+  key: (b) => b.id || b.name,
+  read(root) { try { const a = JSON.parse($('[name=blades]', root).value); return Array.isArray(a) ? a : null; } catch { return null; } },
+  put(root, arr) { $('[name=blades]', root).value = JSON.stringify(arr, null, 2); },
+  draw(root, focus) {
+    const box = $('[data-bp]', root); if (!box) return;
+    const cur = BladePick.read(root);
+    if (!cur) { box.innerHTML = '<p class="note">The JSON below is not valid, so this list is paused.</p>'; return; }
+    const on = new Set(cur.map(BladePick.key));
+    const off = new Map();
+    for (const b of S.defaultBlades || []) if (!on.has(BladePick.key(b))) off.set(BladePick.key(b), b);
+    for (const [k, b] of BladePick.stash) if (!on.has(k) && !off.has(k)) off.set(k, b);
+    const row = (b, i, shown) => `<div class="bp-row${shown ? '' : ' off'}"><label><input type="checkbox" data-bp-on="${esc(BladePick.key(b))}"${shown ? ' checked' : ''}${b.special ? ' disabled' : ''}> ${esc(b.name)}</label>${shown ? `<button type="button" data-bp-mv="-1" data-i="${i}" aria-label="Move ${esc(b.name)} up"${i === 0 ? ' disabled' : ''}>▲</button><button type="button" data-bp-mv="1" data-i="${i}" aria-label="Move ${esc(b.name)} down"${i === cur.length - 1 ? ' disabled' : ''}>▼</button>` : ''}</div>`;
+    box.innerHTML = cur.map((b, i) => row(b, i, true)).join('') + [...off.values()].map((b) => row(b, -1, false)).join('');
+    if (focus) box.querySelector(focus)?.focus();
+  },
+  wire(root) {
+    BladePick.stash.clear(); BladePick.draw(root);
+    root.addEventListener('change', (ev) => {
+      if (ev.target.name === 'blades') { BladePick.draw(root); return; }
+      const k = ev.target.dataset?.bpOn; if (k === undefined) return;
+      const cur = BladePick.read(root); if (!cur) return;
+      const i = cur.findIndex((b) => BladePick.key(b) === k);
+      if (i >= 0) {
+        if (cur.length < 2) { toast('Keep at least one blade.', 'err'); BladePick.draw(root); return; }
+        BladePick.stash.set(k, cur[i]); cur.splice(i, 1);
+      } else {
+        const b = BladePick.stash.get(k) || (S.defaultBlades || []).find((d) => BladePick.key(d) === k); if (!b) return;
+        const si = cur.findIndex((c) => c.special === 'system');
+        cur.splice(si < 0 ? cur.length : si, 0, b);
+      }
+      BladePick.put(root, cur); BladePick.draw(root, `[data-bp-on="${CSS.escape(k)}"]`);
+    });
+    root.addEventListener('click', (ev) => {
+      const m = ev.target.closest('[data-bp-mv]'); if (!m) return;
+      const cur = BladePick.read(root), i = +m.dataset.i, j = i + +m.dataset.bpMv; if (!cur || j < 0 || j >= cur.length) return;
+      [cur[i], cur[j]] = [cur[j], cur[i]]; BladePick.put(root, cur);
+      BladePick.draw(root, `[data-bp-mv="${m.dataset.bpMv}"][data-i="${j}"]`);
+    });
+  }
+};
 
 /* ---------------------------------------------------------------- input (keyboard + gamepad share one dispatcher) */
 function activate() { if (S.sel) launch(S.sel); }
@@ -1593,6 +1653,7 @@ function handleInput(a) {
   if (a === 'lt') { Music.prev(); return; }
   if (a === 'rt') { Music.next(); return; }
   if (Secrets.feed(a)) return;
+  if (a === 'sort') { if (S.mode === 'console' && !S.modal) cycleConsoleSort(); return; }
   if (a === 'back') { setMode(S.mode === 'console' ? 'pc' : 'console'); return; }
   if (a === 'tasks') { if (S.sel && !S.sel.run) Tasks.open(S.sel); return; }
   if (a === 'poke') { if (S.sel && !S.sel.run) Friends.poke(S.sel); return; }
@@ -1651,7 +1712,7 @@ function pcInput(a) {
   }
 }
 
-const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b', f: 'x', e: 'y', s: 'start', t: 'tasks', p: 'poke', r: 'ach', m: 'music', g: 'guide', v: 'vol', q: 'resume', n: 'notify', ' ': 'voice', F1: 'help', '?': 'help', c: 'quick', '[': 'lt', ']': 'rt', F10: 'back', PageUp: 'lb', PageDown: 'rb', i: 'pc' };
+const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b', f: 'x', e: 'y', s: 'start', t: 'tasks', p: 'poke', r: 'ach', m: 'music', g: 'guide', v: 'vol', q: 'resume', n: 'notify', ' ': 'voice', F1: 'help', '?': 'help', c: 'quick', '[': 'lt', ']': 'rt', F10: 'back', PageUp: 'lb', PageDown: 'rb', i: 'pc', o: 'sort' };
 
 function bindInput() {
   addEventListener('keydown', (ev) => { if (ev.isTrusted) S.pad = false; }, true);

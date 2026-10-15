@@ -183,6 +183,16 @@ Task IDs and cards: see TEAM.md (next free ID: BD-030 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15, Claude (Linux/cloud): Organize (a) and (b) built, on claude/bladedeck-helpers-termination-pwivp1** (same branch as the
+  helper fix, merged with bladedeck-nightly 3da4110+; the cloud session may only push to this branch). (a) Settings, Advanced: blades
+  checklist (tick to show, ▲ ▼ to move, System fixed, unticked blades kept greyed so they come back); it reads and writes the old
+  JSON box, which is now under "Edit as JSON (advanced)", so Save is unchanged. (b) Console sort: System, Games and library,
+  "Sort the game lists" cycles Default / Title / Recently played / Most played / Recently added (saved as settings.consoleSort;
+  Home and "recent" blades keep their own order); keyboard key O does the same. PC mode's sorts moved to one shared SORTS.
+  No face button was free (A play, B back, X favourite, Y edit, Start tasks, Back mode), so the owner may want one: his call.
+  (c) hiding "Games" by default is NOT done (needs his yes). `npm run check` passes (276 channels). NOT run in a real window
+  (cloud has no display): Windows lead please run `npm run sweep` + open Settings, Advanced, and press the System sort item.
+
 - **2026-10-15, Claude (Linux): Windows helpers now stop when Bladedeck quits or crashes.** winlist.js, winaudio.js and
   the loopback sound helper already end on stdin/pipe close. winpad.js (controller) never read stdin, so it now
   watches the Bladedeck process and exits when it is gone. wincapture.js: ffmpeg only quits on "q", so a small
