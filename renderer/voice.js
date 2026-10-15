@@ -133,7 +133,9 @@ const Voice = (() => {
       const r = await api.voiceHear(all);
       if (!r?.ok || !r?.text) return;
       const cleaned = clean(r.text);
-      const match = cleaned.match(/^(hey |ok |okay )?(blade|bladedeck|blade deck)\b\s*(.*)$/);
+      // Speech-to-text often hears it a little off (Hey Blades, Hey Blaid, Hi Blade): those count too.
+      // "blade deck" comes first, or its "deck" would be taken as the start of the command.
+      const match = cleaned.match(/^(hey |hi |ok |okay )?(blade deck|bladedeck|blades?|blaid|blayed)\b\s*(.*)$/);
       if (match) {
         Sound.play('pop');
         const rest = (match[3] || '').trim();
@@ -156,6 +158,11 @@ const Voice = (() => {
       stopWake();
     }
   }
+  // Listening starts with Bladedeck (it used to wait until Settings were saved once) and comes back
+  // whenever Bladedeck is in front again, after a game or another window.
+  setTimeout(() => { if (S.lib) syncWake(); }, 3000);
+  for (const ev of ['focus', 'blur']) addEventListener(ev, () => setTimeout(syncWake, 300));
+  document.addEventListener('deck-away', () => setTimeout(syncWake, 300));
 
   /* -------------------------------------------------------------- listening */
   // Records until you stop talking (or 8 seconds), at 16 kHz, then hands the sound over.
