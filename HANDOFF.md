@@ -8,7 +8,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-Task IDs and cards: see TEAM.md (next free ID: BD-019 (BD-011..BD-018 are in ROADMAP.md)).
+Task IDs and cards: see TEAM.md (next free ID: BD-021 (BD-011..BD-018 are in ROADMAP.md)).
 
 - **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
   .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
@@ -63,6 +63,12 @@ Task IDs and cards: see TEAM.md (next free ID: BD-019 (BD-011..BD-018 are in ROA
 - **BD-004** · both · owner + Claude (Linux) · Nearby both ways once the Linux firewall line is run:
   each PC lists the other, a file goes each way with Accept. Contract: SPEC §3 Nearby.
 
+- **BD-019** · both · Claude (Linux) lead · Review Claude (Windows)'s fix for 88b1b22 on windows-fixes before
+  it reaches master (see the Log entry "Shared games pool"). Run `npm run test-pool` and `npm run check`.
+- **BD-020** · both · Gemini · Overnight audit of the Shared games pool and storage map (fsaccess.js, storage.js,
+  renderer/transfer.js, renderer/storagemap.js): try to make the page share or unlock anything outside
+  Bladedeck/Shared games without the desktop confirmation. Add each attack you try to scripts/pooltest.js.
+  Findings in NIGHTLY-REVIEW-gemini.md; fixes only on gemini/<date>-bd020. Read only otherwise; no pushes.
 ### For Gemini (in Antigravity)
 - BD-003 complete, reviewed and merged by the lead (557049f). Next audit: what lands on master after it (`/bladedeck-audit`).
 - **BD-010** (done) · windows · Gemini · `/bladedeck-review` of the Windows-only code.
@@ -78,6 +84,22 @@ Task IDs and cards: see TEAM.md (next free ID: BD-019 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-14, Claude (Windows): Shared games pool, fixing 88b1b22 (PC port sharing and storage map).**
+  The owner chose to keep both features and fix them: games can be seen, but nothing is shared until it
+  is moved into a pool. (1) ~/Games is no longer an always-allowed root. (2) xfer-prep-game takes a
+  library id, not a path; main reads the game from library.json, refuses Steam games and any folder that
+  holds more than one game (home, Desktop, Documents, Downloads, Games, Program Files, a drive root,
+  Bladedeck itself), asks with a desktop dialog (dialog.showMessageBox, not a page modal), then copies
+  the game into Bladedeck/Shared games: a ROM as its file, a .cue/.m3u with the tracks it names from
+  its own folder (basenames only), a PC game as its folder without links. Nothing is unlocked by
+  allowForSession any more. (3) xfer-pack-game takes a pool name only and zips with -snl into To phone.
+  New: xfer-pool-list, xfer-pool-remove (pool only). (4) storage-map ignores the page's entries,
+  reads the library itself, unlocks nothing, and "Show" is storage-reveal by item id. Files lists
+  Shared games. ROM sync is untouched (its own folder and rules). Tests: `npm run test-pool`
+  (17 attacks: page paths, unknown ids, Desktop games, Cancel, ../ in a .cue, links in a game folder,
+  packing or removing outside the pool, the map unlocking nothing) all pass; check 267 channels;
+  sweep 51 items, no errors. Needs: BD-019 review (Linux) and BD-020 audit (Gemini) before master.
 
 - **2026-10-14, Gemini (reviewer): BD-010 Windows-only code review.**
   Audited `wincapture.js`, `winaudio.js`, `winpad.js`, `winlist.js`, `procs.js`, `system.js`, `steaminput.js`, `steamlink.js`, `netshare.js`, `romsync.js`, and `main.js` (`prewarmSteam`, `command()`, `launch`).
