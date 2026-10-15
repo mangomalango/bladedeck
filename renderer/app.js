@@ -312,7 +312,7 @@ function systemGroups() {
     { id: 'sys-helphub', title: 'Confused? Start here', sub: 'Help: quick start, controls, guide, voice, browser, answers', glyph: '❓', run: () => Help.open() },
     { id: 'grp-lib', title: 'Games and library', sub: 'Add, scan, find art, get games, sources', glyph: '▦', children: [
       { id: 'sys-quick', title: 'Find everything', sub: 'Steam, GOG, Heroic, Moonlight and store launchers in one go', glyph: '✦', run: findEverything },
-      { id: 'sys-sort', title: 'Sort the game lists', sub: 'Now: ' + SORT_NAMES.find(([v]) => v === (S.lib.settings.consoleSort || 'auto'))[1] + '. Press to change', glyph: '⇅', run: cycleConsoleSort },
+      { id: 'sys-sort', title: 'Sort the game lists', sub: 'Now: ' + SORT_NAMES.find(([v]) => v === (S.lib.settings.consoleSort || 'auto'))[1] + '. Press to change (right stick click does it too)', glyph: '⇅', run: cycleConsoleSort },
       { id: 'sys-add', title: 'Add a game or app', sub: 'Pick a program, Steam ID or game file', glyph: '+', run: () => editEntry() },
       { id: 'sys-romfile', title: 'Open a game file', sub: 'Play any ROM or disc image right away, full screen', glyph: '💿', run: () => Roms.pickAndPlay() },
       { id: 'sys-get', title: 'Get games', sub: 'Free games, homebrew and emulators', glyph: '⬇', run: () => Shop.open() },
@@ -1303,7 +1303,8 @@ const CONTROLS = [
     ['Pop bubbles (Sky Bubbles theme)', '', 'click them']
   ]],
   ['Music', [
-    ['Play or pause', 'Right stick click', 'M'],
+    ['Play or pause', 'Right stick click in PC mode', 'M'],
+    ['Sort the game lists (console mode)', 'Right stick click', 'O'],
     ['Previous or next song', 'tap LT / RT', '[ / ]'],
     ['Song list', '', 'the ☰ button, or System, Music']
   ]],
@@ -1646,7 +1647,8 @@ function handleInput(a) {
   if (Running.handle(a)) return;
   if (Dock.handle(a)) return;
   if (NowPlaying.handle(a)) return;
-  if (a === 'music') { Music.toggle(); return; }
+  // Right stick click: sorts the game lists on the console blades (owner's pick); music play/pause stays on M, the ☰ button and PC mode.
+  if (a === 'music') { if (S.mode === 'console' && !S.modal) cycleConsoleSort(); else Music.toggle(); return; }
   if (a === 'help') { openControls(); return; }
   if (a === 'voice') { Voice.listen(); return; }
   if (a === 'pc') { openThisPc(); return; }

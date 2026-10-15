@@ -183,6 +183,11 @@ Task IDs and cards: see TEAM.md (next free ID: BD-030 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15, Claude (Linux/cloud): owner's answers applied (relayed by the Windows CLI Claude).** Console sort is now also on the
+  RIGHT STICK CLICK, in console mode when no dialog is open; it replaces music play/pause there (M, the ☰ button and PC mode keep
+  it; the controls list says so). Games blade stays shown by default (nothing to change). 0.2.4 ships later. Minor, not done: a
+  re-ticked blade goes back just before System, not to its old slot. `npm run check` passes; not run in a window.
+
 - **2026-10-15, Claude (Linux/cloud): Organize (a) and (b) built, on claude/bladedeck-helpers-termination-pwivp1** (same branch as the
   helper fix, merged with bladedeck-nightly 3da4110+; the cloud session may only push to this branch). (a) Settings, Advanced: blades
   checklist (tick to show, ▲ ▼ to move, System fixed, unticked blades kept greyed so they come back); it reads and writes the old
