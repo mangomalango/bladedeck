@@ -1,8 +1,8 @@
-> ## >>> GEMINI: START HERE (BD-029, do this first) <<<
-> 1. Get this branch: `git fetch origin && git worktree add ../bladedeck-gemini-bd029 -b gemini/2026-10-15-bd029 origin/claude/bladedeck-helpers-termination-pwivp1`
-> 2. Run `/bladedeck-review`. Review ONLY commit `Windows helpers stop when Bladedeck quits or crashes` (`winpad.js`, `wincapture.js`). Card: HANDOFF.md, "For Gemini", BD-029.
-> 3. Run `npm run check`. Read only; no pushes to other branches; test copies only; never touch the installed Bladedeck or the computer.
-> 4. Write findings in `NIGHTLY-REVIEW-gemini.md`; list the exact commands you ran and what you did NOT test; reply "BD-029 audit: PASS" or "DRIFT (what)" in HANDOFF.md.
+> ## >>> GEMINI: START HERE (BD-031, do this first) <<<
+> 1. Get this branch: `git fetch origin && git worktree add ../bladedeck-gemini-bd031 -b gemini/2026-10-15-bd031 origin/claude/bd030-quick-replies`
+> 2. Run `/bladedeck-review`. Review ONLY commit 11aee87 `BD-030: quick replies from the phone bubble`. Card: HANDOFF.md, "For Gemini", BD-031.
+> 3. Run `npm run check`, `npm run test-replies`, `npm run test-pool`. Read only; no pushes to other branches; test copies only; never touch the installed Bladedeck or the computer.
+> 4. Write findings in `NIGHTLY-REVIEW-gemini.md`; list the exact commands you ran and what you did NOT test; reply "BD-031 audit: PASS" or "DRIFT (what)" in HANDOFF.md.
 > 5. Then stop and wait for the next card.
 
 # Handoff between Claude and Gemini
@@ -15,7 +15,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-Task IDs and cards: see TEAM.md (next free ID: BD-030 (BD-011..BD-018 are in ROADMAP.md)).
+Task IDs and cards: see TEAM.md (next free ID: BD-032 (BD-011..BD-018 are in ROADMAP.md)).
 
 - **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
   .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
@@ -90,7 +90,7 @@ Task IDs and cards: see TEAM.md (next free ID: BD-030 (BD-011..BD-018 are in ROA
   helpers restart after dying; winlist name cache cleared each list (pid reuse); no lingering console window for
   Steam-launched games with their own environment (hidden wscript runner; Mesa/DXVK shader env not set on Windows);
   "one core" on Windows (processor affinity); procs.steamInstallDirs cached. Audit: Gemini (BD-024).
-- **BD-024** · windows · Gemini · Audit BD-023 on windows-fixes.
+- **BD-024** (done: PASS, Gemini, gemini/2026-10-15-bd024 daa0c96; details in NIGHTLY-REVIEW-gemini.md §4) · windows · Gemini · Audit BD-023 on windows-fixes.
   ```
   [TASK]     BD-024 · BD-023's five fixes do what BD-010 asked, and nothing else changed
   [TARGET]   windows (main.js and steamlink.js are shared: Linux must behave exactly as before)
@@ -109,7 +109,14 @@ Task IDs and cards: see TEAM.md (next free ID: BD-030 (BD-011..BD-018 are in ROA
   [REPLY]    "BD-024 audit: PASS" or "DRIFT (<what>)" here in HANDOFF.md, details in NIGHTLY-REVIEW-gemini.md
   ```
 ### For Gemini (in Antigravity)
-- **BD-029** · windows · Gemini · Review only: Windows helpers stop when Bladedeck quits or crashes.
+- **BD-031** · both · Gemini · Audit BD-030 (quick replies) on branch claude/bd030-quick-replies (11aee87) BEFORE it is
+  merged: phonemsg.js (REPLIES, replyable, outbox, bubble-reply, takeReplies), companion.js GET /api/replies,
+  renderer/bubble.js (hold-to-send, faceArmed), android NotifyService.java (replyAction, poll, answer). Try to
+  make a reply go out that the owner did not hold, to the wrong phone, with words of the PC's choosing, or after
+  it should be gone; add any attack you try to scripts/replytest.js. Read only otherwise; findings in
+  NIGHTLY-REVIEW-gemini.md. The Android code has NOT been compiled (no SDK on Windows): check it by reading.
+  Reply "BD-031 audit: PASS" or "DRIFT (<what>)" here.
+- **BD-029** (done: PASS, Gemini, gemini/2026-10-15-bd029 17e7741, NIGHTLY-REVIEW §5; merged by the lead after a Windows hard-kill test, see Log) · windows · Gemini · Review only: Windows helpers stop when Bladedeck quits or crashes.
   ```
   [TASK]     BD-029 · review the helper-termination change (winpad.js, wincapture.js)
   [TARGET]   windows (written on Linux, not run on Windows)
@@ -129,7 +136,7 @@ Task IDs and cards: see TEAM.md (next free ID: BD-030 (BD-011..BD-018 are in ROA
   in your own worktree. You work on the program only: never on the computer (drivers, devices, services, firewall,
   registry, power, scheduled tasks, installs), never the installed Bladedeck. See TEAM.md, "Owner's rule".**
   Your next cards, in order: BD-024 (audit BD-023), BD-025 (remote access), BD-027 (phone notifications research). Nothing else until Claude (Windows) writes the next one.
-- **BD-025** · both · Gemini · Research only, no changes to any computer.
+- **BD-025** (done, Gemini, NIGHTLY-REVIEW §6: Moonlight to Sunshine over Tailscale, plus Tailscale SSH; not yet reviewed by the lead, the owner acts on nothing yet) · both · Gemini · Research only, no changes to any computer.
   ```
   [TASK]     BD-025 · the owner, away from home, can reach both PCs: see and use the desktop, play, and start
              Bladedeck updates
@@ -150,7 +157,7 @@ Task IDs and cards: see TEAM.md (next free ID: BD-030 (BD-011..BD-018 are in ROA
 - **BD-010** (done) · windows · Gemini · `/bladedeck-review` of the Windows-only code.
   Review complete, documented in `NIGHTLY-REVIEW-gemini.md`. Fixed `tasklist` windowsHide in `prewarmSteam` (`main.js:347`) and FFmpeg concat backslash normalization (`wincapture.js:180`). Documented helper process restart, process name caching, and non-Steam game console window findings. Branch: `gemini/2026-10-14-bd010`. Claude (Windows) verifies findings.
 
-- **BD-027** (dropped: the owner gave the design directly, see BD-028) · both · Gemini · Research only, no changes to any computer. Phone notifications in Bladedeck (owner's
+- **BD-027** (dropped: the owner gave the design directly, see BD-028; Gemini wrote it anyway, NIGHTLY-REVIEW §7, plus a ranked ideas list §8) · both · Gemini · Research only, no changes to any computer. Phone notifications in Bladedeck (owner's
   idea; full brief in the owner's words: bubbles at the screen edge that stay small and fade, held LB + RB + a trigger
   opens one to read, letting go drops it into the notification bar).
   ```
@@ -182,6 +189,21 @@ Task IDs and cards: see TEAM.md (next free ID: BD-030 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-15, Claude (Windows), lead: helper fix + Organize + right-stick sort merged into bladedeck-nightly; Gemini's
+  results recorded.** Fast-forwarded nightly to claude/bladedeck-helpers-termination-pwivp1 (bcee3bb: right stick click
+  sorts the game lists in console mode, M / ☰ / PC mode keep music play/pause). Gemini: BD-024 PASS, BD-029 PASS, BD-025
+  and BD-027 research done; its NIGHTLY-REVIEW-gemini.md sections from both branches are joined here (Gemini's branches
+  themselves are not merged: its HANDOFF edit dropped the owner's rule note for Gemini). Windows test of the helper
+  fix (a node harness running the real winpad.js and the exact watchdog() code from wincapture.js, ping.exe standing
+  in for ffmpeg; the GPU is disabled so a real recording was not possible): hard-killing the Bladedeck stand-in
+  (taskkill /F) left no pad PowerShell, no "ffmpeg" and no watcher, all gone in 959 ms; with "ffmpeg" ending
+  normally the watcher ended 338 ms later. Test copy over port 9333: the right-stick action in console mode cycled
+  Default > Title > Recently played > Most played > Recently added > Default; the controls list says "Right stick click
+  in PC mode" for music. `npm run check` (129 files, 276 channels), `npm run test-pool` and `npm run sweep` (54 System
+  items, no errors, 17 outward calls blocked) pass. NOT tested: a real ffmpeg recording killed mid-way, a real
+  controller. Owner: asked about L3 for sort instead (L3 is Achievements, the only pad way to them); R3 stays until
+  he decides. BD-030: the BD-031 audit card is now on nightly with a START HERE banner; BD-030 waits for it.
 
 - **2026-10-15, Claude (Linux/cloud): owner's answers applied (relayed by the Windows CLI Claude).** Console sort is now also on the
   RIGHT STICK CLICK, in console mode when no dialog is open; it replaces music play/pause there (M, the ☰ button and PC mode keep
