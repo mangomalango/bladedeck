@@ -8,7 +8,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-Task IDs and cards: see TEAM.md (next free ID: BD-023 (BD-011..BD-018 are in ROADMAP.md)).
+Task IDs and cards: see TEAM.md (next free ID: BD-025 (BD-011..BD-018 are in ROADMAP.md)).
 
 - **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
   .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
@@ -79,6 +79,28 @@ Task IDs and cards: see TEAM.md (next free ID: BD-023 (BD-011..BD-018 are in ROA
   never delays or blocks a launch, a failed launch ends it (Warp.skip), any key or click cuts it short, body is
   always restored (no menu left scaled or hidden), prefers-reduced-motion and the Animations switch turn it off,
   and Linux (KWin focus) still returns cleanly. In your own worktree; findings in NIGHTLY-REVIEW-gemini.md.
+- **BD-023** (done, see Log) · windows · Claude (Windows) · Gemini's BD-010 findings 3-7: winlist/winpad
+  helpers restart after dying; winlist name cache cleared each list (pid reuse); no lingering console window for
+  Steam-launched games with their own environment (hidden wscript runner; Mesa/DXVK shader env not set on Windows);
+  "one core" on Windows (processor affinity); procs.steamInstallDirs cached. Audit: Gemini (BD-024).
+- **BD-024** · windows · Gemini · Audit BD-023 on windows-fixes.
+  ```
+  [TASK]     BD-024 · BD-023's five fixes do what BD-010 asked, and nothing else changed
+  [TARGET]   windows (main.js and steamlink.js are shared: Linux must behave exactly as before)
+  [OWNER]    Gemini
+  [CONTRACT] none (no channel or library key changed; npm run spec: 267 channels OK)
+  [INPUT]    winlist.js (names.Clear in List; ask() restarts startWin at most every 10 s; stop() ends it),
+             winpad.js (restart after exit, 2 s doubling to 60 s; stop() cancels), procs.js (steamInstallDirs
+             cached 30 s; oneCoreWin sets ProcessorAffinity = 1 after 1.5 s), main.js (oneCoreWin after spawn on
+             win32; SHADER_ENV not set on win32), steamlink.js (Windows games with their own environment: a .vbs
+             run by wscript //B instead of a .cmd; the old .cmd is removed)
+  [DO]       /bladedeck-review on those hunks. Look for: a restart loop when PowerShell cannot start at all, a
+             known=null reset firing false "opened" events, a .vbs quoting hole (quotes, %, & in paths or values),
+             Steam tracking the game through wscript (does the session end when the game closes?), any Linux change
+  [RULES]    TEAM.md: your own worktree and gemini/<date>-bd024 branch; read only on windows-fixes; no pushes to
+             others' branches; test copies only
+  [REPLY]    "BD-024 audit: PASS" or "DRIFT (<what>)" here in HANDOFF.md, details in NIGHTLY-REVIEW-gemini.md
+  ```
 ### For Gemini (in Antigravity)
 - BD-003 complete, reviewed and merged by the lead (557049f). Next audit: what lands on master after it (`/bladedeck-audit`).
 - **BD-010** (done) · windows · Gemini · `/bladedeck-review` of the Windows-only code.
@@ -94,6 +116,19 @@ Task IDs and cards: see TEAM.md (next free ID: BD-023 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-15, Claude (Windows): BD-023, Gemini's BD-010 findings 3-7 fixed.** winlist.js: the helper starts
+  again on the next question after it dies (at most every 10 s), and process names are looked up afresh each list
+  (pid reuse). winpad.js: the controller helper restarts after it exits (2 s, doubling to a minute). procs.js: the
+  Steam installdir map is cached 30 s; oneCoreWin pins a game to the first core on Windows ("Run on one processor
+  core" worked only on Linux). Shared files: main.js (oneCoreWin after spawn, win32 only; the Mesa/NVIDIA/DXVK
+  shader-cache variables are not set on win32, so Linux is unchanged) and steamlink.js (Windows games with their
+  own environment start through a hidden wscript .vbs runner instead of a .cmd, which kept a console window open
+  for the whole game). Tested: npm run check, npm run spec (267 channels), npm run sweep (51 items, no errors), and
+  the .vbs runner end to end with a test program (environment, start folder, quotes and spaces in arguments).
+  Not tested: a real non-Steam game through Steam (needs the owner's OK to restart Steam), the helper restart after
+  a real sleep. Also found: the owner's RX 9070 XT shows as disabled in Device Manager (code 22), so screen capture
+  and the AMF encoder fail until the owner re-enables it; the replay recorder test waits for that. Audit: BD-024.
 
 - **2026-10-15 (night), Claude (Windows): Warp, a new way into a game (owner's idea).** Settings, Look and sound,
   "Into the game": Telescope (new default) or Classic. Telescope: the menu is tugged off the screen like a suction

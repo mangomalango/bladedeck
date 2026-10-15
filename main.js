@@ -412,7 +412,9 @@ async function command(entry, emulator, settings, player) {
     const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line);
     if (m) ownEnv[m[1]] = m[2].trim().replace(/^"(.*)"$/, '$1').replace(/^~(?=\/)/, os.homedir());
   }
-  return { exe, args, cwd, ext, env: { ...(settings && settings.shaderCache === false ? {} : SHADER_ENV), ...padEnv, ...playerEnv, ...ownEnv } };
+  // The shader cache settings are for Mesa, NVIDIA's Linux driver and DXVK; Windows games ignore them.
+  const shaderEnv = settings && settings.shaderCache === false || process.platform === 'win32' ? {} : SHADER_ENV;
+  return { exe, args, cwd, ext, env: { ...shaderEnv, ...padEnv, ...playerEnv, ...ownEnv } };
 }
 
 ipcMain.handle('launch', async (_e, { entry, emulator, settings, player }) => {
@@ -455,6 +457,7 @@ ipcMain.handle('launch', async (_e, { entry, emulator, settings, player }) => {
     await new Promise((res, rej) => { child.once('spawn', res); child.once('error', rej); });
     child.unref();
     const pid = child.pid;
+    if (entry.oneCore && process.platform === 'win32') Procs.oneCoreWin(pid);
 
     // The renderer minimizes once its launch animation has played out.
     if (settings && settings.quietWhilePlaying) quiet(true);

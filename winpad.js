@@ -48,17 +48,26 @@ while ($true) {
 }
 `;
 
-let proc = null;
+let proc = null, again = null, tries = 0;
 function start(dir, onChord, onPip = () => {}) {
   if (process.platform !== 'win32' || proc) return;
+  // If the helper dies (sleep and resume, a crash), it starts again after a pause that grows each
+  // time (2 s up to a minute), so View + Menu and the recording combos keep working.
+  again = () => start(dir, onChord, onPip);
   const file = path.join(dir, 'bladedeck-pad.ps1');
   try { fs.writeFileSync(file, PS1); } catch { return; }
   proc = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', file], { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
   proc.stdout.setEncoding('utf8');
   proc.stdout.on('data', (d) => { if (/chord/.test(d)) onChord(); for (const k of ['pip', 'rec', 'clip']) if (new RegExp(k).test(d)) onPip(k); });
-  proc.on('exit', () => { proc = null; });
-  proc.on('error', () => { proc = null; });
+  const me = proc, t0 = Date.now();
+  const dead = () => {
+    if (proc !== me) return;
+    proc = null;
+    if (Date.now() - t0 > 60000) tries = 0;
+    if (again) setTimeout(() => { if (again && !proc) again(); }, Math.min(60000, 2000 * 2 ** tries++));
+  };
+  proc.on('exit', dead); proc.on('error', dead);
 }
-function stop() { if (proc) { try { proc.kill(); } catch { /* gone */ } proc = null; } }
+function stop() { again = null; if (proc) { try { proc.kill(); } catch { /* gone */ } proc = null; } }
 
 module.exports = { start, stop };

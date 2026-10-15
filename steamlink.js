@@ -103,9 +103,16 @@ function scriptFor(e, c) {
     const env = Object.entries(c.env || {});
     // Without its own environment, Steam starts the program itself (no console window).
     if (!env.length) return { exe: `"${c.exe}"`, dir: `"${c.cwd}"`, opts: c.args.map(wq).join(' ') };
-    const f = path.join(scriptDir(), `${id}.cmd`);
-    fs.writeFileSync(f, ['@echo off', `rem Made by Bladedeck for Steam: ${String(e.title).replace(/[\r\n%]/g, '')}`, `cd /d "${c.cwd}"`, ...env.map(([k, v]) => `set "${k}=${String(v).replace(/"/g, '')}"`), [c.exe, ...c.args].map(wq).join(' '), ''].join('\r\n'));
-    return { exe: `"${f}"`, dir: `"${c.cwd}"`, opts: '' };
+    // With its own environment: a hidden Windows Script Host runner, which sets it and starts the
+    // game, and waits for it. A .cmd script kept a console window open for the whole game.
+    const vq = (s) => String(s).replace(/"/g, '""').replace(/[\r\n]/g, ' ');
+    const f = path.join(scriptDir(), `${id}.vbs`);
+    fs.writeFileSync(f, [`' Made by Bladedeck for Steam: ${vq(e.title)}. Bladedeck rewrites it when the game changes.`,
+      'Set sh = CreateObject("WScript.Shell")', 'Set env = sh.Environment("Process")', ...env.map(([k, v]) => `env("${vq(k)}") = "${vq(v)}"`),
+      `sh.CurrentDirectory = "${vq(c.cwd)}"`, `sh.Run "${vq([c.exe, ...c.args].map(wq).join(' '))}", 1, True`, ''].join('\r\n'));
+    try { fs.rmSync(path.join(scriptDir(), `${id}.cmd`), { force: true }); } catch { /* none */ }
+    const wscript = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'wscript.exe');
+    return { exe: `"${wscript}"`, dir: `"${c.cwd}"`, opts: `//B //Nologo "${f}"` };
   }
   const f = path.join(scriptDir(), `${id}.sh`);
   fs.writeFileSync(f, ['#!/bin/sh', `# Made by Bladedeck for Steam: ${String(e.title).replace(/\n/g, ' ')}. Bladedeck rewrites it when the game changes.`,

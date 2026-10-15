@@ -178,7 +178,14 @@ function info(pid) {
 
 /* Windows: no /proc. The process's program and its parents come from WMI, and a Steam game is
    known by where its program lives: steamapps\common\<installdir>, which the app's manifest names. */
+// Read once and kept 30 seconds: one game start asks about several windows in a row.
+let dirsCache = null, dirsAt = 0;
 function steamInstallDirs() {
+  if (dirsCache && Date.now() - dirsAt < 30000) return dirsCache;
+  dirsCache = readInstallDirs(); dirsAt = Date.now();
+  return dirsCache;
+}
+function readInstallDirs() {
   const roots = [path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Steam')];
   const libs = new Set(roots);
   for (const r of roots) { try { for (const m of fs.readFileSync(path.join(r, 'steamapps', 'libraryfolders.vdf'), 'utf8').matchAll(/"path"\s+"([^"]+)"/g)) libs.add(m[1].replace(/\\\\/g, '\\')); } catch { /* one library */ } }
@@ -203,4 +210,11 @@ function infoWin(pid) {
   }));
 }
 
-module.exports = { init, freeze, isFrozen, list, thawAll, info, infoWin, isOwn };
+/* Windows: "one core" for older games that freeze on many cores (Linux uses taskset). The game's
+   process is kept on the first core once it has started; a short wait lets a launcher stub hand over. */
+function oneCoreWin(pid) {
+  pid = +pid; if (process.platform !== 'win32' || !pid) return;
+  setTimeout(() => require('child_process').execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `$p = Get-Process -Id ${pid} -ErrorAction SilentlyContinue; if ($p) { $p.ProcessorAffinity = 1 }`], { windowsHide: true, timeout: 8000 }, () => {}), 1500);
+}
+
+module.exports = { init, freeze, isFrozen, list, thawAll, info, infoWin, isOwn, oneCoreWin };

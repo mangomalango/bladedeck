@@ -44,6 +44,8 @@ public static class BDWin {
     names[pid] = n; return n;
   }
   public static string List(int self) {
+    // Windows hands a closed program's process id to the next one: names are looked up afresh each list.
+    names.Clear();
     StringBuilder b = new StringBuilder("["); bool first = true; IntPtr fg = GetForegroundWindow();
     EnumWindows(delegate (IntPtr h, IntPtr l) {
       if (!IsWindowVisible(h) || GetWindow(h, 4) != IntPtr.Zero) return true;
@@ -100,9 +102,13 @@ while ($true) {
 `;
 
 let proc = null, waiters = [], buf = '', timer = 0, last = '', send = () => {}, x11 = false;
+// The helper can die (sleep and resume, a crash): the next question starts it again, at most once
+// every 10 seconds, so the dock and Quick Resume do not go quiet for the rest of the session.
+let winDir = '', restartAt = 0;
 
 function ask(cmd) {
   return new Promise((res) => {
+    if (!proc && winDir && Date.now() - restartAt > 10000) { restartAt = Date.now(); known = null; try { startWin(winDir); } catch { /* next time */ } }
     if (!proc) return res('[]');
     waiters.push(res);
     proc.stdin.write(cmd + '\n');
@@ -110,6 +116,7 @@ function ask(cmd) {
 }
 
 function startWin(dir) {
+  winDir = dir;
   const file = path.join(dir, 'bladedeck-windows.ps1');
   fs.writeFileSync(file, PS1(process.pid));
   proc = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', file], { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
@@ -169,7 +176,7 @@ async function poll() {
 }
 // The window in front right now (not Bladedeck's): what Ctrl+M on Windows peeks away from.
 async function foreground() {
-  if (process.platform !== 'win32' || !proc) return null;
+  if (process.platform !== 'win32' || !winDir) return null;
   try { return JSON.parse(await ask('list')).find((w) => w.active) || null; } catch { return null; }
 }
 
@@ -211,6 +218,6 @@ async function act(id, a) {
   return false;
 }
 
-function stop() { clearInterval(timer); timer = 0; if (proc) { try { proc.stdin.end(); proc.kill(); } catch { /* gone */ } proc = null; } }
+function stop() { clearInterval(timer); timer = 0; winDir = ''; if (proc) { try { proc.stdin.end(); proc.kill(); } catch { /* gone */ } proc = null; } }
 
 module.exports = { start, act, stop, foreground };
