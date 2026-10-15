@@ -1,9 +1,4 @@
-> ## >>> GEMINI: START HERE (BD-032, do this first) <<<
-> 1. Get the branch: `git fetch origin && git worktree add ../bladedeck-gemini-bd032 -b gemini/2026-10-15-bd032 origin/bladedeck-nightly`
-> 2. Run `/bladedeck-review` on ONLY these commits: `git diff 128c5d6 3569f60 -- renderer/bubble.js renderer/bubble.html phonemsg.js renderer/app.js android scripts/replytest.js` (BD-030 quick replies as merged and changed since) and `git show f336cf7` (right stick: click sorts, hold plays music). Card: "For Gemini", BD-032.
-> 3. Run `npm run check`, `npm run test-replies`, `npm run test-pool`. Read only; no pushes to other branches; test copies only; never touch the installed Bladedeck or the computer.
-> 4. Findings in `NIGHTLY-REVIEW-gemini.md`, with the exact commands you ran and what you did NOT test; reply "BD-032 audit: PASS" or "DRIFT (what)" in HANDOFF.md.
-> 5. Then stop and wait for the next card.
+> Gemini: BD-032 audit: PASS (quick replies on LB + right stick & right stick change). No open card. Wait for the next one from Claude (Windows).
 
 # Handoff between Claude and Gemini
 
@@ -109,7 +104,7 @@ Task IDs and cards: see TEAM.md (next free ID: BD-033 (BD-011..BD-018 are in ROA
   [REPLY]    "BD-024 audit: PASS" or "DRIFT (<what>)" here in HANDOFF.md, details in NIGHTLY-REVIEW-gemini.md
   ```
 ### For Gemini (in Antigravity)
-- **BD-032** · both · Gemini · Peer review of quick replies as they are now on bladedeck-nightly, plus the right-stick change.
+- **BD-032** (done: PASS, Gemini, gemini/2026-10-15-bd032, NIGHTLY-REVIEW §9) · both · Gemini · Peer review of quick replies as they are now on bladedeck-nightly, plus the right-stick change.
   ```
   [TASK]     BD-032 · the reply gesture and layout do what the owner chose, and nothing sends by accident
   [TARGET]   both (renderer/bubble.js is shared; Linux behaviour must match)
@@ -128,7 +123,7 @@ Task IDs and cards: see TEAM.md (next free ID: BD-033 (BD-011..BD-018 are in ROA
              also sorting, a tap also toggling music); anything that changes Linux or messages without replies
   [RULES]    TEAM.md: your own worktree and gemini/<date>-bd032 branch; read only on bladedeck-nightly; no pushes
              to others' branches; test copies only; never run or kill the installed Bladedeck
-  [REPLY]    "BD-032 audit: PASS" or "DRIFT (<what>)" here, details in NIGHTLY-REVIEW-gemini.md
+  [REPLY]    "BD-032 audit: PASS" here, details in NIGHTLY-REVIEW-gemini.md §9
   ```
 - **BD-031** (done: PASS by a second Claude in place of Gemini, the owner's call; BD-030 merged, see Log) · both · Gemini · Audit BD-030 (quick replies) on branch claude/bd030-quick-replies (11aee87) BEFORE it is
   merged: phonemsg.js (REPLIES, replyable, outbox, bubble-reply, takeReplies), companion.js GET /api/replies,
@@ -210,6 +205,21 @@ Task IDs and cards: see TEAM.md (next free ID: BD-033 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-15, Gemini: BD-032 audit: PASS (quick replies on LB + right stick, and right-stick sort/music).**
+  Audited commits 128c5d6..3569f60 (renderer/bubble.js, renderer/bubble.html, phonemsg.js, renderer/app.js, android/,
+  scripts/replytest.js) and f336cf7 (right stick click sorts, hold plays/pauses music).
+  Quick replies: stickArmed prevents in-game camera movement from triggering a reply when the choice opens; deflection
+  threshold > 0.6 prevents stick drift; wobbling across diagonals resets replyHold timer so no wrong reply is chosen;
+  View held disarms the stick; LB+stick release never pauses due to lbUsed tracking; choice dialog window extends
+  dynamically so it never closes mid-hold; #rp is cleanly hidden on all exit paths; overlay crash/close resets deck menu keys.
+  Right stick (R3): tap/click in console mode cleanly sorts game list; hold (> 550ms) toggles music and release is
+  suppressed by r3Held, eliminating hold/tap mix-ups; PC mode and modal click/hold continues to toggle music; guide/tour updated.
+  Android: UTF-8 encoding in build.sh and \uD83D\uDC4D surrogate pair ensure clean compilation across JDKs; 3-minute TTL
+  prune and whitelist protect phone notifications.
+  Verification: cmd /c "npm run check" (129 files, 276 channels), cmd /c "npm run test-replies" (21/21 ok),
+  cmd /c "npm run test-pool" (20/20 ok), and simulation harness test_bd032.js (12/12 ok).
+  Not tested: physical controller in hands, real phone on live carrier.
 
 - **2026-10-15, Claude (Windows), lead: quick replies on LB + the RIGHT STICK, set around the middle of the screen (owner:
   "use the direction of the right stick, replies all around; very simple; the bar on top, replies in the centre").** Hold LB

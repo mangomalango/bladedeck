@@ -157,8 +157,67 @@ All ideas adhere to the safety rules: local network/Tailscale only, no external 
 
 ---
 
+## 9. BD-032: Peer Review of Quick Replies (LB + Right Stick) & Right Stick (R3) Changes
+**Result: PASS (0 blockers, 0 drifts, 0 regressions)**
+
+Audited commits `128c5d6..3569f60` (`renderer/bubble.js`, `renderer/bubble.html`, `phonemsg.js`, `renderer/app.js`, `android/`, `scripts/replytest.js`) and `f336cf7` (`renderer/app.js`, `renderer/guide.js`, `renderer/tour.js`).
+
+### A. Verification Commands Run
+1. `cmd /c "npm run check"`: **All 129 files pass, 276 channels answered**.
+2. `cmd /c "npm run test-replies"`: **21/21 assertions pass** (phrase safety, bounds, window isolation, 3-min expiry, flood rate limiting).
+3. `cmd /c "npm run test-pool"`: **20/20 pool security assertions pass**.
+4. Standalone simulation harness (`test_bd032.js`): **12/12 edge-case simulation assertions pass** (stick arming, drift immunity, diagonal wobbles, stalled frame clamping, LB pause suppression, R3 click/hold discrimination).
+
+### B. Quick Replies Audit (`renderer/bubble.js`, `renderer/bubble.html`, `phonemsg.js`)
+1. **Gesture & Screen Layout:**
+   - The four reply phrases are arranged in a clean cardinal cross (`#rp`) in the center of the screen (Up: 0 "Sounds good 👍", Down: 1 "Can't talk, busy right now", Right: 2 "Give me 5 mins", Left: 3 "In a match, be there soon!").
+   - Center label displays `"LB + right stick"`.
+   - The top action bar stays alone at top-left (`"Keep playing | LB Pause | RB Menu"`), avoiding visual clutter.
+2. **Accidental Send & Camera Movement Immunity:**
+   - Moving the right stick to aim camera in-game prior to opening the bubble **cannot trigger a reply**: `startChoice` initializes `stickArmed = false`. The stick must fully return to dead center (`!down.some(Boolean)`) before any direction registers.
+   - Pushing the stick alone without LB does nothing (`!st.lb` resets `replyHold` and clears fill).
+   - Minimum deflection threshold is `Math.hypot(rx, ry) > 0.6` (60% stick tilt). Standard controller drift (< 0.25) cannot trigger a direction. Persistent severe drift leaves the stick uncentered, preventing `stickArmed` from ever becoming true.
+3. **View Chord Disarming:**
+   - Holding View (`st.back`) explicitly forces `stickArmed = false` and cancels any active fill (`fill(replyHold.k, 0)`). Chords such as View+Y (walkthrough) or View+X (record) can never fire a quick reply.
+4. **Diagonal Stick Stability:**
+   - Direction is resolved via `vert = Math.abs(ry) >= Math.abs(rx)`. Exactly one of `rup`, `rdown`, `rright`, `rleft` evaluates to true (`n === 1`).
+   - If stick position wobbles across the 45° diagonal boundary, `replyHold.k !== k` immediately resets `replyHold.ms = 0` and un-fills the previous badge. Accidental diagonal inputs cannot accumulate across quadrants.
+5. **Hold Duration & Stalled Frame Capping:**
+   - Requires 550 ms continuous hold (`REPLY_HOLD_MS = 550`).
+   - Frame delta is capped at `Math.min(dt, 100)`. A lag spike or stalled frame cannot instantly trigger a reply send.
+   - Mid-hold timeout extension: `choosing.until = Math.max(choosing.until, Date.now() + 400)` ensures the choice dialog never expires while the user is actively holding a reply.
+6. **LB Pause Disambiguation (`lbWas` / `lbUsed`):**
+   - For messages with replies: if LB is held while any right-stick direction is active, `lbUsed = true`. Upon LB release, pause is bypassed because `!lbUsed` is false.
+   - If LB is pressed and released alone without stick deflection, `lbWas && !st.lb && !lbUsed` cleanly triggers `endChoice('pause')`.
+   - For messages without replies: LB triggers pause immediately on press (`!needRelease && st.lb && !choosing.msg.replies`), retaining previous instantaneous behavior.
+7. **Clean Teardown:**
+   - `endChoice()` explicitly sets `rp.hidden = true; choosing = null; replyHold = null;`. `#rp` is never orphaned on screen after choice expiration or dismissal.
+   - If overlay window crashes or closes, `phonemsg.js` emits `tellDeck({ type: 'up', on: false, face: false })`, ensuring background menus regain input immediately.
+
+### C. Right Stick (R3) Audit (`renderer/app.js` `f336cf7`)
+1. **Console Mode:**
+   - **Click / Tap (< 550 ms):** `!st.r3 && prev.r3 && !r3Held` invokes `handle('sort')`, cycling `cycleConsoleSort()`. Music playback state is completely untouched.
+   - **Hold (> 550 ms):** `now - r3At > 550` sets `r3Held = true` and invokes `handle('music')`. Upon release, `!r3Held` is false, preventing `handle('sort')` from executing.
+   - Clear mutual exclusivity: a hold never sorts; a tap never toggles music.
+2. **PC Mode & Dialogs:**
+   - Click or hold triggers `handle('music')` as before. Keyboard `o` triggers sort; `m` triggers music.
+   - Guide and Tour descriptions (`renderer/guide.js`, `renderer/tour.js`) updated to state: *"M, or holding the right stick in, plays and pauses (a right-stick click sorts the game lists)."*
+
+### D. Android Subsystem Audit (`NotifyService.java` & `build.sh`)
+- `build.sh` sets `javac -encoding UTF-8`.
+- Surrogate pair `\uD83D\uDC4D` correctly compiles to UTF-16 thumbs-up (`0xD83D 0xDC4D`), avoiding locale-dependent compilation failures on older JDKs.
+- `RemoteInput` checking safely scans both direct notification actions and `WearableExtender` actions.
+- 3-minute TTL prune (`REPLY_MS = 3 * 60000L`), 30-entry cap on `PENDING`, and strict whitelist validation (`REPLIES.contains(text)`) prevent memory bloat and external text injection.
+
+### E. What Was NOT Tested
+- Physical Xbox / DualSense controller hardware in hand (verified via Gamepad API simulation and test harness).
+- Physical Android phone paired over Tailnet receiving actual carrier SMS (verified via unit test suite `scripts/replytest.js` and static code analysis).
+
+---
+
 ## Summary
-- `npm run check`: **All 128 files pass, 276 channels answered**.
+- `npm run check`: **All 129 files pass, 276 channels answered**.
+- `npm run test-replies`: **21/21 assertions pass**.
 - `npm run test-pool`: **20/20 security assertions pass**.
-- Branches audited: `gemini/2026-10-15-bd024`, `gemini/2026-10-15-bd029`.
+- Result: **BD-032 audit: PASS**.
 
