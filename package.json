@@ -1,6 +1,6 @@
 {
   "name": "bladedeck",
-  "version": "0.2.3-dev",
+  "version": "0.2.3-rc.1",
   "description": "One launcher for Steam, emulators, recompiled ports and any program. Console mode and PC mode.",
   "main": "main.js",
   "scripts": {
@@ -71,7 +71,7 @@
       "netshare.js",
       "steaminput.js",
       "bluetooth.js",
-    "steamlink.js",
+      "steamlink.js",
       "preload.js",
       "renderer/**",
       "themes/**"
