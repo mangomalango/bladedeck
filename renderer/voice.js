@@ -52,7 +52,7 @@ const Voice = (() => {
   window.bladedeck.onVoiceProgress((pct) => { const b = $('.vc-dl b'); if (b) { b.style.width = `${pct}%`; $('.vc-dl small').textContent = pct >= 100 ? 'Ready.' : `Downloading… ${pct}%`; } });
 
   /* -------------------------------------------------------------- wake word */
-  let wakeStream = null, wakeCtx = null, wakeNode = null, wakeActive = false, wakeChecking = false;
+  let wakeStream = null, wakeCtx = null, wakeNode = null, wakeActive = false, wakeChecking = false, wakeMicWarned = false;
 
   async function startWake() {
     if (wakeActive || listening || !S.lib?.settings?.voice || !S.lib?.settings?.voiceWake || away()) return;
@@ -66,6 +66,8 @@ const Voice = (() => {
       }
       wakeStream = await navigator.mediaDevices.getUserMedia({ audio: { ...(mic ? { deviceId: { exact: mic } } : {}), channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
       wakeCtx = new AudioContext({ sampleRate: 16000 });
+      // Started without a click or key first, Chromium may hold it paused, and it would hear nothing.
+      if (wakeCtx.state === 'suspended') wakeCtx.resume().catch(() => {});
       const src = wakeCtx.createMediaStreamSource(wakeStream);
       const hp = wakeCtx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 85; hp.Q.value = 0.7;
       const lp = wakeCtx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7200; lp.Q.value = 0.7;
@@ -107,7 +109,11 @@ const Voice = (() => {
 
       src.connect(hp).connect(lp).connect(wakeNode);
       wakeNode.connect(wakeCtx.destination);
-    } catch { stopWake(); }
+    } catch (e) {
+      stopWake();
+      // Said once, not swallowed: the microphone is blocked (Windows: Privacy & security, Microphone) or missing.
+      if (!wakeMicWarned) { wakeMicWarned = true; notify('Voice', e?.name === 'NotAllowedError' ? '"Hey Blade" cannot use the microphone: it is blocked. On Windows: Settings, Privacy & security, Microphone, let desktop apps use it.' : '"Hey Blade" found no microphone.'); }
+    }
   }
 
   function stopWake() {
