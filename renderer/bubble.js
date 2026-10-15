@@ -18,7 +18,7 @@ const DIRS = ['rup', 'rdown', 'rright', 'rleft'], DIR_LABEL = ['↑', '↓', '�
 const live = []; // { msg, el, p, held, timer, from }
 let choosing = null, needRelease = false, forced = null, snap = '';
 let stickArmed = false, replyHold = null, sending = false; // replyHold: { k, ms }
-let lbWas = false, lbUsed = false; // LB is also the reply modifier: did a face button go with it?
+let lbWas = false, lbUsed = false; // LB is also the reply modifier: did a stick direction go with it?
 
 /* ---------------------------------------------------------- sound: a plip in, a faint rise up, a pop */
 let ctx = null, riser = null;
@@ -45,7 +45,8 @@ const popSound = () => { tone(1600, 200, 0.07, 0.09, 'triangle'); tone(260, 60, 
 
 /* ---------------------------------------------------------- bubbles */
 const initial = (m) => (m.sender || m.app || '?').trim().charAt(0).toUpperCase();
-const report = () => window.bubble.up(live.length > 0 || !!choosing, !!(choosing && choosing.msg.replies));
+// Replies are on LB + the right stick, which the menu never uses, so A/B/X/Y stay the menu's.
+const report = () => window.bubble.up(live.length > 0 || !!choosing, false);
 function show(m) {
   const el = document.createElement('div');
   el.className = 'bub';
