@@ -258,9 +258,56 @@ Reproduced using a local HTTP server streaming a 20 MB archive slowly (`640 KB/s
 
 ---
 
+## 18. BD-048: Automated Scripted Checks (Wake Word, Steamlink Plan, WebDl Extract, Bubble Gestures)
+**Result: PASS (4 new automated test suites created, wired to package.json, 100% passing)**
+
+Added four standalone, repeatable regression test scripts to `scripts/`, following the TAP-style output (`ok`/`FAIL`, exit code 1 on failure) of `scripts/replytest.js`:
+
+### 1. Wake-Word Matcher: `npm run test-wakeword` (`scripts/test-wakeword.js`)
+- Dynamically loads `clean()` and `WAKE_RE` regex from `renderer/voice.js`.
+- **Positives (21 cases):** Verifies all wake word variants wake the assistant (*"Hey Blade"*, *"Hi Blade"*, *"Ok Blade"*, *"Blade"*, *"Blades"*, *"Bladedeck"*, *"Blade deck"*, *"Blaid"*, *"Blayed"*), and correctly extracts/trims trailing command text (*"Hey Blade what time is it"*, *"Hi Bladedeck open settings"*, *"Blade deck next song"*).
+- **Negatives (15 cases):** Verifies non-wake phrases (*"Hello there"*, *"Play Hades"*, *"Hey Siri"*, *"Hey Google"*, *"Alexa"*, *"Bladerunner"*, *"Bleed"*, *"Braid"*, *"bladey"*, *"blader"*) are rejected.
+- **Result:** **57/57 assertions passed**.
+
+### 2. Steamlink Plan Verification: `npm run test-steamlink` (`scripts/test-steamlink.js`)
+- Loads real `steamlink.js` with stubbed Electron runtime and creates isolated temporary binary VDF fixtures.
+- **Outdated Self Entry:** Pre-existing `bladedeck-self` entry with old launch options yields `changed: 1`, `added: 0`, `removed: 0`.
+- **Idempotence / Fixed Entry:** Once updated to the fixed launcher options (`LD_PRELOAD= %command% --via-steam`, `AllowOverlay: 0`), subsequent runs yield `changed: 0`, `added: 0`, `removed: 0`.
+- **Owner Shortcut Preservation:** Verifies owner non-Bladedeck shortcuts (*Discord*) remain untouched across diffing, writing, and subsequent plan cycles.
+- **Dynamic Add / Remove:** Verifies adding a game shortcut reports `added: 1, removed: 0`, and removing reports `removed: 1, added: 0` without altering owner shortcuts.
+- **Result:** **15/15 assertions passed**.
+
+### 3. WebDl Extract When Done: `npm run test-webdl` (`scripts/test-webdl.js`)
+- Tests `webdl.extractWhenDone()` using a mock Chromium download session and `DownloadItem` lifecycle events.
+- **Unknown Files:** Returns `false` for untracked paths.
+- **Arming:** Active archive download sets `extractWhenDone = true` and populates user notification.
+- **Idempotence:** Duplicate calls remain armed and return `true` without corruption.
+- **File Type & Game Safety:** Non-archive files (`.pdf`) and game downloads (`unpack: true`) are not double-armed for extraction.
+- **Cancellation / Interruption:** Cancelling an armed download clears `extractWhenDone = false` and resets notes.
+- **Completion Trigger:** Completing an armed download triggers `extractNow()`.
+- **Result:** **18/18 assertions passed**.
+
+### 4. Bubble Reply Gesture: `npm run test-bubble` (`scripts/test-bubble.js`)
+- Loads `renderer/bubble.js` in a lightweight VM harness using `window.__bubbleTest`.
+- **Combo Opening:** `LB + RB + LT/RT` opens and fills the bubble; release past 25% threshold pops into choice.
+- **Stick Centering Requirement:** Stick must return to neutral before deflection is registered (`stickArmed`).
+- **Safety Disarming:** View button (`back`) disarms reply gesture.
+- **Deflection Safety:** Diagonal stick deflections (multiple axes active) are rejected.
+- **Early Release Cancellation:** Releasing stick or LB before 550 ms clears hold progress without sending.
+- **Lag Frame Clamping:** A 800 ms lag spike is clamped to 100 ms, preventing stalled frames from triggering accidental replies.
+- **Successful Reply:** Holding LB + stick direction for >= 550 ms triggers `window.bubble.reply(id, pick)`.
+- **Pause vs Reply Disambiguation:** Releasing LB alone without stick direction pauses; releasing LB after a direction was engaged does not pause.
+- **Result:** **15/15 assertions passed**.
+
+---
+
 ## Summary
-- `npm run check`: **All 129 files pass, 276 channels answered**.
+- `npm run check`: **All 133 files pass, 276 channels answered**.
 - `npm run test-replies`: **21/21 assertions pass**.
 - `npm run test-pool`: **20/20 security assertions pass**.
-- BD-034: **Reproductions complete and findings documented**.
+- `npm run test-wakeword`: **57/57 assertions pass**.
+- `npm run test-steamlink`: **15/15 assertions pass**.
+- `npm run test-webdl`: **18/18 assertions pass**.
+- `npm run test-bubble`: **15/15 assertions pass**.
+- All tasks in START HERE queue (BD-043 through BD-048) are complete and verified.
 
