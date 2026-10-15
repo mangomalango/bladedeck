@@ -13,4 +13,5 @@ description: Review Bladedeck's newest work for real bugs and write NIGHTLY-REVI
    smallest fix. No style opinions, no praise. Three real findings beat thirty guesses.
 5. Fix only what is small, certain and inside one file, on your own branch, with `npm run check`
    passing; say in the review which you fixed.
-6. End the review file with the line `REVIEW DONE` and add a dated entry to HANDOFF.md.
+6. List the exact commands you ran (at least `npm run check`) with their last lines, and what you did not test.
+7. End the review file with the line `REVIEW DONE` and add a dated entry to HANDOFF.md.

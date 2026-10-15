@@ -65,3 +65,13 @@ are ready: `/bladedeck-audit` (check a branch against SPEC.md: you are the team'
 Match the surrounding code: plain modern JavaScript, no frameworks, small comments that say why.
 User-facing text is short, plain and friendly, written for someone using a controller.
 Only one assistant should edit the project at a time. Snapshot before and after your work.
+
+## Show your proof (every task)
+- Before you say "done" or "PASS", run `npm run check` and, for anything the page shows, `npm run sweep`
+  in a test copy. In your reply list the exact commands you ran and their last lines. A reply with no
+  commands listed is treated as not checked.
+- Say plainly what you did NOT test (for example "not run on Windows"). Never write PASS for something you
+  only read.
+- Use the strongest model Antigravity offers for audits and reviews (races, Windows, security); the fast
+  one is for small edits.
+- Claude (Windows) spot-checks one claim from each reply before the owner acts on it.
