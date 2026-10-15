@@ -97,6 +97,8 @@ const Atmos = (() => {
       const own = clips.find((c) => c.tag === 'achievement') || clips[(Math.random() * clips.length) | 0];
       const m = own || await api.onlineMedia(e, 'clip').then((path) => path && { path }).catch(() => null);
       if (!m || S.sel?.id !== id || !poster.isConnected || document.body.classList.contains('away')) return;
+      // The wide backdrop already plays a clip of this game: one video decoding is enough.
+      if (document.body.classList.contains('sc-video')) return;
       stopPreviews();
       const v = document.createElement('video');
       v.className = 'pv-loop'; v.muted = true; v.playsInline = true; v.src = fileUrl(m.path);

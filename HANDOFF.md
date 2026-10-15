@@ -8,7 +8,7 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Open tasks
 
-Task IDs and cards: see TEAM.md (next free ID: BD-021 (BD-011..BD-018 are in ROADMAP.md)).
+Task IDs and cards: see TEAM.md (next free ID: BD-022 (BD-011..BD-018 are in ROADMAP.md)).
 
 - **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
   .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
@@ -69,6 +69,11 @@ Task IDs and cards: see TEAM.md (next free ID: BD-021 (BD-011..BD-018 are in ROA
   renderer/transfer.js, renderer/storagemap.js): try to make the page share or unlock anything outside
   Bladedeck/Shared games without the desktop confirmation. Add each attack you try to scripts/pooltest.js.
   Findings in NIGHTLY-REVIEW-gemini.md; fixes only on gemini/<date>-bd020. Read only otherwise; no pushes.
+- **BD-021** · both · Gemini · Review BD-014 (wide, smooth clips) on windows-fixes: renderer/play.js Showcase
+  (online clip as the full-screen backdrop when a game has no media; the new layer waits for "playing"
+  before cross-fading, 3 s fallback; old videos unloaded) and renderer/atmos.js (no poster preview while
+  body.sc-video). Look for: a stale clip winning a race when moving fast between games, videos left
+  decoding, Linux behaviour changes. In your own worktree; findings in NIGHTLY-REVIEW-gemini.md.
 ### For Gemini (in Antigravity)
 - BD-003 complete, reviewed and merged by the lead (557049f). Next audit: what lands on master after it (`/bladedeck-audit`).
 - **BD-010** (done) · windows · Gemini · `/bladedeck-review` of the Windows-only code.
@@ -84,6 +89,15 @@ Task IDs and cards: see TEAM.md (next free ID: BD-021 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-15 (night), Claude (Windows): BD-014 wide, smooth clips.** Every game gets a wide backdrop: with
+  no media of its own, Showcase plays the game's online clip full-screen (onlinemedia.js decides if online
+  clips are on). The new layer is loaded and starts 350 ms after selection; it only becomes the front when
+  "playing" fires (3 s fallback), so no black blink; replaced videos are unloaded; a turn counter stops a slow
+  clip from replacing a newer one. body.sc-video makes atmos.js skip the poster preview, so one video decodes,
+  not two. Test copy: at 200 ms the clip is loading behind the old picture, at 1.5 s it plays full-screen;
+  errors.log empty; check 267. Note: on this PC no game has its own clip and yt-dlp is not installed, so online
+  clips (and this backdrop) need yt-dlp (winget install yt-dlp.yt-dlp, owner's OK). Review: BD-021 (Gemini).
 
 - **2026-10-15 (night), Claude (Windows), lead: master merged INTO windows-fixes; NOT yet into master.**
   windows-fixes now = master 5a24aaa + the Shared games pool fix (e95c0ba). Merging it into master needs a

@@ -141,12 +141,19 @@ const Showcase = (() => {
       if (add.length) { (e.media = e.media || []).push(...add.map((p) => ({ path: p, kind: 'image', src: 'steam', at: Date.now() }))); save(); Tasks.sync(e); }
       if (S.sel !== e) return;
     }
-    const media = (e && !e.run && S.lib.settings.showcase !== false ? e.media || [] : []).filter((m) => m.path);
+    let media = (e && !e.run && S.lib.settings.showcase !== false ? e.media || [] : []).filter((m) => m.path);
     const k = `${e?.id}|${media.length}|${e?.look}`;
     if (k === key) return;
     key = k; clearInterval(cycle);
+    // Nothing of the player's own: the game's online gameplay clip fills the screen instead, so every
+    // game gets a wide backdrop, not only the ones with recordings (onlinemedia.js says no when off).
+    if (!media.length && e && !e.run && S.lib.settings.showcase !== false) {
+      const p = await api.onlineMedia(e, 'clip').catch(() => null);
+      if (key !== k) return;
+      if (p) media = [{ path: p, kind: 'video', src: 'online' }];
+    }
     root.className = '';
-    if (!media.length) { document.body.classList.remove('has-show'); fadeAll(); return; }
+    if (!media.length) { document.body.classList.remove('has-show', 'sc-video'); fadeAll(); return; }
     root.style.setProperty('--sc-alpha', S.lib.settings.showcaseAlpha ?? 0.6);
     root.classList.add('on', 'f-' + (e.look || 'blur'));
     document.body.classList.add('has-show');
@@ -158,25 +165,38 @@ const Showcase = (() => {
     if (media.length > 1) cycle = setInterval(() => put(media[++i % media.length]), 14000);
   }
 
+  let turn = 0;
   function put(m) {
-    const next = layers[front ^ 1], prev = layers[front];
+    const next = layers[front ^ 1], mine = ++turn;
     next.innerHTML = ''; next.style.backgroundImage = ''; next.classList.remove('kb');
     if (m.kind === 'video') {
       const v = document.createElement('video');
-      v.muted = true; v.loop = true; v.playsInline = true; v.src = fileUrl(m.path);
+      v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'auto'; v.src = fileUrl(m.path);
       v.addEventListener('loadedmetadata', () => { if (isFinite(v.duration) && v.duration > 20) v.currentTime = Math.random() * (v.duration - 15); }, { once: true });
       next.appendChild(v);
-      if (!document.hidden && !away) v.play().catch(() => {});
+      // The old picture stays until the clip is really moving, then they cross-fade: no black blink.
+      // It starts a moment after the blades settle, so the two never fight over the same frames.
+      v.addEventListener('playing', () => swap(next, mine, true), { once: true });
+      setTimeout(() => { if (mine === turn && !document.hidden && !away) v.play().catch(() => swap(next, mine, false)); }, 350);
+      setTimeout(() => swap(next, mine, false), 3000);
     } else {
       next.style.backgroundImage = `url("${fileUrl(m.path)}")`;
       void next.offsetWidth; next.classList.add('kb');
+      swap(next, mine, false);
     }
+  }
+  function swap(next, mine, video) {
+    if (mine !== turn) return;
+    if (next.classList.contains('front')) { if (video) document.body.classList.add('sc-video'); return; }
+    const prev = layers[front];
     next.classList.add('front'); prev.classList.remove('front');
-    front ^= 1;
-    setTimeout(() => { if (!prev.classList.contains('front')) { prev.innerHTML = ''; prev.style.backgroundImage = ''; } }, 1000);
+    front = layers.indexOf(next);
+    document.body.classList.toggle('sc-video', video);
+    setTimeout(() => { if (!prev.classList.contains('front')) { for (const old of prev.querySelectorAll('video')) { old.pause(); old.removeAttribute('src'); old.load(); } prev.innerHTML = ''; prev.style.backgroundImage = ''; } }, 1000);
   }
 
   function fadeAll() {
+    turn++; document.body.classList.remove('sc-video');
     layers.forEach((l) => l.classList.remove('front'));
     setTimeout(() => { if (!root.classList.contains('on')) layers.forEach((l) => { l.innerHTML = ''; l.style.backgroundImage = ''; }); }, 1000);
   }
