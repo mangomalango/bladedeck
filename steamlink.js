@@ -82,8 +82,8 @@ function shortcutFiles() {
   return out;
 }
 const steamRunning = () => new Promise((res) => {
-  if (win) execFile('tasklist', ['/FI', 'IMAGENAME eq steam.exe', '/NH'], { windowsHide: true }, (err, out) => res(!err && /steam\.exe/i.test(String(out))));
-  else execFile('pgrep', ['-x', 'steam'], (err) => res(!err));
+  if (win) execFile('tasklist', ['/FI', 'IMAGENAME eq steam.exe', '/NH'], { timeout: 5000, windowsHide: true }, (err, out) => res(!err && /steam\.exe/i.test(String(out))));
+  else execFile('pgrep', ['-x', 'steam'], { timeout: 5000 }, (err) => res(!err));
 });
 
 /* -------------------------------------------------------------- ids */

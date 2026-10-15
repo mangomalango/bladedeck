@@ -94,8 +94,8 @@ function scan() {
 }
 
 const steamRunning = () => new Promise((res) => {
-  if (process.platform === 'win32') execFile('tasklist', ['/FI', 'IMAGENAME eq steam.exe', '/NH'], { windowsHide: true }, (err, out) => res(!err && /steam\.exe/i.test(String(out))));
-  else execFile('pgrep', ['-x', 'steam'], (err) => res(!err));
+  if (process.platform === 'win32') execFile('tasklist', ['/FI', 'IMAGENAME eq steam.exe', '/NH'], { timeout: 5000, windowsHide: true }, (err, out) => res(!err && /steam\.exe/i.test(String(out))));
+  else execFile('pgrep', ['-x', 'steam'], { timeout: 5000 }, (err) => res(!err));
 });
 
 async function fix() {
