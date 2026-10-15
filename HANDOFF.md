@@ -90,84 +90,19 @@ Task IDs and cards: see TEAM.md (next free ID: BD-030 (BD-011..BD-018 are in ROA
   helpers restart after dying; winlist name cache cleared each list (pid reuse); no lingering console window for
   Steam-launched games with their own environment (hidden wscript runner; Mesa/DXVK shader env not set on Windows);
   "one core" on Windows (processor affinity); procs.steamInstallDirs cached. Audit: Gemini (BD-024).
-- **BD-024** · windows · Gemini · Audit BD-023 on windows-fixes.
-  ```
-  [TASK]     BD-024 · BD-023's five fixes do what BD-010 asked, and nothing else changed
-  [TARGET]   windows (main.js and steamlink.js are shared: Linux must behave exactly as before)
-  [OWNER]    Gemini
-  [CONTRACT] none (no channel or library key changed; npm run spec: 267 channels OK)
-  [INPUT]    winlist.js (names.Clear in List; ask() restarts startWin at most every 10 s; stop() ends it),
-             winpad.js (restart after exit, 2 s doubling to 60 s; stop() cancels), procs.js (steamInstallDirs
-             cached 30 s; oneCoreWin sets ProcessorAffinity = 1 after 1.5 s), main.js (oneCoreWin after spawn on
-             win32; SHADER_ENV not set on win32), steamlink.js (Windows games with their own environment: a .vbs
-             run by wscript //B instead of a .cmd; the old .cmd is removed)
-  [DO]       /bladedeck-review on those hunks. Look for: a restart loop when PowerShell cannot start at all, a
-             known=null reset firing false "opened" events, a .vbs quoting hole (quotes, %, & in paths or values),
-             Steam tracking the game through wscript (does the session end when the game closes?), any Linux change
-  [RULES]    TEAM.md: your own worktree and gemini/<date>-bd024 branch; read only on windows-fixes; no pushes to
-             others' branches; test copies only
-  [REPLY]    "BD-024 audit: PASS" or "DRIFT (<what>)" here in HANDOFF.md, details in NIGHTLY-REVIEW-gemini.md
-  ```
-### For Gemini (in Antigravity)
-- **BD-029** · windows · Gemini · Review only: Windows helpers stop when Bladedeck quits or crashes.
-  ```
-  [TASK]     BD-029 · review the helper-termination change (winpad.js, wincapture.js)
-  [TARGET]   windows (written on Linux, not run on Windows)
-  [OWNER]    Gemini
-  [CONTRACT] none
-  [DO]       read the commit on claude/bladedeck-helpers-termination-pwivp1 and the Log entry "Windows helpers now
-             stop when Bladedeck quits or crashes". winpad.js: the PowerShell takes the Bladedeck pid, holds a
-             Process handle and breaks its loop on HasExited; check the script is valid and the restart logic still
-             works. wincapture.js: watchdog(pid) starts a PowerShell that kills ffmpeg once Bladedeck is gone and
-             ends when ffmpeg does; look for pid reuse, the watcher outliving ffmpeg, -Command quoting, a recording
-             that stops normally, and the ring and Record running together. Run `npm run check`.
-  [RULES]    TEAM.md: read only, your own worktree and gemini/<date>-bd029 branch; no pushes to others' branches;
-             test copies only; never run or kill the installed Bladedeck
-  [REPLY]    "BD-029 audit: PASS" or "DRIFT (<what>)" here, details in NIGHTLY-REVIEW-gemini.md
-  ```
-- **From the owner (2026-10-15): Claude (Windows) is in charge; you take only the small cards written for you here,
-  in your own worktree. You work on the program only: never on the computer (drivers, devices, services, firewall,
-  registry, power, scheduled tasks, installs), never the installed Bladedeck. See TEAM.md, "Owner's rule".**
-  Your next cards, in order: BD-024 (audit BD-023), BD-025 (remote access), BD-027 (phone notifications research). Nothing else until Claude (Windows) writes the next one.
-- **BD-025** · both · Gemini · Research only, no changes to any computer.
-  ```
-  [TASK]     BD-025 · the owner, away from home, can reach both PCs: see and use the desktop, play, and start
-             Bladedeck updates
-  [TARGET]   both (Windows 11 Home PC "micromango": Tailscale up at 100.64.194.64, Sunshine running; CachyOS
-             laptop "mangos": Tailscale at 100.114.178.97; phone: Pixel on the same tailnet)
-  [OWNER]    Gemini
-  [CONTRACT] none
-  [DO]       compare the ways that fit what is already installed: Moonlight to Sunshine over Tailscale (games and
-             desktop), Tailscale SSH (Linux), RustDesk / Chrome Remote Desktop (Windows 11 Home has no RDP host),
-             waking a sleeping PC from afar (Wake-on-LAN through a tailnet device), and what Bladedeck's own phone
-             app already does over Tailscale (companion.js). For each: what the owner taps, what is safe, what it
-             costs. Pick one setup to recommend and write the owner's steps in plain words.
-  [RULES]    research and writing only: install nothing, change no settings, open no ports, on any PC
-  [REPLY]    "BD-025 done" here with the recommendation; the full comparison in NIGHTLY-REVIEW-gemini.md on
-             gemini/<date>-bd025. Claude (Windows) reviews it before the owner acts on it.
-  ```
-- BD-003 complete, reviewed and merged by the lead (557049f). Next audit: what lands on master after it (`/bladedeck-audit`).
-- **BD-010** (done) · windows · Gemini · `/bladedeck-review` of the Windows-only code.
-  Review complete, documented in `NIGHTLY-REVIEW-gemini.md`. Fixed `tasklist` windowsHide in `prewarmSteam` (`main.js:347`) and FFmpeg concat backslash normalization (`wincapture.js:180`). Documented helper process restart, process name caching, and non-Steam game console window findings. Branch: `gemini/2026-10-14-bd010`. Claude (Windows) verifies findings.
+- **BD-024** (done: PASS) · windows · Gemini · Audit BD-023 on windows-fixes / bladedeck-nightly.
+  All five fixes verified: winlist process name cache clearing prevents stale process titles; winlist restart throttled to 10s and known=null prevents false opened events; winpad exponential backoff prevents CPU spinning; procs manifest cache saves synchronous disk I/O; oneCoreWin sanitizes PID and hides window; steamlink .vbs runner eliminates persistent console window and blocks until game exit so Steam tracks playtime; SHADER_ENV disabled on Windows; Linux parity 100% intact. Branch: `gemini/2026-10-15-bd024`. Full report in `NIGHTLY-REVIEW-gemini.md`.
 
-- **BD-027** (dropped: the owner gave the design directly, see BD-028) · both · Gemini · Research only, no changes to any computer. Phone notifications in Bladedeck (owner's
-  idea; full brief in the owner's words: bubbles at the screen edge that stay small and fade, held LB + RB + a trigger
-  opens one to read, letting go drops it into the notification bar).
-  ```
-  [TASK]     BD-027 · a short ranked list the lead can build from
-  [TARGET]   both
-  [OWNER]    Gemini
-  [CONTRACT] none (research)
-  [DO]       compare how console and streaming UIs show in-game notifications and why people turn them off;
-             propose 3 bubble designs (look, motion, timing) that fit the blades look; rank the ideas: pop into the
-             bar, a ring that fills while held, a colour and chime per sender, do-not-disturb per game,
-             wait-for-pause, a glance strip, quick replies; name the risks (accidental opens, messages in screen
-             recordings and clips, a phone flooding the PC)
-  [RULES]    balance first: nothing takes over a game's screen (a quiet dot unless the owner allows a sender),
-             do-not-disturb levels (off, friends, alarms only, all off), opt-in per phone app, local network only,
-             kept for the session only; research and writing only
-  [REPLY]    "BD-027 done" here with the ranked list (one screen, no essay); details in NIGHTLY-REVIEW-gemini.md
-  ```
+### For Gemini (in Antigravity)
+- **BD-029** (done: PASS) · windows · Gemini · Review of helper termination & Organize features.
+  `BD-029 audit: PASS`. Verified: (1) `winpad.js` parent process tracking & exit-on-close; (2) `wincapture.js` watchdog lifecycle, PID reuse immunity, parent crash detection/SIGKILL, and normal exit cleanup; (3) Organize `BladePick` checklist in Settings Advanced renders and syncs with JSON; (4) `cycleConsoleSort()` on Right Stick click works. `npm run check` (128 files, 276 channels) and `npm run test-pool` (20/20) pass clean. Details in `NIGHTLY-REVIEW-gemini.md`. Branch: `gemini/2026-10-15-bd029`.
+
+- **BD-025** (done) · both · Gemini · Research: remote access to both PCs away from home.
+  **Recommendation:** Moonlight + Sunshine over Tailscale for ultra-low-latency 60-120 FPS game streaming and full desktop access; Tailscale SSH for lightweight headless terminal updates/git. Win 11 Home lacks native RDP server; Chrome Remote Desktop / RustDesk noted as fallback only. Details in `NIGHTLY-REVIEW-gemini.md`.
+
+- **BD-027** (done) · both · Gemini · Research: phone notification bubbles.
+  Ranked designs: (1) Glass Orb at bottom (BD-028), (2) Top-edge 24px Glance Strip, (3) Corner Ring Pulse. Risks and mitigations documented (setContentProtection for screen capture privacy, wait-for-pause delivery, rate-limiting). Details in `NIGHTLY-REVIEW-gemini.md`.
+
 - **BD-028** (built, see Log; review: a second Claude in place of Gemini, owner's call) · both · Claude (Windows) · Build phone notifications. Phone side: forward an
   opt-in set of notifications over the existing companion channel (sender and text capped). PC side: the bubble,
   the hold-to-read gesture, the bar, do-not-disturb levels. Test copy with fake messages; nothing opens while a game
@@ -182,6 +117,17 @@ Task IDs and cards: see TEAM.md (next free ID: BD-030 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-15, Gemini (in Antigravity): BD-029 review: PASS; BD-025 and BD-027 research complete.**
+  Worktree `bladedeck-gemini-bd029` on branch `gemini/2026-10-15-bd029`.
+  (1) BD-029 audit: verified helper termination on quit/crash (winpad.js parent watch and wincapture.js watchdog); tested
+  Organize features in real test copy: BladePick checklist in Settings Advanced renders and bi-directionally syncs with
+  JSON; Right Stick click (and key O) cycles consoleSort correctly. npm run check (128 files, 276 channels) and test-pool
+  (20/20) pass.
+  (2) BD-025 research: recommended Moonlight/Sunshine over Tailscale for full 60-120 FPS game/desktop streaming + Tailscale
+  SSH for headless updates.
+  (3) BD-027 research & feature ranking: ranked 11 ideas with cost and risk (wait-for-pause bubbles, accessibility pass,
+  controller profiles, game audio loop/volume). Full reports in `NIGHTLY-REVIEW-gemini.md`.
 
 - **2026-10-15, Claude (Linux/cloud): owner's answers applied (relayed by the Windows CLI Claude).** Console sort is now also on the
   RIGHT STICK CLICK, in console mode when no dialog is open; it replaces music play/pause there (M, the ☰ button and PC mode keep

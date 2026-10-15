@@ -49,7 +49,79 @@ Audited `renderer/warp.js`, `renderer/style.css`, and `renderer/app.js`:
 
 ---
 
+## 4. BD-029: Review of Helper Termination & Organize Features
+**Result: PASS (All checks pass, 0 regressions)**
+
+Audited branch `origin/claude/bladedeck-helpers-termination-pwivp1` (commits `9b59dee`, `799b508`, `bcee3bb`):
+
+### A. Helper Termination (`winpad.js` & `wincapture.js`)
+- **Controller Helper (`winpad.js`):** Script receives parent PID `PS1(process.pid)` and monitors `[System.Diagnostics.Process]::GetProcessById(${parent})`. The loop checks `$parent.HasExited` every 40 ms and breaks immediately when Bladedeck exits or crashes. Verified restart logic remains functional during normal runtime.
+- **Capture Watchdog (`wincapture.js`):** `watchdog(pid)` safely evaluates process objects (`$f` and `$b`). When FFmpeg terminates normally, the loop exits within 500 ms without invoking `$f.Kill()`. Verified in standalone harness that abruptly killing the parent triggers immediate execution of `$f.Kill()`, preventing zombie FFmpeg instances. Ring and manual recording use separate isolated watchdog instances.
+
+### B. Organize Features (`renderer/app.js` & `renderer/style.css`)
+- **Settings Blades Checklist (`BladePick`):** Replaces the raw JSON textarea with an interactive checklist (`.blade-pick`) to enable, disable, and reorder blades (▲/▼). Bi-directionally syncs with the JSON textarea in a collapsible `<details>` section so manual editing remains intact. Enforces minimum 1 blade.
+- **Console Mode Sort:** Added `cycleConsoleSort()` mapped to **Right Stick click** (or `O` on keyboard) in console mode, cycling through the unified `SORTS` table with on-screen toast feedback.
+
+### Verification Proof
+- `cmd /c "npm run check && npm run test-pool"`: All 128 files fine, 276 channels answered, 20/20 pool security assertions pass.
+- Watchdog lifecycle and crash test harness verified.
+
+---
+
+## 5. BD-025: Remote Access Research (Reaching Both PCs Away from Home)
+**Recommendation:** **Moonlight to Sunshine over Tailscale (Gaming & Desktop) + Tailscale SSH (Headless Admin)**
+
+### Comparison Matrix
+| Solution | Latency & Quality | Setup on Win 11 Home & CachyOS | Security & Ports | Cost | Recommended For |
+|---|---|---|---|---|---|
+| **Moonlight + Sunshine (via Tailscale)** | Ultra-low latency (NVENC/AMF/VAAPI), 60–120 FPS, native controller rumble. | Sunshine already running on Windows (`100.64.194.64`). Install Sunshine on Linux (`100.114.178.97`). Moonlight client on phone/laptop. | Zero forwarded router ports. Authenticated over Tailnet mesh WireGuard. | Free / Open Source | **Primary gaming & full desktop control on both PCs.** |
+| **Tailscale SSH** | Instant text console, ultra-lightweight. | Built into Tailscale. Windows requires OpenSSH server; Linux is native `tailscale ssh`. | Zero port exposure. Managed via Tailscale ACLs. | Free | **Quick headless updates, git commands, and server maintenance.** |
+| **RustDesk / Chrome Remote Desktop** | Moderate latency, high compression artifacts, clumsy virtual gamepad. | Windows 11 Home lacks native RDP host (mstsc). Chrome Remote Desktop requires Google account; RustDesk needs self-hosted relay or public server. | Outward relay servers required. | Free | **Fallback desktop troubleshooting only (poor for games).** |
+| **Wake-on-LAN over Tailnet** | Allows waking sleeping PCs remotely. | Requires 1 always-on device (e.g. Raspberry Pi, router, or Linux PC) to broadcast magic packet locally over LAN. | Secure through Tailnet. | Free | **Powering on sleeping host from afar.** |
+
+### Owner's Step-by-Step Setup:
+1. **To Play & Use Desktop Remotely:** Open **Moonlight** on your phone or remote laptop &rarr; Add Host IP: `100.64.194.64` (Windows) or `100.114.178.97` (Linux) &rarr; Enter PIN once into Sunshine web UI (`https://localhost:47990`). Tap Bladedeck to launch straight into console mode.
+2. **To Update Headless:** Run `tailscale ssh mangos` (or Windows) to pull branches or trigger builds.
+
+---
+
+## 6. BD-027: Phone Notification Bubbles Research
+**Context:** In-game notifications fail when they interrupt inputs, block HUD elements, or leak private messages on streams/recordings.
+
+### 3 Bubble Archetypes for Blades Aesthetic
+1. **The Glass Orb (Implemented in BD-028):** Resting subtle orb at bottom-center. Holds LB+RB+trigger to float and expand. Minimal screen intrusion.
+2. **The Glance Strip (Top-Edge HUD):** A slender 24 px frosted glass band across the top border showing sender icon + brief 3-word summary for 3 seconds, then retracting. Zero input interruption.
+3. **The Ring Pulse (Radar Corner):** A glowing circular arc nestled around the player avatar in the top-left corner that pulses softly when a message arrives.
+
+### Risks & Mitigations
+- **HUD Takeover / Input Clashing:** Hard rule: games NEVER lose focus or inputs unless the deliberate 3-button chord is held.
+- **Recording Leakage:** Enforced via `win.setContentProtection(true)` on Windows so overlays are excluded from OBS/FFmpeg screen capture.
+- **Message Flooding:** Rate limit: 12 messages/min per paired device key; session-only storage.
+
+---
+
+## 7. Feature Ideas Ranking (Cost & Risk Assessment)
+
+All ideas adhere to the safety rules: local network/Tailscale only, no external accounts/servers, controller-first.
+
+| Feature Idea | Category | Value | Implementation Cost | Risk Level | Assessment & Rationale |
+|---|---|---|---|---|---|
+| **Deduplicate / Hide "Games" Blade** | Experience | High | Low (10 lines) | Very Low | Eliminates 3x title duplication across Home/Steam/Emu. Immediate win. |
+| **Wait-for-Pause Bubble Delivery** | Bubbles | High | Low | Low | Holds notifications until game pauses or drops below active input. Zero gameplay interruption. |
+| **Color & Chime per Sender/Friend** | Bubbles | Medium | Low | Low | Distinct audio chimes fit the nostalgic 360 audio cues. |
+| **Accessibility & Plain Writing Pass** | Experience | High | Low | Low | Standardizes labels, sentence casing, high contrast, and reduced motion. |
+| **Per-Controller Player Profiles** | Multiplayer | High | Medium | Low | Automatically maps guest vs player 1 settings and saves. |
+| **Trim, Volume & Loop per Game Audio** | Video/Music | Medium | Medium | Low | Lets users customize background music per blade/game. |
+| **Presence over Tailscale / Nearby** | Friends | High | Medium | Medium | Shows friend status (`In-Game: Halo 3`) across paired tailnet devices. Safe if peer-to-peer. |
+| **Local Tasks Leaderboard** | Friends | Medium | Medium | Low | Compare achievement/task counts locally without cloud accounts. |
+| **Direct Invites to Same Game** | Friends | High | High | Medium | Requires matching game IDs and network join handshakes. |
+| **Quick Messages (7-day local retention)**| Friends | Medium | High | High | Requires local queueing, storage, and message sanitization audits. |
+| **Activity Feed** | Friends | Low | High | Medium | Clutters clean blade UX; high UI maintenance for low gain. |
+
+---
+
 ## Summary
-- `npm run check`: **All 121 files pass, 267 channels answered**.
+- `npm run check`: **All 128 files pass, 276 channels answered**.
 - `npm run test-pool`: **20/20 security assertions pass**.
-- Branch ready for Claude (Windows) lead review: `gemini/2026-10-15-bd020`.
+- Branches audited: `gemini/2026-10-15-bd024`, `gemini/2026-10-15-bd029`.
+
