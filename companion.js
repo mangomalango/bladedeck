@@ -79,7 +79,9 @@ function body(req) {
 function authed(req) {
   const h = String(req.headers.authorization || ''), q = new URL(req.url, 'http://x').searchParams.get('key') || '';
   const key = h.startsWith('Bearer ') ? h.slice(7) : q;
-  const d = key && data.devices.find((x) => x.key === key);
+  // Compared in constant time (as hashes, so the lengths match): how long a wrong key takes says nothing.
+  const k = key && crypto.createHash('sha256').update(key).digest();
+  const d = k && data.devices.find((x) => x.key && crypto.timingSafeEqual(crypto.createHash('sha256').update(String(x.key)).digest(), k));
   if (d) d.seen = Date.now();
   return d || null;
 }
