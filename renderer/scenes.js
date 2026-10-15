@@ -307,8 +307,10 @@ const Scenes = (() => {
     last = 0;
     requestAnimationFrame(frame);
   }
+  // Calm (a minute without input, see app.js): the scene holds still until the next press.
+  document.addEventListener('calm-off', () => ensureLoop());
   function frame(ts) {
-    if (!kind || away || document.hidden) {
+    if (!kind || away || document.hidden || document.body.classList.contains('calm')) {
       running = false;
       return;
     }

@@ -1881,3 +1881,9 @@ html[data-warp="shrink"] body { animation: wp-snap .16s ease-out; }
 .up-bar { height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 15%, transparent); overflow: hidden; margin: 8px 0 2px; }
 .up-bar i { display: block; height: 100%; background: var(--accent, #4aa3ff); transition: width .3s; }
 .up-box button:disabled { opacity: .45; filter: grayscale(.6); cursor: default; }
+
+/* Calm (app.js): after a minute without input every looping animation holds still, so the graphics
+   card stops redrawing the blurred layers each frame. Toasts and dialogs keep moving. */
+body.calm *:not(#toasts, #toasts *, #modal, #modal *),
+body.calm *:not(#toasts, #toasts *, #modal, #modal *)::before,
+body.calm *:not(#toasts, #toasts *, #modal, #modal *)::after { animation-play-state: paused !important; }

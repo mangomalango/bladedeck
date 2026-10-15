@@ -148,7 +148,7 @@ function startBg() {
     }
   }
   function frame(ts) {
-    if (document.hidden || away || (still && drawn === S.theme?.id)) {
+    if (document.hidden || away || (still && drawn === S.theme?.id) || document.body.classList.contains('calm')) {
       running = false;
       return;
     }
@@ -164,6 +164,7 @@ function startBg() {
     requestAnimationFrame(frame);
   }
   document.addEventListener('deck-away', (ev) => { if (!ev.detail) ensureLoop(); });
+  document.addEventListener('calm-off', ensureLoop);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) ensureLoop(); });
   document.addEventListener('theme-changed', () => { drawn = null; ensureLoop(); });
   ensureLoop();
@@ -1512,8 +1513,23 @@ function activate() { if (S.sel) launch(S.sel); }
 
 // When the player last did anything (the background slows down after a quiet minute).
 let menuInputAt = Date.now();
-for (const t of ['keydown', 'pointerdown', 'pointermove', 'wheel']) addEventListener(t, () => { menuInputAt = Date.now(); }, { passive: true, capture: true });
-function handle(a) { menuInputAt = Date.now(); Atmos.poke(); handleInput(a); hints(); if (a === 'up' || a === 'down' || a === 'left' || a === 'right') Players.bump(); }
+/* Calm: a minute without input and the menu holds still: the ribbon, the scene, the wallpaper's slow
+   zoom, spinners and preview videos stop where they are, and come back with the first press or
+   mouse move. Any motion makes the graphics card redraw every blurred layer of the whole screen
+   (measured on Windows: 99% of a core in the GPU process, 10% with nothing moving). */
+function calm(on) {
+  if (document.body.classList.contains('calm') === on) return;
+  document.body.classList.toggle('calm', on);
+  for (const v of document.querySelectorAll('video')) {
+    if (on && !v.paused) { v.dataset.calm = '1'; v.pause(); }
+    else if (!on && v.dataset.calm) { delete v.dataset.calm; v.play().catch(() => {}); }
+  }
+  if (!on) document.dispatchEvent(new Event('calm-off'));
+}
+const wake = () => { menuInputAt = Date.now(); calm(false); };
+setInterval(() => { if (!S.modal && Date.now() - menuInputAt > 60000) calm(true); }, 5000);
+for (const t of ['keydown', 'pointerdown', 'pointermove', 'wheel']) addEventListener(t, wake, { passive: true, capture: true });
+function handle(a) { wake(); Atmos.poke(); handleInput(a); hints(); if (a === 'up' || a === 'down' || a === 'left' || a === 'right') Players.bump(); }
 /* The hint bar says what the buttons do where you are, so Y reads "Close…" in the Running list
    and the dock rather than "Edit". */
 let hintsDefault = null, hintsNow = '';

@@ -656,6 +656,9 @@ function readDownloads() {
         const txt = fs.readFileSync(path.join(apps, f), 'utf8');
         const num = (k) => +((txt.match(new RegExp(`"${k}"\\s+"(\\d+)"`)) || [])[1] || 0);
         const flags = num('StateFlags'), total = num('BytesToDownload'), done = num('BytesDownloaded');
+        // Fully installed in another library (this one is the leftover, often "update required"):
+        // not a download. Seen on the owner's PC: Outlast, Huntdown, Blasphemous on C: and F:.
+        if (installed.has(f)) continue;
         // 4 installed, 2 update required, 256 update running, 512 paused, 1024 update started.
         const busy = flags & (2 | 256 | 512 | 1024);
         if (((flags & 4) && !busy) || !total || done >= total) continue;
