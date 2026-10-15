@@ -20,7 +20,9 @@ const real = process.platform === 'win32' ? path.join(process.env.APPDATA || '',
 let lib = { settings: {}, emulators: [], entries: [] };
 if (process.argv.includes('--real')) { try { lib = JSON.parse(fs.readFileSync(path.join(real, 'library.json'), 'utf8')); } catch { console.log('No real library found; starting empty.'); } }
 // Nothing that reaches outside, and no first-run tours in the way.
-Object.assign(lib.settings ||= {}, { steamInput: false, bladedeckViaSteam: false, lanOn: false, discord: false, prewarmSteam: false, backupWeekly: false, tourSeen: 999, extrasSeen: true });
+Object.assign(lib.settings ||= {}, { steamInput: false, bladedeckViaSteam: false, lanOn: false, discord: false, prewarmSteam: false, backupWeekly: false, tourSeen: 999, extrasSeen: true,
+  // Downloads and games from Browse land in the scratch folder, never in the owner's own folders.
+  dlDir: path.join(dir, 'Downloads'), gamesDir: path.join(dir, 'Games') });
 fs.writeFileSync(path.join(dir, 'library.json'), JSON.stringify(lib));
 
 const electron = require(path.join(root, 'node_modules', 'electron'));
