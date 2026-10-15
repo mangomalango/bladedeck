@@ -181,7 +181,11 @@ function plan(file, want) {
   root[2] = next.map((fields, i) => [0, String(i), fields]);
   const added = want.filter((w) => !w.keepOnly && !before.has(appId(w.key))).length;
   const removed = [...before.keys()].filter((id) => !ids.has(id)).length;
-  return { tree, added, removed };
+  /* Bladedeck's own entry already there with other launch options (on Linux it now starts without Steam's
+     overlay): it counts as a change, or a sync would leave the old one and Bladedeck would still crash. */
+  const changed = want.filter((w) => w.key === 'bladedeck-self' && !w.keepOnly && before.has(appId(w.key))
+    && ['LaunchOptions', 'AllowOverlay'].some((k) => String(get(before.get(appId(w.key))[2], k)) !== String(get(w.node, k)))).length;
+  return { tree, added, removed, changed };
 }
 
 let present = new Set(); // entry ids Steam already has (as it read them at its last start)
@@ -200,7 +204,7 @@ async function sync({ force = false } = {}) {
   if (!files.length) return { ok: false, noSteam: true };
   const want = await wanted();
   const plans = files.map((f) => ({ f, ...plan(f, want) }));
-  const pending = plans.reduce((n, p) => n + p.added + p.removed, 0);
+  const pending = plans.reduce((n, p) => n + p.added + p.removed + p.changed, 0);
   if (!pending && !force) { readPresent(); return { ok: true, pending: 0, games: want.length }; }
   if (await steamRunning()) { readPresent(); return { ok: false, steamRunning: true, pending }; }
   for (const p of plans) {
