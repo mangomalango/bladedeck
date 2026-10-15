@@ -160,6 +160,17 @@ Task IDs and cards: see TEAM.md (next free ID: BD-029 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15, BD-028 review (second Claude, in place of Gemini; read only, of 98fdd16):** no injection (textContent
+  only, clip() strips control chars) and no blocking bug. To fix before merge: (1) rate limit keyed on the device key, not
+  the phone's chosen name; (2) Android Bridge.link origin: set pageOrigin again in onPageFinished from v.getUrl(), and
+  refuse navigation off the paired PC's origin in shouldOverrideUrlLoading (the bridge is exposed to every page the
+  WebView loads); (3) the game also receives LB/RB/LT/RT while the combo is held: freeze it while held, or say so;
+  (4) setContentProtection(true) on the overlay so recordings and replays never show a message (Windows only; Linux
+  ignores it), and skip bubble-snap while Capture records. Already covered by the lead's test copy: the short-tap sink
+  back, the do-not-disturb levels (node), the pause/menu choice reaching the menu (procs.js freeze is blocked in test
+  copies). ON HOLD: the owner wants a say before more is built (round-1 answers: header at the top, blur only behind
+  the bubble, rising sound, sender picture); fixes 1-4 go in with those once the owner says go.
+
 - **2026-10-15, Claude (Windows), lead: BD-028 phone messages, the owner's bubble design.** PC: phonemsg.js (receive from
   companion.js POST /api/notify, paired phones only; caps 40/40/500 chars, control chars stripped, 12 a minute per
   phone; session memory only; Settings, Phone app: all / quiet / bar only / off), a transparent click-through
