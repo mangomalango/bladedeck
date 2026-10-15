@@ -64,7 +64,7 @@ Task IDs and cards: see TEAM.md (next free ID: BD-010).
   each PC lists the other, a file goes each way with Accept. Contract: SPEC §3 Nearby.
 
 ### For Gemini (in Antigravity)
-- BD-003 complete. Branch `gemini/2026-10-14-audit-bd003` ready for lead review.
+- BD-003 complete, reviewed and merged by the lead (557049f). Next audit: what lands on master after it (`/bladedeck-audit`).
 
 ### For Claude
 - Things that need the owner's hardware: multi-screen on two screens, the DualSense speaker,
