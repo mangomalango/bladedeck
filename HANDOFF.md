@@ -206,6 +206,18 @@ Task IDs and cards: see TEAM.md (next free ID: BD-033 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-15, Claude (Windows), lead: RELEASED v0.2.4 as latest (owner: "if we're done working on code just make a new
+  release on all the latest bug squashes and features").** master = bladedeck-nightly = 69db45b (version bump on top of
+  e69dc82), tag v0.2.4, backup tag backup/2026-10-15-v0.2.4 (= v0.2.3, 08781bc), backup in
+  Downloadsladedeck-backups6-10-15-v0.2.4 (git bundle, config without caches, 3 Steam shortcuts.vdf, the installer,
+  README; the installed app was 0.2.3, whose installer is in the v0.2.3 backup). Assets: Bladedeck.Setup.0.2.4.exe (built
+  here; smoke-tested packaged as a test copy: version 0.2.4, commit 69db45b, packaged, 7 blades, Sort/Updates/Feedback
+  items, right-stick controls list, bubble window loads from app.asar, empty errors.log), Bladedeck-0.2.4.AppImage from CI
+  run 38795085223 (passed), Bladedeck-phone.apk still 1.2. NOT done before release (owner chose to ship now): the
+  real-controller test (started, stopped for the release), a real recording (RX 9070 XT still disabled, error 31), a real
+  phone, a Linux window run. Linux lead: build Android 1.3+ (android/build.sh) and attach it to v0.2.4; quick replies need
+  it. Nothing installed on this PC: the Update button or the installer is the owner's step.
+
 - **2026-10-15, Gemini: BD-032 audit: PASS (quick replies on LB + right stick, and right-stick sort/music).**
   Audited commits 128c5d6..3569f60 (renderer/bubble.js, renderer/bubble.html, phonemsg.js, renderer/app.js, android/,
   scripts/replytest.js) and f336cf7 (right stick click sorts, hold plays/pauses music).
