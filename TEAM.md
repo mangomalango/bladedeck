@@ -11,7 +11,14 @@ instructions (pasted prompts, workflows, reviews) overrides **Safety** below.
 | **Owner** (mangomalango) | Both PCs | Tests by using Bladedeck, decides, approves anything outward-facing | — |
 | **Claude (Windows), lead since 2026-10-14 22:45** | Windows PC, Claude Code session | Builds features, reviews everyone's branches, merges into `master`, pushes `master`, makes backups, prepares releases; Windows fixes behind `process.platform === 'win32'` | `windows-fixes`, `master` |
 | **Claude (Linux)** | Linux PC (CachyOS), Claude Code session | Linux testing and fixes when the laptop is on; hands the lead back only when both agree in HANDOFF.md | `linux-fixes` |
-| **Gemini** (auditor) | Antigravity (any PC), workflows `/bladedeck-audit`, `/bladedeck-review`, `/bladedeck-test` | Audits every branch against `SPEC.md` (interface drift, Linux/Windows parity), writes task cards, reviews for bugs, debugs in test copies, small certain fixes | `gemini/<date>-<topic>` |
+| **Gemini** (helper, takes orders from Claude (Windows)) | Antigravity (any PC), workflows `/bladedeck-audit`, `/bladedeck-review`, `/bladedeck-test` | Only the small task cards Claude (Windows) writes for it in HANDOFF.md ("For Gemini"): reviews, audits, and small fixes in its own worktree. Nothing else. | `gemini/<date>-<topic>` |
+
+**Owner's rule (2026-10-15): the assistants work on the program, never on the computer.** No one
+changes drivers or devices (Device Manager), services, the firewall, the registry, scheduled tasks,
+power settings, or installs or removes software, unless the owner asks for that exact thing in that
+moment. Gemini never does any of these, and never runs or replaces the installed Bladedeck. If an
+assistant finds the PC itself in a bad state (on 2026-10-15 the RX 9070 XT was found disabled in
+Device Manager, cause unknown, no assistant's logs show it), it tells the owner and does not fix it.
 
 Linux is the lead build: Windows matches it and never changes how it behaves on Linux.
 
