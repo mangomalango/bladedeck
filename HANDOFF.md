@@ -168,7 +168,12 @@ Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROA
              every dialog with B, and is the highlight always visible? List traps and unreachable controls
   [REPLY]    "BD-047 done: N problems"; small fixes allowed on your branch
   ```
-- **BD-048** · both · Gemini · More automatic checks, so these bugs stay fixed.
+- **BD-048** (done: 4 suites passing, Gemini, gemini/2026-10-16-bd048, NIGHTLY-REVIEW §18) · both · Gemini · More automatic checks, so these bugs stay fixed.
+  **BD-048 done:** Added 4 regression suites wired into `package.json`:
+  - `npm run test-wakeword` (`scripts/test-wakeword.js`): 57 assertions testing wake word variants, rest extraction, and non-wake rejections.
+  - `npm run test-steamlink` (`scripts/test-steamlink.js`): 15 assertions testing `plan()` self entry updating (`changed = 1` -> `changed = 0`), owner shortcut preservation, and add/remove diffing.
+  - `npm run test-webdl` (`scripts/test-webdl.js`): 18 assertions testing `extractWhenDone()` arming, idempotence, file type filtering, cancellation cleanup, and completion triggers.
+  - `npm run test-bubble` (`scripts/test-bubble.js`): 15 assertions testing combo fill/pop, stick centering requirement, View disarming, diagonal rejection, lag frame clamping, and hold-to-send threshold.
   ```
   [TASK]     BD-048 · turn today's fixes and your findings into scripted checks
   [DO]       add to scripts/ (new files are fine; wire them into package.json as npm run test-<name>): the wake-word matcher
