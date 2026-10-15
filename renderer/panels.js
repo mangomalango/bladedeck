@@ -443,14 +443,14 @@ const SysPanel = (() => {
   const zram = (c) => !c ? '' : c.kind === 'zram' ? ` · compressed swap (zram${c.algo ? `, ${esc(c.algo)}` : ''}) ${c.orig ? `holding ${gb(c.orig)} in ${gb(c.compr)}` : 'on, unused'}` : c.kind === 'zswap' ? ' · zswap compression on' : ' · no memory compression';
   async function refresh(p) {
     const s = await api.sysStats(); if (!p.el.isConnected) { clearInterval(p.timer); return; }
-    const t = s.temps || {}, card = (ic, title, big, sub, pct, hot) => `<div class="sy-card"><span>${ic} ${esc(title)}</span><b>${big}</b>${pct != null ? bar(pct, hot) : ''}<small>${sub}</small></div>`;
+    const t = s.temps || {}, card = (ic, title, big, sub, pct, hot, act) => `<div class="sy-card ${act ? 'clickable' : ''}" ${act ? `data-sy="${act}" role="button" tabindex="0"` : ''}><span>${ic} ${esc(title)}</span><b>${big}</b>${pct != null ? bar(pct, hot) : ''}<small>${sub}</small></div>`;
     const g = s.gpu, b = s.battery, n = s.net;
     p.body.querySelector('.sy-cards').innerHTML = [
       card('🧠', 'Processor', s.cpu.load != null ? `${s.cpu.load}%` : '…', `${esc(s.cpu.model)} · ${s.cpu.cores} threads${t.Processor ? ` · ${t.Processor}°C` : ''}`, s.cpu.load, t.Processor > 85),
       g ? card('🎮', 'Graphics', g.busy != null ? `${g.busy}%` : g.mhz ? `${g.mhz} MHz` : esc(g.name), `${esc(g.name)}${g.maxMhz ? ` · up to ${g.maxMhz} MHz` : ''}${t.Graphics ? ` · ${t.Graphics}°C` : ''}`, g.busy ?? (g.mhz && g.maxMhz ? 100 * g.mhz / g.maxMhz : null), t.Graphics > 85) : '',
       card('💾', 'Memory', gb(s.mem.used), `of ${gb(s.mem.total)}${zram(s.mem.compression)}`, 100 * s.mem.used / s.mem.total, s.mem.used / s.mem.total > 0.9),
       b ? card(b.status === 'Charging' ? '⚡' : '🔋', 'Battery', `${b.pct}%`, `${esc(b.status || '')}${b.watts ? ` · ${b.watts} W` : ''}`, b.pct, b.pct < 15) : '',
-      ...(s.disks || []).map((d) => card('🗄️', d.label, `${gb(d.free)} free`, `of ${gb(d.total)}`, 100 * (1 - d.free / d.total), d.free / d.total < 0.08)),
+      ...(s.disks || []).map((d) => card('🗄️', d.label, `${gb(d.free)} free`, `of ${gb(d.total)} · storage map`, 100 * (1 - d.free / d.total), d.free / d.total < 0.08, 'storage')),
       n ? card(n.kind === 'Ethernet' ? '🔌' : '📶', 'Network', n.connected ? esc(n.name) : 'Offline', n.connected ? `${n.kind}${n.signal != null ? ` · ${n.signal}% signal` : ''}` : 'Not connected', n.signal, false) : '',
       card('🌡️', 'Temperatures', Object.keys(t).length ? `${Math.max(...Object.values(t))}°C` : '—', Object.entries(t).map(([k, v]) => `${esc(k)} ${v}°`).join(' · ') || 'No sensors', null),
       card('⏱️', 'Up for', up(s.uptime), esc(s.host), null)
@@ -461,6 +461,7 @@ const SysPanel = (() => {
 
   async function act(p, b) {
     const a = b.dataset.sy;
+    if (a === 'storage') { StorageMap.open(); return; }
     if (a === 'wifi') {
       const box = p.body.querySelector('.sy-wifi'); box.innerHTML = '<p class="note">Looking for networks…</p>';
       const r = await api.sysWifi();

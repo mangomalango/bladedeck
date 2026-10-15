@@ -29,6 +29,7 @@
       "fsaccess.js",
       "lan.js",
       "system.js",
+      "storage.js",
       "companion/**",
       "companion.js",
       "players.js",

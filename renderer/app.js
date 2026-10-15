@@ -303,6 +303,7 @@ function systemGroups() {
       { id: 'sys-gog', title: 'Scan GOG games', sub: 'Find GOG installs and Heroic games', glyph: 'G', run: () => scanGog() },
       { id: 'sys-moon', title: 'Moonlight streaming', sub: 'Play games streamed from your other PCs', glyph: '☾', run: () => moonlightMenu() },
       { id: 'sys-art', title: 'Find missing art', sub: 'Covers and backgrounds from Steam and SteamGridDB', glyph: '🖼', run: () => Art.fillAll() },
+      { id: 'sys-storage-lib', title: 'Storage map', sub: 'What takes the most to least space: games, media, caches', glyph: '🗄️', run: () => StorageMap.open() },
       { id: 'sys-dl', title: 'Downloads', sub: 'What is downloading, and what finished', glyph: '⬇', run: () => Notify.open() }] },
     { id: 'grp-soft', title: 'Gaming software', sub: 'Emulators, launchers, Minecraft and extras', glyph: '◉', children: [
       { id: 'sys-emu', title: 'Emulators', sub: 'Add, edit and scan game folders', glyph: '◉', run: manageEmulators },
@@ -332,6 +333,7 @@ function systemGroups() {
       { id: 'sys-nc', title: 'Notifications', sub: 'Everything Bladedeck told you, and downloads', glyph: '🔔', run: () => Notify.open() },
       { id: 'sys-phone', title: 'Phone app', sub: 'Control Bladedeck from your phone', glyph: '📱', run: () => Companion.open() },
       { id: 'sys-xfer', title: 'Send files', sub: 'To your phone, or to a friend nearby', glyph: '📤', run: () => Transfer.open() },
+      { id: 'sys-storage', title: 'Storage map', sub: 'Drive usage and what takes the most space', glyph: '🗄️', run: () => StorageMap.open() },
       { id: 'sys-voice', title: 'Voice commands', sub: S.lib.settings.voice ? 'Say “open…”, “weather”, “timer for 5 minutes” (View + LB)' : 'Turn on talking to Bladedeck', glyph: '🎤', run: () => (S.lib.settings.voice ? Voice.listen() : Voice.setup()) }] },
     { id: 'grp-look', title: 'Personalize', sub: `${S.theme.name} · wallpaper, menus, aquarium, profile`, glyph: '🎨', children: [
       { id: 'sys-theme', title: 'Next theme', sub: S.theme.name, glyph: '◐', run: cycleTheme },
@@ -838,7 +840,7 @@ function renderDrawer() {
     <div class="dim">${esc(where || '')}</div>
     <div class="dim" style="color:var(--accent);font-size:16px">${Tasks.stars(e)}</div>
     ${GameInfo.box(e)}
-    <div class="btns"><button class="primary" data-act="launch">Launch</button><button data-act="tasks">Tasks</button><button data-act="poke">Poke a friend</button><button data-act="fav">${e.favorite ? 'Unfavorite' : 'Favorite'}</button><button data-act="edit">Edit</button><button data-act="art">Artwork</button>${['steam', 'exe', 'gog', 'recomp'].includes(e.type) ? '<button data-act="split">👥 Split screen</button>' : ''}${e.type === 'rom' ? '<button data-act="mods">🧩 Cheats & mods</button>' : ''}${Ach.fits(e) ? '<button data-act="ach">Achievements</button>' : ''}<button data-act="hide">${e.hidden ? 'Unhide' : 'Hide'}</button></div>`;
+    <div class="btns"><button class="primary" data-act="launch">Launch</button><button data-act="tasks">Tasks</button><button data-act="poke">Poke a friend</button>${['rom', 'recomp'].includes(e.type) ? '<button data-act="share">📤 Share</button>' : ''}<button data-act="fav">${e.favorite ? 'Unfavorite' : 'Favorite'}</button><button data-act="edit">Edit</button><button data-act="art">Artwork</button>${['steam', 'exe', 'gog', 'recomp'].includes(e.type) ? '<button data-act="split">👥 Split screen</button>' : ''}${e.type === 'rom' ? '<button data-act="mods">🧩 Cheats & mods</button>' : ''}${Ach.fits(e) ? '<button data-act="ach">Achievements</button>' : ''}<button data-act="hide">${e.hidden ? 'Unhide' : 'Hide'}</button></div>`;
   GameInfo.fill(e, $('.ginfo', d));
 }
 
@@ -1727,7 +1729,7 @@ function bindInput() {
     const act = ev.target.closest('[data-act]')?.dataset.act;
     if (act) {
       ({ add: () => editEntry(), steam: scanSteam, settings: openSettings, console: () => setMode('console'), emulators: manageEmulators,
-        launch: () => S.sel && launch(S.sel), tasks: () => Tasks.open(S.sel), poke: () => Friends.poke(S.sel), gog: scanGog, getgames: () => Shop.open(), split: () => SplitScreen.open(S.sel), mods: () => Mods.open(S.sel), art: () => Art.open(S.sel), ach: () => Ach.open(S.sel), fav: () => S.sel && toggleFav(S.sel), edit: () => S.sel && editEntry(S.sel),
+        launch: () => S.sel && launch(S.sel), tasks: () => Tasks.open(S.sel), poke: () => Friends.poke(S.sel), share: () => S.sel && Transfer.openGame(S.sel), gog: scanGog, getgames: () => Shop.open(), split: () => SplitScreen.open(S.sel), mods: () => Mods.open(S.sel), art: () => Art.open(S.sel), ach: () => Ach.open(S.sel), fav: () => S.sel && toggleFav(S.sel), edit: () => S.sel && editEntry(S.sel),
         hide: () => { if (S.sel) { S.sel.hidden = !S.sel.hidden; S.sel = null; save(); renderPc(); } } })[act]?.();
       return;
     }

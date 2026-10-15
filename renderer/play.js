@@ -93,7 +93,8 @@ const Tasks = (() => {
     openModal({
       title: `Tasks: ${e.title}`, wide: true, html: '',
       buttons: [...(['steam', 'exe', 'gog', 'recomp'].includes(e.type) ? [{ label: '👥 Split screen', left: true, onClick: () => { setTimeout(() => SplitScreen.open(e), 0); } }] : []),
-        ...(e.type === 'rom' ? [{ label: '🧩 Cheats & mods', left: true, onClick: () => { setTimeout(() => Mods.open(e), 0); } }] : []), { label: 'Done', primary: true }],
+        ...(e.type === 'rom' ? [{ label: '🧩 Cheats & mods', left: true, onClick: () => { setTimeout(() => Mods.open(e), 0); } }] : []),
+        ...(['rom', 'recomp'].includes(e.type) ? [{ label: '📤 Share game', left: true, onClick: () => { setTimeout(() => Transfer.openGame(e), 0); } }] : []), { label: 'Done', primary: true }],
       onOpen: (root) => {
         draw(root);
         root.addEventListener('click', async (ev) => {

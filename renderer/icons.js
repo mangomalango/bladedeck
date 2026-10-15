@@ -62,7 +62,7 @@ const Icons = (() => {
     'sys-emu': 'emu', 'sys-consoles': 'pads', 'sys-hdmi': 'tv', 'sys-emuget': 'download', 'sys-mc': 'pick', 'sys-cf': 'puzzle', 'sys-store': 'apps', 'sys-extras': 'plus', 'sys-softset': 'settings',
     'sys-split': 'play', 'sys-multi': 'tv', 'sys-pads': 'pads', 'sys-near': 'wifi', 'sys-fr': 'friend',
     'sys-cap': 'cap', 'sys-rec': 'rec', 'sys-recset': 'settings',
-    'sys-pc2': 'info', 'sys-vol': 'sound', 'sys-qr': 'resume', 'sys-nc': 'bell', 'sys-phone': 'phone', 'sys-xfer': 'send', 'sys-voice': 'mic',
+    'sys-pc2': 'info', 'sys-vol': 'sound', 'sys-qr': 'resume', 'sys-nc': 'bell', 'sys-phone': 'phone', 'sys-xfer': 'send', 'sys-storage': 'backup', 'sys-storage-lib': 'backup', 'sys-voice': 'mic',
     'sys-theme': 'theme', 'sys-wall': 'wallpaper', 'sys-look': 'letters', 'sys-mu': 'music', 'sys-aq': 'fish', 'sys-me': 'star',
     'sys-tour': 'compass', 'sys-ctl': 'keys', 'sys-guide': 'flap', 'sys-pip': 'video', 'home-all': 'apps'
   };

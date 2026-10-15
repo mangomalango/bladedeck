@@ -19,6 +19,14 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 ## Log
 
+- **2026-10-14, Gemini (Linux):** PC port sharing & Storage Map.
+  PC port sharing (`storage.js`, `fsaccess.js`, `preload.js`, `renderer/transfer.js`, `renderer/app.js`, `renderer/play.js`):
+  Added support for sharing PC ports (`recomp`) and ROMs directly to paired phones or nearby friends over LAN.
+  `Transfer.openGame(e)` prepares the game file, adds it to allowed roots (including `~/Games`), and if a PC port is a directory with assets, packages it into a .zip. Added "Share game" button to Tasks (console mode) and the PC mode drawer, plus "Choose a game (ROM or PC port)…" directly inside the Send files window.
+  Storage map (`storage.js`, `renderer/storagemap.js`, `renderer/style.css`, `renderer/panels.js`, `renderer/voice.js`):
+  Interactive storage map and disk breakdown showing how much space games, media, downloads and caches take, ranked from most to least space. Reads Steam game sizes directly from `appmanifest_<appid>.acf` (`SizeOnDisk`), ROM file sizes, PC port executable/folder sizes, captures in `Videos/Bladedeck`, and caches/downloads. Features a proportional multi-segment storage bar, category tabs (All, Steam, PC Ports, Emulation, Other PC, Media, Caches), ranked list with relative size bars and gold/silver/bronze badges for the top 3 items, sort toggles, and direct actions (Play, Show in folder, Share game, Clear cache). Accessible from System menu (Games & library and This PC), This PC panel's disk cards, and voice command ("storage map", "how much space").
+  Tested: passes `npm run check` (111 files); storage scan, sorting, and game preparation verified with node test harness.
+
 - **2026-10-14, Claude (Linux):** Owner's list after the Windows run.
   Nearby one-way (Windows saw Linux, Linux never saw Windows, a file sent from Windows never asked):
   ufw on the Linux PC drops everything coming in (DEFAULT_INPUT_POLICY DROP, no rules), so hellos

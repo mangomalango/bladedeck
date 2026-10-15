@@ -266,6 +266,7 @@ const Voice = (() => {
     [/^(captures?|clips?|recordings?)$/, () => Capture.gallery(), 'Captures'],
     [/^(get games|store|shop)$/, () => Shop.open(), 'Get games'],
     [/^(files?|file manager)$/, () => Panels.show({ kind: 'files', key: 'files', title: 'Files', icon: '🗂' }), 'Files'],
+    [/^(storage|storage map|disk space|disk usage|how much space)$/, () => StorageMap.open(), 'Storage map'],
     [/^(music|my music|songs)$/, () => Music.open(), 'Music']
   ];
   function open(what) {

@@ -1018,6 +1018,7 @@ require('./online').register({ settings: () => loadLib().settings, mediaDir });
 require('./store').register({ getWin: () => win });
 require('./capture').register({ getWin: () => win });
 require('./system').register();
+require('./storage').register();
 require('./players').register({ getWin: () => win });
 require('./extras').register({ settings: () => loadLib().settings });
 require('./roms').register({ getWin: () => win });

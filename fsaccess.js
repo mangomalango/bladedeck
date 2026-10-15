@@ -14,6 +14,7 @@ const path = require('path');
 const { ipcMain, dialog, shell, app } = require('electron');
 
 const ROOT = path.join(os.homedir(), 'Bladedeck');
+const GAMES = path.join(os.homedir(), 'Games');
 const SUB = { mods: 'Mods', fromPhone: 'From phone', toPhone: 'To phone', fromFriends: 'From friends' };
 let grantsFile = '', grants = [], getWin = () => null;
 const session = new Set(), picked = new Set();
@@ -33,7 +34,7 @@ function real(p) {
   }
 }
 const inside = (p, root) => { const r = real(root), q = real(p); const rel = path.relative(r, q); return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel)); };
-const roots = () => [ROOT, ...grants.map((g) => g.path), ...session];
+const roots = () => [ROOT, ...(fs.existsSync(GAMES) ? [GAMES] : []), ...grants.map((g) => g.path), ...session];
 function allowed(p) { return !!p && roots().some((r) => inside(p, r)); }
 function rootOf(p) { return roots().filter((r) => inside(p, r)).sort((a, b) => b.length - a.length)[0] || null; }
 
@@ -139,6 +140,52 @@ function register({ getWin: gw }) {
   });
   ipcMain.handle('xfer-phone-list', () => { ensure(); try { return fs.readdirSync(dir('toPhone'), { withFileTypes: true }).filter((d) => d.isFile() && !d.name.startsWith('.')).map((d) => ({ name: d.name, size: fs.statSync(path.join(dir('toPhone'), d.name)).size })); } catch { return []; } });
   ipcMain.handle('xfer-unshare', (_e, name) => { const f = path.join(dir('toPhone'), path.basename(String(name))); if (!inside(f, dir('toPhone')) || real(f) === real(dir('toPhone'))) return false; try { fs.rmSync(f); return true; } catch { return false; } });
+  ipcMain.handle('xfer-prep-game', async (_e, g) => {
+    if (!g) return { ok: false, error: 'No game chosen.' };
+    ensure();
+    let target = '';
+    if (g.type === 'rom' && g.rom) target = g.rom;
+    else if (g.type === 'recomp' && g.exe) target = g.exe;
+    else if (g.exe) target = g.exe;
+    if (!target) return { ok: false, error: 'This game has no file set.' };
+
+    const resolved = path.resolve(target);
+    if (!fs.existsSync(resolved)) return { ok: false, error: 'The game file was not found on disk.' };
+    allowForSession(resolved);
+    allowForSession(path.dirname(resolved));
+
+    const st = fs.statSync(resolved);
+    if (st.isFile()) {
+      return { ok: true, path: resolved, name: path.basename(resolved), size: st.size, isDir: false };
+    }
+    return { ok: true, path: resolved, name: path.basename(resolved), size: 0, isDir: true };
+  });
+  ipcMain.handle('xfer-pack-game', async (_e, dirPath, title) => {
+    const d = path.resolve(String(dirPath || ''));
+    if (!allowed(d) || !fs.existsSync(d)) return { ok: false, error: 'Folder not available.' };
+    ensure();
+    const safeTitle = (String(title || path.basename(d))).replace(/[^\w .()'-]/g, '_').trim() || 'game';
+    const outDir = dir('toPhone');
+    let out = path.join(outDir, `${safeTitle}.zip`);
+    for (let i = 2; fs.existsSync(out); i++) out = path.join(outDir, `${safeTitle} (${i}).zip`);
+    try {
+      const arch = require('./archive');
+      const bin = arch.bin ? arch.bin() : null;
+      if (bin) {
+        const { spawn } = require('child_process');
+        await new Promise((res, rej) => {
+          const p = spawn(bin, ['a', '-tzip', '-y', out, path.basename(d)], { cwd: path.dirname(d), windowsHide: true });
+          p.on('close', (c) => c === 0 ? res() : rej(new Error('Zip failed')));
+          p.on('error', rej);
+        });
+        if (fs.existsSync(out)) {
+          allowForSession(out);
+          return { ok: true, path: out, name: path.basename(out), size: fs.statSync(out).size };
+        }
+      }
+    } catch { /* skip */ }
+    return { ok: false, error: 'Could not pack folder into .zip. 7-Zip is needed.' };
+  });
   ipcMain.handle('fs-root', () => ({ root: ROOT, mods: dir('mods'), fromPhone: dir('fromPhone'), toPhone: dir('toPhone') }));
 }
 
