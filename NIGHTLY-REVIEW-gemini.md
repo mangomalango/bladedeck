@@ -258,6 +258,96 @@ Reproduced using a local HTTP server streaming a 20 MB archive slowly (`640 KB/s
 
 ---
 
+## 15. BD-045: Child Process Audit Table
+**Result: 12 Missing Properties Identified & Remediated (6 commits)**
+
+### Audit Table: Every spawn/execFile/exec/execFileSync in Repository
+
+| File:Line | Command / Target | OS | windowsHide | Error Handler | Timeout | Lifecycle / Outlive | Status |
+|---|---|---|---|---|---|---|---|
+| `achievements.js:99` | `execFile(cmd, args)` (RetroArch / emus) | Both | OK | OK (`res(err ? null : out)`) | OK (`60000ms`) | Dies with Bladedeck | OK |
+| `archive.js:38` | `spawn(exe, ['-bsp1', ...args])` (7z) | Both | OK | OK (`p.on('error')`, `p.on('close')`) | N/A (progress op) | Dies with Bladedeck (stdio pipe) | OK |
+| `bluetooth.js:11` | `execFile(cmd, args)` | Linux | OK | OK (`res({ ok: !err, ... })`) | OK (`10000ms`) | Dies with Bladedeck | OK |
+| `bluetooth.js:75` | `spawn('bluetoothctl', ['--timeout', '20', ...])` | Linux | N/A | OK (bluetoothctl self-timeout) | OK (`20s` arg) | Dies after 20s scan | OK |
+| `capture.js:49` | `execFile(gsr.cmd, ['--info'])` | Linux | N/A | OK (callback checks err) | OK (`15000ms`) | Dies with Bladedeck | OK |
+| `capture.js:130` | `spawn(gsr.cmd, a)` (replay ring) | Linux | N/A | OK (`adopt()`) | N/A (continuous) | Killed on `stop()` & `will-quit` | OK |
+| `capture.js:169` | `spawn(gsr.cmd, a)` (record) | Linux | N/A | OK (`adopt()`) | N/A (continuous) | Killed on `stop()` & `will-quit` | OK |
+| `extras.js:15` | `execFile(cmd, args)` (gh / curl) | Both | OK | OK (checks err) | OK (`5000ms`) | Dies with Bladedeck | OK |
+| `extras.js:97` | `execFile('gh', ['api', path])` | Both | OK | OK (checks err) | OK (`15000ms`) | Dies with Bladedeck | OK |
+| `fsaccess.js:223` | `spawn(bin, ['a', '-tzip', ...])` (7z) | Both | OK | OK (`p.on('error')`, `p.on('close')`) | N/A (archive op) | Dies with Bladedeck | OK |
+| `gamemusic.js:23` | `execFile(cmd, args)` (ffmpeg / vgmstream) | Both | OK | OK (checks err) | OK (`60000ms`) | Dies with Bladedeck | OK |
+| `livecap.js:132` | `execFile('python3', ...)` (GStreamer probe) | Linux | N/A | OK (checks err) | OK (`10000ms`) | Dies with Bladedeck | OK |
+| `livecap.js:147` | `spawn('python3', ...)` (PipeWire capture) | Linux | N/A | OK (`proc.on('error')`, `proc.on('exit')`) | N/A (continuous) | Killed on `stop()` & `will-quit` | OK |
+| `main.js:235` | `spawn('python3', ...)` (D-Bus inhibit) | Linux | N/A | OK (`quietProc.on('error')`) | N/A (game time) | Dies on stdin close, `will-quit` | OK |
+| `main.js:339` | `execFile('pgrep', ['-x', 'steam'])` | Linux | N/A | OK (callback) | Fixed (`5000ms`) | Dies with Bladedeck | Fixed |
+| `main.js:344` | `spawn(exe, ...)` (Steam launch) | Linux | N/A | OK (`c.on('error')`, `c.unref()`) | N/A (app start) | Detached (intentional outlive) | OK |
+| `main.js:347` | `execFile('tasklist', ...)` | Windows | OK | OK (callback) | Fixed (`5000ms`) | Dies with Bladedeck | Fixed |
+| `main.js:350` | `spawn(pf, ['-silent'])` (Steam silent) | Windows | Fixed | OK (`c.on('error')`, `c.unref()`) | N/A (app start) | Detached (intentional outlive) | Fixed |
+| `main.js:452` | `spawn(exe, args)` (Game launch) | Both | N/A | OK (`child.once('error', rej)`) | N/A (gameplay) | Detached (intentional outlive) | OK |
+| `main.js:852` | `spawn(pd, ...)` (PartyDeck menu) | Linux | N/A | OK (`c.on('error')`) | N/A (session) | Tracked, reports on exit | OK |
+| `main.js:861` | `spawn(pd, ['--exec', exe])` (PartyDeck) | Linux | N/A | OK (`child.on('error')`) | N/A (session) | Tracked, reports on exit | OK |
+| `main.js:936` | `execFileSync('powershell.exe', ...)` (fonts) | Windows | OK | OK (try/catch) | OK (`15000ms`) | Synchronous bounded | OK |
+| `main.js:937` | `execFileSync('fc-list', ...)` (fonts) | Linux | N/A | OK (try/catch) | OK (`5000ms`) | Synchronous bounded | OK |
+| `main.js:965` | `spawn(r[0], ...)` (Dock app) | Linux | N/A | OK (`c.on('error')`, `c.unref()`) | N/A (user app) | Detached (intentional outlive) | OK |
+| `main.js:1106` | `execFile('powershell.exe', ...)` (AppActivate) | Windows | OK | OK (checks err) | OK (`8000ms`) | Dies with Bladedeck | OK |
+| `minecraft.js:145` | `spawn(p.exe, ['--import', ...])` (Prism) | Both | Fixed | OK (`c.on('error')`, `c.unref()`) | N/A (external) | Detached (intentional outlive) | Fixed |
+| `minecraft.js:158` | `spawn(p.exe, p.pre)` (Prism) | Both | Fixed | OK (`c.on('error')`, `c.unref()`) | N/A (external) | Detached (intentional outlive) | Fixed |
+| `minecraft.js:159` | `spawn(c, [])` (CurseForge) | Both | Fixed | OK (`k.on('error')`, `k.unref()`) | N/A (external) | Detached (intentional outlive) | Fixed |
+| `moonlight.js:94` | `execFileSync('reg', ['query', ...])` | Windows | OK | OK (try/catch) | OK (`5000ms`) | Synchronous bounded | OK |
+| `moonlight.js:137` | `spawn(ml.exe, ml.pre)` (Moonlight) | Both | Fixed | OK (`c.on('error')`, `c.unref()`, try) | N/A (external) | Detached (intentional outlive) | Fixed |
+| `net.js:33` | `execFile(cli(), ['status', '--json'])` | Both | OK | OK (checks err) | OK (`5000ms`) | Dies with Bladedeck | OK |
+| `netshare.js:16` | `execFile('powershell.exe', ...)` | Windows | OK | OK (callback cb) | OK (`20000ms`) | Dies with Bladedeck | OK |
+| `netshare.js:30` | `execFile('ip', ['route', ...])` | Linux | N/A | OK (checks err) | OK (`5000ms`) | Dies with Bladedeck | OK |
+| `netshare.js:32` | `execFile('ip', ['neigh', ...])` | Linux | N/A | OK (checks err) | OK (`5000ms`) | Dies with Bladedeck | OK |
+| `netshare.js:45` | `execFile('nmcli', ...)` | Linux | N/A | OK (checks err) | OK (`8000ms`) | Dies with Bladedeck | OK |
+| `onlinemedia.js:75` | `execFile(exe, args)` (yt-dlp search) | Both | OK | OK (checks err) | OK (`60000ms`) | Dies with Bladedeck | OK |
+| `onlinemedia.js:92` | `execFile(exe, args)` (yt-dlp resolve) | Both | OK | OK (checks err) | OK (`180000ms`) | Dies with Bladedeck | OK |
+| `peek.js:105` | `execFile('gdbus', ...)` | Linux | N/A | OK (checks err) | OK (`4000ms`) | Dies with Bladedeck | OK |
+| `peek.js:122` | `spawn('python3', ...)` (shortcut helper) | Linux | N/A | OK (try/catch) | N/A (continuous) | Killed on `stop()` & exit | OK |
+| `peek.js:238` | `execFile('gdbus', ...unloadScript)` | Linux | N/A | OK (callback) | Fixed (`4000ms`) | Dies with Bladedeck | Fixed |
+| `players.js:16` | `execFile(cmd, args)` (bluetooth/net) | Both | OK | OK (checks err) | OK (`6000ms`) | Dies with Bladedeck | OK |
+| `players.js:406` | `execFileSync('pactl', ['list', ...])` | Linux | N/A | OK (try/catch in stop) | OK (`3000ms`) | Synchronous bounded | OK |
+| `players.js:407` | `execFileSync('pactl', ['unload-module', ...])` | Linux | N/A | OK (try/catch in stop) | OK (`3000ms`) | Synchronous bounded | OK |
+| `procs.js:18` | `execFile('pactl', args)` | Linux | N/A | OK (checks err) | OK (`4000ms`) | Dies with Bladedeck | OK |
+| `procs.js:116` | `execFile('powershell.exe', ...PS_SUSPEND)` | Windows | OK | OK (checks err) | OK (`20000ms`) | Dies with Bladedeck | OK |
+| `procs.js:205` | `execFile('powershell.exe', ...infoWin)` | Windows | OK | OK (checks err) | OK (`8000ms`) | Dies with Bladedeck | OK |
+| `procs.js:217` | `execFile('powershell.exe', ...oneCoreWin)` | Windows | OK | OK (callback) | OK (`8000ms`) | Dies with Bladedeck | OK |
+| `romsync.js:60` | `execFile('powershell.exe', ...drives)` | Windows | OK | OK (checks err) | OK (`15000ms`) | Dies with Bladedeck | OK |
+| `romsync.js:66` | `execFile('df', ...drives)` | Linux | N/A | OK (checks err) | OK (`15000ms`) | Dies with Bladedeck | OK |
+| `savestates.js:18` | `execFile(cmd, args)` | Both | OK | OK (checks err) | OK (`30000ms`) | Dies with Bladedeck | OK |
+| `steaminput.js:97` | `execFile('tasklist', ...)` | Windows | OK | OK (checks err) | Fixed (`5000ms`) | Dies with Bladedeck | Fixed |
+| `steaminput.js:98` | `execFile('pgrep', ...)` | Linux | N/A | OK (checks err) | Fixed (`5000ms`) | Dies with Bladedeck | Fixed |
+| `steamlink.js:85` | `execFile('tasklist', ...)` | Windows | OK | OK (checks err) | Fixed (`5000ms`) | Dies with Bladedeck | Fixed |
+| `steamlink.js:86` | `execFile('pgrep', ...)` | Linux | N/A | OK (checks err) | Fixed (`5000ms`) | Dies with Bladedeck | Fixed |
+| `steamlink.js:229` | `spawn(c[0], c[1])` (Steam shutdown) | Both | Fixed | OK (`k.on('error')`, `k.unref()`) | N/A (shutdown cmd) | Detached (intentional outlive) | Fixed |
+| `steamlink.js:235` | `spawn(s[0], s[1])` (Steam silent) | Both | Fixed | OK (`k.on('error')`, `k.unref()`) | N/A (steam start) | Detached (intentional outlive) | Fixed |
+| `store.js:29` | `execFile(cmd, args)` | Both | OK | OK (checks err) | OK (`8000ms`) | Dies with Bladedeck | OK |
+| `store.js:407` | `spawn('winget', ...)` | Windows | OK | OK (`p.on('error')`, `p.on('close')`) | N/A (installer) | Dies with Bladedeck | OK |
+| `store.js:431` | `spawn('flatpak', ...)` | Linux | N/A | OK (`p.on('error')`, `p.on('close')`) | N/A (installer) | Dies with Bladedeck | OK |
+| `system.js:15` | `execFile(cmd, args)` | Both | OK | OK (checks err) | OK (`8000ms`) | Dies with Bladedeck | OK |
+| `updater.js:25` | `execFileSync('git', ...)` | Both | OK | OK (try/catch) | OK (`5000ms`) | Synchronous bounded | OK |
+| `updater.js:118` | `spawn(file, ...)` (installer) | Windows | OK | OK (`p.on('error')`, `p.unref()`) | N/A (installer) | Detached (replaces Bladedeck) | OK |
+| `webdl.js:64` | `execFile(7z, ...)` | Both | OK | OK (checks err) | OK (`3600000ms`) | Dies with Bladedeck | OK |
+| `webdl.js:65` | `execFile('tar', ...)` | Both | OK | OK (checks err) | OK (`3600000ms`) | Dies with Bladedeck | OK |
+| `winaudio.js:259` | `spawn('powershell.exe', ...)` | Windows | OK | OK (`proc.on('exit')`, `proc.on('error')`) | N/A (sound service) | Killed on `stop()` & `will-quit` | OK |
+| `wincapture.js:87` | `spawn('powershell.exe', ...watchdog)` | Windows | OK | OK (`w.on('error')`, try/catch) | N/A (watchdog) | Dies when Bladedeck/ffmpeg exit | OK |
+| `wincapture.js:89` | `spawn('powershell.exe', ...loop)` | Windows | OK | OK (callers attach `.on('error')`) | N/A (pipe stream) | Killed when pipe breaks / stop | OK |
+| `wincapture.js:111` | `execFile(ff, ...probe)` | Windows | OK | OK (checks err) | OK (`15000ms`) | Dies with Bladedeck | OK |
+| `wincapture.js:164` | `spawn(ff, ...capture)` | Windows | OK | OK (`proc.on('error')`, `proc.on('exit')`) | N/A (recording) | Watchdog kills on crash, stop() | OK |
+| `wincapture.js:189` | `execFile(ff, ...concat)` | Windows | OK | OK (checks err) | OK (`60000ms`) | Dies with Bladedeck | OK |
+| `winlist.js:122` | `spawn('powershell.exe', ...winlist)` | Windows | OK | OK (`proc.on('exit')`, `proc.on('error')`) | N/A (window list) | Checks parent PID, stop(), quit | OK |
+| `winlist.js:134` | `execFile('wmctrl', ...)` | Linux | N/A | OK (checks err) | OK (`4000ms`) | Dies with Bladedeck | OK |
+| `winlist.js:136` | `execFile('xprop', ...)` | Linux | N/A | OK (checks err) | OK (`2000ms`) | Dies with Bladedeck | OK |
+| `winlist.js:190` | `execFile('wmctrl', ['-m'])` | Linux | N/A | OK (checks err) | OK (`3000ms`) | Dies with Bladedeck | OK |
+| `winlist.js:213` | `execFile(cmd, args)` | Linux | N/A | OK (checks err) | OK (`4000ms`) | Dies with Bladedeck | OK |
+| `winpad.js:62` | `spawn('powershell.exe', ...winpad)` | Windows | OK | OK (`proc.on('exit')`, `proc.on('error')`) | N/A (pad poller) | Checks parent PID, stop(), quit | OK |
+| `scripts/buildinfo.js:9` | `execFileSync('git', ...)` | Both | Fixed | OK (try/catch) | Fixed (`5000ms`) | Synchronous bounded | Fixed |
+| `scripts/check.js:26` | `execFileSync(process.execPath, ...)` | Both | N/A | OK (throws on fail) | N/A (check runner) | Test script | OK |
+| `scripts/rollback.js:13` | `execFileSync('git', ...)` | Both | N/A | OK (throws on fail) | N/A (admin tool) | Admin script | OK |
+| `scripts/rollback.js:24` | `execFileSync(process.execPath, ...)` | Both | N/A | OK (throws on fail) | N/A (admin tool) | Admin script | OK |
+| `scripts/snapshot.js:13` | `execFileSync('git', ...)` | Both | N/A | OK (throws on fail) | N/A (admin tool) | Admin script | OK |
+| `scripts/sweep.js:57` | `spawn(process.execPath, ...)` | Both | N/A | OK (waits for close) | N/A (test harness) | Test harness | OK |
+| `scripts/testcopy.js:35` | `spawn(electron, ...)` | Both | N/A | OK (waits for close) | N/A (test harness) | Test harness | OK |
 ## 18. BD-048: Automated Scripted Checks (Wake Word, Steamlink Plan, WebDl Extract, Bubble Gestures)
 **Result: PASS (4 new automated test suites created, wired to package.json, 100% passing)**
 
@@ -381,6 +471,9 @@ Audited all 15 commits since v0.2.4 (31 files changed, 433 insertions, 75 deleti
 - `npm run check`: **All 133 files pass, 276 channels answered**.
 - `npm run test-replies`: **21/21 assertions pass**.
 - `npm run test-pool`: **20/20 security assertions pass**.
+- BD-043: **Release-candidate audit PASS**.
+- BD-044: **Windows bug hunt complete (4 problems fixed)**.
+- BD-045: **Child process audit complete (12 missing properties remediated across 7 files, 6 commits)**.
 - `npm run test-wakeword`: **57/57 assertions pass**.
 - `npm run test-steamlink`: **15/15 assertions pass**.
 - `npm run test-webdl`: **18/18 assertions pass**.

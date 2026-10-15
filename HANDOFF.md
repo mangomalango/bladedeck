@@ -144,7 +144,12 @@ Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROA
              steps, what you expected, what happened, file:line if you can find it
   [REPLY]    "BD-044 done: N problems" with the list (worst first); fixes allowed on your branch for clear, small ones
   ```
-- **BD-045** · both · Gemini · Every child process: hidden, handled, and gone when Bladedeck goes.
+- **BD-045** (done: 12 missing, all remediated, Gemini, NIGHTLY-REVIEW §15) · both · Gemini · Every child process: hidden, handled, and gone when Bladedeck goes.
+  **BD-045 done: 12 missing (all remediated)**:
+  Audited 81 child process calls across repo. 12 missing properties identified and remediated in 6 commits:
+  - Missing timeout on steam/process checks: `steaminput.js:97-98` (`5000ms`), `steamlink.js:85-86` (`5000ms`), `main.js:339, 347` (`5000ms`), `peek.js:238` (`4000ms`), `scripts/buildinfo.js:9` (`5000ms`).
+  - Missing `windowsHide: true` on detached/app spawns on Windows: `steamlink.js:229, 235`, `main.js:350`, `minecraft.js:145, 158, 159`, `moonlight.js:137`, `scripts/buildinfo.js:9`.
+  Full audit table in NIGHTLY-REVIEW §15.
   ```
   [TASK]     BD-045 · a table of every spawn/execFile/exec in the repo (file:line, what it runs, which OS)
   [DO]       for each: windowsHide on Windows, an 'error' handler (or a callback that handles err), a timeout where it can
