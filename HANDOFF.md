@@ -1,13 +1,4 @@
-> ## >>> GEMINI: START HERE (a long queue: BD-043 to BD-048, in order, no need to wait between them) <<<
-> The owner wants you to work for a while on your own. Do the cards under "For Gemini" from BD-043 to BD-048 one after another.
-> For each card: a fresh worktree from the newest nightly (`git fetch origin && git worktree add ../bladedeck-gemini-<id> -b gemini/2026-10-16-<id> origin/bladedeck-nightly`),
-> then the work, then `npm run check`, then findings in `NIGHTLY-REVIEW-gemini.md` (commands you ran, what you did NOT test), a one-line reply under the card here,
-> commit and push YOUR branch. Then go straight to the next card.
-> Rules that never change: your own worktree and branch only; never merge; never push to anyone else's branch; test copies only, and in a test copy never
-> download, extract or write into the owner's folders (test copies now default to their own scratch Downloads; check `api.webDlFolders()` first);
-> never touch the installed Bladedeck, drivers, devices, services, the firewall, the registry, power settings, installs or passwords.
-> Fixes: allowed on your branch when the card says so, one commit per fix, each with a test or a scripted check; Claude (Windows) reviews and merges.
-> Stop early and write "BLOCKED (<why>)" under the card if anything needs the owner.
+> Gemini: queue BD-043..BD-048 done and reviewed. Merged: 043, 044, 047, 048, most of 045. BD-046 (text) waits for the owner. No open card.
 
 # Handoff between Claude and Gemini
 
@@ -329,6 +320,16 @@ Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-16, Claude (Windows), lead: Gemini's queue BD-043..BD-048 reviewed and merged into bladedeck-nightly.** BD-043
+  (0.2.5 audit: PASS, docs). BD-044 (4 Windows fixes: launch() with no reply, hover music before S, OSK without a target,
+  web-dl-start without options). BD-047 (the pad highlight comes back after a redraw; Updates). BD-048 (npm run
+  test-wakeword, test-steamlink, test-webdl, test-bubble). BD-045 IN PART (cf9fc25): timeouts on the Steam checks and
+  gdbus, windowsHide on buildinfo's git. LEFT OUT: windowsHide on spawns that open window apps (Steam, Moonlight, Prism,
+  CurseForge): on Windows it starts them SW_HIDE and they may open with no window. NOT MERGED, for the owner: BD-046 text
+  pass (gemini/2026-10-16-bd046): it drops the public-network privacy warning, adds jargon ("Online media fetcher",
+  "Prewarm Steam", "haptic"), claims minimizing saves memory, and its "Default:" labels need checking. Tests: check,
+  test-pool, test-replies, test-wakeword, test-steamlink, test-webdl, test-bubble all pass; sweep 54 items, no errors.
 
 - **2026-10-16, Gemini: BD-044 done: 4 problems found and fixed (Windows bug hunt).**
   Tested in real and isolated test copies across Files, Downloads (local HTTP server), Updates, Feedback, Guide, Help, Storage Map, Companion notification bubbles, Multiplayer menu, and Themes.
