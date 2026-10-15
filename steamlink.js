@@ -127,7 +127,7 @@ const eligible = (e, lib) => e && KINDS.has(e.type) && !e.hidden && !e.emuApp &&
 
 function shortcut(id, name, s, icon) {
   return [[2, 'appid', id], [1, 'AppName', name], [1, 'Exe', s.exe], [1, 'StartDir', s.dir], [1, 'icon', icon || ''], [1, 'ShortcutPath', ''],
-    [1, 'LaunchOptions', s.opts], [2, 'IsHidden', 0], [2, 'AllowDesktopConfig', 1], [2, 'AllowOverlay', 1], [2, 'OpenVR', 0], [2, 'Devkit', 0],
+    [1, 'LaunchOptions', s.opts], [2, 'IsHidden', 0], [2, 'AllowDesktopConfig', 1], [2, 'AllowOverlay', s.overlay === false ? 0 : 1], [2, 'OpenVR', 0], [2, 'Devkit', 0],
     [1, 'DevkitGameID', ''], [2, 'DevkitOverrideAppID', 0], [2, 'LastPlayTime', 0], [1, 'FlatpakAppID', ''], [1, 'sortas', ''], [0, 'tags', [[1, '0', TAG]]]];
 }
 
@@ -135,6 +135,11 @@ function shortcut(id, name, s, icon) {
 function self() {
   if (!app.isPackaged) return null;
   const exe = process.env.APPIMAGE || process.execPath;
+  /* Linux: Steam preloads its overlay (gameoverlayrenderer.so) into every process it starts, and in
+     Electron's zygote it crashes on load: the window comes up white and Bladedeck dies a little
+     later. It loads before any of Bladedeck's code runs, so the shortcut starts Bladedeck without
+     it. Steam Input does not need the overlay. */
+  if (process.platform === 'linux') return { exe: `"${exe}"`, dir: `"${path.dirname(exe)}"`, opts: 'LD_PRELOAD= %command% --via-steam', overlay: false };
   return { exe: `"${exe}"`, dir: `"${path.dirname(exe)}"`, opts: '--via-steam' };
 }
 
