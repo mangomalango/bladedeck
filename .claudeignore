@@ -1,0 +1,18 @@
+# Kept out of Claude's context (the working block is the Read deny list in .claude/settings.json).
+node_modules/
+dist/
+dist-electron/
+release/
+build/
+out/
+.vite/
+.cache/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+*.log
+*.asar
+*.AppImage
+*.exe
+*.dmg

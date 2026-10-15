@@ -12,5 +12,26 @@
         ]
       }
     ]
+  },
+  "permissions": {
+    "deny": [
+      "Read(./node_modules/**)",
+      "Read(./dist/**)",
+      "Read(./dist-electron/**)",
+      "Read(./release/**)",
+      "Read(./build/**)",
+      "Read(./out/**)",
+      "Read(./.vite/**)",
+      "Read(./.cache/**)",
+      "Read(./**/package-lock.json)",
+      "Read(./**/yarn.lock)",
+      "Read(./**/pnpm-lock.yaml)",
+      "Read(./**/bun.lockb)",
+      "Read(./**/*.log)",
+      "Read(./**/*.asar)",
+      "Read(./**/*.AppImage)",
+      "Read(./**/*.exe)",
+      "Read(./**/*.dmg)"
+    ]
   }
 }
