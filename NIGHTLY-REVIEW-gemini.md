@@ -258,9 +258,40 @@ Reproduced using a local HTTP server streaming a 20 MB archive slowly (`640 KB/s
 
 ---
 
+## 12. Stress & Break Fuzzing Audit: Resource Usage & Failure Modes
+Ran an intensive chaos stress and payload fuzzing suite over DevTools CDP (`scratch/stress_break_test.js`) in an isolated test copy with a copy of the real library.
+
+### A. Resource Footprint & Leaks
+- **Renderer JS Heap**: Started at **9.5 MB** (13.6 MB allocated) -> Ended at **9.5 MB** (13.6 MB allocated) after 500 rapid controller inputs, 30 modal cycles, 40 PC/Console switches, and 26 IPC fuzz calls (**0.0 MB leak**). V8 garbage collector cleanly reclaimed transient objects.
+- **DOM Node Count**: Grew from **453** to **1053** (+600 nodes). Increase is attributed to cached PC-mode drawer elements and grid tile DOM templates initialized on demand.
+- **Process Memory (Main & Helpers)**: Electron main process held steady around ~117–135 MB working set. No hanging orphan processes or handle leaks detected.
+
+### B. Failures & Anomalies Uncovered
+1. **On-Screen Keyboard (`OSK`) Close Race Condition (`renderer/pad.js:168`)**:
+   - **Trigger**: Rapid d-pad or face button presses during keyboard dismissal.
+   - **Symptom**: Throws `Cannot read properties of null (reading 'value')` (208 occurrences during chaos fuzzing).
+   - **Cause**: `close()` immediately nulls out `target` (`target = null;`), but `el.hidden = false` remains true for 200ms while the fade-out CSS transition runs (`setTimeout(() => el.hidden = true, 200)`). `isOpen()` returns `!el.hidden` (true), allowing `handle(a)` to pass input to `draw()`, which calls `const v = target.value;` on a null target.
+   - **Remedy**: Update `isOpen()` to `() => !el.hidden && target != null;` or guard `draw()` against `!target`.
+
+2. **Unhandled Launch Rejection on Refused/Null Launch (`renderer/app.js:441`)**:
+   - **Trigger**: Launching an item when `api.launch` returns null or undefined (e.g. test copy mode, blocked outward actions, or startup failure).
+   - **Symptom**: `TypeError: Cannot read properties of null (reading 'ok') at launch (renderer/app.js:441:9)`.
+   - **Cause**: `const r = await pending;` yields null, and `if (r.ok && ...)` lacks optional chaining.
+   - **Remedy**: Change to `if (r?.ok && r.viaSteam && !cover)` and `if (!r?.ok)`.
+
+3. **`web-dl-start` IPC Handler Null Parameter Destructuring Crash (`webdl.js:111`)**:
+   - **Trigger**: Invoking `api.webDlStart(null)`.
+   - **Symptom**: `TypeError: Cannot destructure property 'url' of '(intermediate value)' as it is null`.
+   - **Cause**: Function signature uses `(_e, { url, kind = '', title = '' } = {})`. Default parameter `= {}` does not handle `null`.
+   - **Remedy**: Safely default destructured object: `(_e, opts = {}) => { const { url, kind = '', title = '' } = opts || {};`.
+
+---
+
 ## Summary
 - `npm run check`: **All 129 files pass, 276 channels answered**.
 - `npm run test-replies`: **21/21 assertions pass**.
 - `npm run test-pool`: **20/20 security assertions pass**.
 - BD-034: **Reproductions complete and findings documented**.
+- Stress Test: **3 edge-case failure modes identified and documented in §12**.
+
 
