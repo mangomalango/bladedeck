@@ -92,7 +92,7 @@ function receive(from, b = {}, who = from) {
   if (ref) { prune(); replyable.set(msg.id, { who, ref, at: now }); }
   queue.push({ ...msg, sound: lv === 'all', ...(ref ? { replies: REPLIES } : {}) });
   makeOverlay(); flush();
-  return { ok: true, shown: true };
+  return { ok: true, shown: true, ...(ref ? { reply: true } : {}) };
 }
 
 function register(d) {

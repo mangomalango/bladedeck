@@ -72,15 +72,22 @@ public class NotifyService extends NotificationListenerService {
       String icon = picture(n);
       if (!icon.isEmpty()) body.put("icon", icon);
       Notification.Action reply = replyAction(n);
+      String ref = null;
       if (reply != null) {
         prune();
-        String ref = newRef();
+        ref = newRef();
         PENDING.put(ref, new Pending(reply, System.currentTimeMillis()));
         body.put("reply", ref);
       }
-      final String json = body.toString(), url = base + "/api/notify", auth = "Bearer " + key;
-      final boolean wait = reply != null;
-      new Thread(() -> { send(url, auth, json); if (wait) poll(base, auth); }).start();
+      final String json = body.toString(), url = base + "/api/notify", auth = "Bearer " + key, mine = ref;
+      new Thread(() -> {
+        String got = send(url, auth, json);
+        if (mine == null) return;
+        // Only when the PC kept it to be answered (it says "reply": true); otherwise forget it now.
+        boolean kept = false;
+        try { kept = got != null && new JSONObject(got).optBoolean("reply", false); } catch (Exception e) { /* not JSON */ }
+        if (kept) poll(base, auth); else PENDING.remove(mine);
+      }).start();
     } catch (Exception e) { /* never let a notification break the listener */ }
   }
 
@@ -88,15 +95,21 @@ public class NotifyService extends NotificationListenerService {
   // on its watch extension (some chat apps only put it there).
   static Notification.Action replyAction(Notification n) {
     Notification.Action[][] sets = { n.actions, new Notification.WearableExtender(n).getActions().toArray(new Notification.Action[0]) };
+    Notification.Action any = null;
     for (Notification.Action[] set : sets) {
       if (set == null) continue;
       for (Notification.Action a : set) {
         RemoteInput[] ins = a == null ? null : a.getRemoteInputs();
         if (ins == null || a.actionIntent == null) continue;
-        for (RemoteInput r : ins) if (r.getAllowFreeFormInput()) return a;
+        boolean typed = false;
+        for (RemoteInput r : ins) if (r.getAllowFreeFormInput()) typed = true;
+        if (!typed) continue;
+        // The app's own "Reply" (Android 9+) beats e.g. a "Mark as read" that happens to take text.
+        if (android.os.Build.VERSION.SDK_INT >= 28 && a.getSemanticAction() == Notification.Action.SEMANTIC_ACTION_REPLY) return a;
+        if (any == null) any = a;
       }
     }
-    return null;
+    return any;
   }
   static String newRef() { byte[] b = new byte[12]; RNG.nextBytes(b); return android.util.Base64.encodeToString(b, android.util.Base64.URL_SAFE | android.util.Base64.NO_WRAP | android.util.Base64.NO_PADDING); }
   static void prune() {
@@ -112,20 +125,25 @@ public class NotifyService extends NotificationListenerService {
       while (true) {
         prune();
         if (PENDING.isEmpty()) break;
-        String got = fetch(base + "/api/replies", auth);
-        if (got != null) {
-          JSONArray a = new JSONArray(got);
-          for (int i = 0; i < a.length() && i < 10; i++) {
-            JSONObject r = a.optJSONObject(i); if (r == null) continue;
-            String text = r.optString("text", "");
-            Pending p = PENDING.remove(r.optString("ref", ""));
-            if (p != null && REPLIES.contains(text)) answer(p.action, text);
+        try {
+          String got = fetch(base + "/api/replies", auth);
+          if (got != null) {
+            JSONArray a = new JSONArray(got);
+            for (int i = 0; i < a.length() && i < 10; i++) {
+              JSONObject r = a.optJSONObject(i); if (r == null) continue;
+              String text = r.optString("text", "");
+              Pending p = PENDING.remove(r.optString("ref", ""));
+              if (p != null && REPLIES.contains(text)) answer(p.action, text);
+            }
           }
-        }
+        } catch (Exception e) { /* one bad answer: ask again; the references still run out after 3 minutes */ }
         Thread.sleep(3000);
       }
-    } catch (Exception e) { /* PC away: the replies are simply not sent */ }
+    } catch (InterruptedException e) { return; }
     finally { polling = false; }
+    // A message that came in just as this loop was stopping found it still running: ask for it too.
+    prune();
+    if (!PENDING.isEmpty()) poll(base, auth);
   }
   // Fills the app's reply box with the phrase and presses its send, the same as replying from the shade.
   void answer(Notification.Action a, String text) {
@@ -172,15 +190,20 @@ public class NotifyService extends NotificationListenerService {
 
   static String cut(CharSequence s, int n) { String t = s == null ? "" : s.toString(); return t.length() > n ? t.substring(0, n) : t; }
 
-  static void send(String url, String auth, String json) {
+  static String send(String url, String auth, String json) {
     HttpURLConnection c = null;
     try {
       c = (HttpURLConnection) new URL(url).openConnection();
       c.setConnectTimeout(4000); c.setReadTimeout(4000); c.setRequestMethod("POST"); c.setDoOutput(true);
       c.setRequestProperty("Content-Type", "application/json"); c.setRequestProperty("Authorization", auth);
       try (OutputStream o = c.getOutputStream()) { o.write(json.getBytes("UTF-8")); }
-      c.getResponseCode();
-    } catch (Exception e) { /* PC away or asleep: the message is simply not shown there */ }
+      if (c.getResponseCode() != 200) return null;
+      try (InputStream in = c.getInputStream()) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream(); byte[] buf = new byte[1024]; int n;
+        while ((n = in.read(buf)) > 0 && out.size() < 4000) out.write(buf, 0, n);
+        return out.toString("UTF-8");
+      }
+    } catch (Exception e) { return null; /* PC away or asleep: the message is simply not shown there */ }
     finally { if (c != null) c.disconnect(); }
   }
 }

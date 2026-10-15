@@ -28,12 +28,14 @@ let fails = 0; const ok = (c, m) => { console.log(c ? 'ok  ' : 'FAIL', m); if (!
 const last = () => shown[shown.length - 1];
 
 (async () => {
-  P.receive('Pixel', { app: 'Messages', sender: 'Sam', text: 'hi', reply: 'abcdEFGH1234' }, 'KEY-A');
+  const r1 = P.receive('Pixel', { app: 'Messages', sender: 'Sam', text: 'hi', reply: 'abcdEFGH1234' }, 'KEY-A');
   const m1 = last();
+  ok(r1.reply === true, 'the PC tells the phone it kept the message for a reply (so the phone asks)');
   ok(Array.isArray(m1.replies) && m1.replies.length === 4, 'an answerable message offers the four phrases');
   ok(!('ref' in m1) && !JSON.stringify(m1).includes('abcdEFGH1234'), "the phone's reference never reaches the bubble window");
-  P.receive('Pixel', { app: 'Mail', sender: 'Shop', text: 'sale' }, 'KEY-A');
+  const r2 = P.receive('Pixel', { app: 'Mail', sender: 'Shop', text: 'sale' }, 'KEY-A');
   const m2 = last();
+  ok(!r2.reply, 'no reference: the phone is not told to ask for replies');
   ok(!m2.replies, 'a message the phone cannot answer offers no replies');
   ok(!(await h['bubble-reply'](fromOverlay, { id: m2.id, pick: 0 })), 'replying to it is refused');
   P.receive('Pixel', { app: 'X', sender: 'Y', text: 'z', reply: 'bad ref!<script>' }, 'KEY-A');
