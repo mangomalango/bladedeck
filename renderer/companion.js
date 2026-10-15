@@ -90,6 +90,10 @@ const Companion = (() => {
         <div class="side-h">Paired phones</div>
         ${info.devices.length ? info.devices.map((d) => `<div class="ph-dev"><b>${esc(d.name)}</b><span>paired ${ago(d.added)} · last seen ${ago(d.seen)}</span><button type="button" data-forget="${esc(d.id)}">Remove</button></div>`).join('') : '<p class="note">None yet.</p>'}
         <div class="checks"><label><input type="checkbox" class="ph-on" ${info.enabled ? 'checked' : ''}> Let paired phones connect</label></div>
+        <div class="side-h">Messages from your phone</div>
+        <p class="note">Notifications from the phone apps you tick in the Android app arrive as a small bubble at the bottom of the screen, over games too, without stopping anything. Hold <b>LB + RB</b> and a trigger to float it up and read it; let go and it pops into the notification bar. Then wait to keep playing, or press LB to pause, RB for the menu. They stay on your home network and are forgotten when Bladedeck closes.</p>
+        <label>Show them<select class="ph-msgs">${[['all', 'As bubbles, with a soft sound'], ['quiet', 'As bubbles, no sound'], ['bar', 'Only in the notification bar'], ['off', 'Not at all']].map(([v, n]) => `<option value="${v}" ${(S.lib.settings.phoneMsgs || 'all') === v ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+        <div class="pl-acts"><button type="button" data-ph="testmsg">Show a test message</button></div>
         <div class="side-h">No app on the phone?</div>
         <p class="note">You don't need one: the page the code opens <b>is</b> the phone app (add it to the home screen from the browser's menu). For the Android app, that page has a "Get the Android app" button, or open <code>${esc((pair.urls[0]?.url || '') + 'bladedeck-phone.apk')}</code> on the phone. Installing it asks to allow apps from your browser once.</p>
         <div class="pl-acts"><button type="button" data-ph="check">Check the phone server</button><span class="note ph-res"></span></div>
@@ -97,6 +101,7 @@ const Companion = (() => {
       buttons: [{ label: 'Close', primary: true }],
       onOpen: (root) => {
         root.addEventListener('click', async (ev) => {
+          if (ev.target.closest('[data-ph="testmsg"]')) { closeModal(); setTimeout(() => api.phoneMsgTest(), 400); return; }
           if (ev.target.closest('[data-ph="check"]')) {
             const out = $('.ph-res', root); out.textContent = 'Checking…';
             const r = await api.companionCheck();
@@ -106,10 +111,27 @@ const Companion = (() => {
           const f = ev.target.closest('[data-forget]');
           if (f) { await api.companionForget(f.dataset.forget); f.closest('.ph-dev').remove(); toast('That phone can no longer connect.'); }
         });
+        root.addEventListener('change', (ev) => { if (ev.target.classList.contains('ph-msgs')) { S.lib.settings.phoneMsgs = ev.target.value; save(); } });
         root.addEventListener('change', async (ev) => { if (ev.target.classList.contains('ph-on')) { await api.companionEnable(ev.target.checked); toast(ev.target.checked ? 'Paired phones can connect.' : 'Phones are switched off.'); } });
       }
     });
   }
+
+  /* -------------------------------------------------------------- phone messages (phonemsg.js) */
+  // Every message ends up in the notification bar; after reading one, LB pauses the game (frozen,
+  // with Bladedeck in front: going back to it thaws it) and RB brings up the menu.
+  window.bladedeck.onPhoneMsg?.(async (d) => {
+    if (d.type === 'bar' && d.msg) {
+      const m = d.msg;
+      Notify.add(`📱 ${m.sender ? `${m.sender} (${m.app})` : m.app}: ${m.text}`, 'ok');
+    } else if (d.type === 'choice') {
+      const p = S.playing, pid = p && (p.winPid || p.pid);
+      if (d.choice === 'pause' && pid) {
+        if (await api.procFreeze(pid, true)) { document.dispatchEvent(new CustomEvent('running-changed')); toast(`${entryById(p.id)?.title || 'Your game'} is paused. Going back to it un-pauses it.`); }
+      }
+      api.peekToggle();
+    }
+  });
 
   return { open, state, push };
 })();

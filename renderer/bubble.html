@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>Bladedeck bubble</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font-family: "Segoe UI", system-ui, sans-serif; color: #fff; user-select: none; }
+    /* The blurred still of the screen behind an open bubble. */
+    #snap { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(22px) brightness(.55) saturate(1.2); transform: scale(1.06); opacity: 0; pointer-events: none; }
+    #tray { position: fixed; left: 0; right: 0; bottom: 28px; display: flex; justify-content: center; gap: 14px; pointer-events: none; }
+    /* A bubble: --p goes from 0 (small, see-through, at the bottom) to 1 (message size, at the top). */
+    .bub { --p: 0; position: relative; display: flex; align-items: center; gap: 10px; box-sizing: border-box;
+      min-width: 64px; max-width: calc(64px + var(--p) * 600px); padding: calc(8px + var(--p) * 18px) calc(12px + var(--p) * 22px);
+      border-radius: calc(40px - var(--p) * 14px);
+      background: radial-gradient(circle at 30% 25%, rgba(255,255,255,calc(.28 + var(--p) * .1)), rgba(255,255,255,calc(.06 + var(--p) * .1)) 55%, rgba(180,220,255,calc(.08 + var(--p) * .12)));
+      border: 1px solid rgba(255,255,255,.45); box-shadow: inset 0 0 18px rgba(255,255,255,.18), 0 6px 24px rgba(0,0,0,calc(.15 + var(--p) * .3));
+      opacity: calc(.62 + var(--p) * .38); transition: opacity .6s; animation: rise .7s cubic-bezier(.2,1.4,.4,1) both, bob 3.2s ease-in-out .7s infinite; }
+    .bub.held { animation: none; }
+    .bub .ic { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 18px; background: rgba(255,255,255,.18); }
+    .bub .tx { min-width: 0; line-height: 1.25; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+    .bub .who { font-weight: 600; font-size: calc(13px + var(--p) * 9px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(180px + var(--p) * 420px); }
+    .bub .peek { font-size: 12px; opacity: calc(.85 - var(--p)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+    .bub .full { font-size: calc(14px + var(--p) * 10px); max-height: calc(var(--p) * 60vh); overflow: hidden; opacity: var(--p); white-space: pre-wrap; word-break: break-word; }
+    .bub .ring { position: absolute; inset: -5px; border-radius: inherit; border: 3px solid rgba(255,255,255,.9); opacity: calc(var(--p) * .9); clip-path: inset(0 calc((1 - var(--p)) * 100%) 0 0); pointer-events: none; }
+    .bub.fade { opacity: 0; }
+    .bub.pop { animation: pop .38s ease-out forwards; }
+    @keyframes rise { from { transform: translateY(80px) scale(.4); opacity: 0; } }
+    @keyframes bob { 50% { transform: translateY(-6px); } }
+    @keyframes pop { 30% { transform: scale(1.12); opacity: 1; } to { transform: scale(1.5); opacity: 0; filter: blur(4px); } }
+    .spark { position: fixed; width: 6px; height: 6px; border-radius: 50%; background: #fff; pointer-events: none; animation: spark .6s ease-out forwards; }
+    @keyframes spark { to { transform: translate(var(--dx), var(--dy)) scale(.2); opacity: 0; } }
+    /* After the pop: what next. Waiting keeps playing. */
+    #choose { position: fixed; top: 28px; left: 50%; transform: translateX(-50%); display: none; gap: 10px; padding: 10px 14px; border-radius: 18px;
+      background: rgba(10,20,35,.72); border: 1px solid rgba(255,255,255,.25); box-shadow: 0 8px 30px rgba(0,0,0,.4); font-size: 17px; }
+    #choose.on { display: flex; animation: rise .4s ease-out both; }
+    #choose span { padding: 6px 12px; border-radius: 12px; background: rgba(255,255,255,.08); }
+    #choose span.def { background: rgba(120,200,255,.35); }
+    #choose b { display: inline-block; min-width: 26px; margin-right: 6px; padding: 1px 5px; border-radius: 6px; background: rgba(255,255,255,.85); color: #123; font-size: 13px; text-align: center; }
+    #choose .bar { position: absolute; left: 14px; right: 14px; bottom: 5px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.6); transform-origin: left; animation: shrink 4s linear forwards; }
+    @keyframes shrink { to { transform: scaleX(0); } }
+  </style>
+</head>
+<body>
+  <img id="snap" alt="">
+  <div id="tray"></div>
+  <div id="choose"><span class="def">Keep playing</span><span><b>LB</b>Pause</span><span><b>RB</b>Menu</span><i class="bar"></i></div>
+  <script src="bubble.js"></script>
+</body>
+</html>

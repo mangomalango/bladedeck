@@ -40,6 +40,7 @@ public class MainActivity extends Activity {
   private WebView web;
   private static final String HOME = "file:///android_asset/connect.html";
   private ValueCallback<Uri[]> picking;
+  private volatile String pageOrigin = "";
 
   @Override protected void onCreate(Bundle saved) {
     super.onCreate(saved);
@@ -78,6 +79,11 @@ public class MainActivity extends Activity {
       // Bladedeck went away (PC asleep, Wi-Fi changed): back to the connect screen.
       @Override public void onReceivedError(WebView v, WebResourceRequest req, WebResourceError err) {
         if (req.isForMainFrame() && !req.getUrl().toString().startsWith("file:")) v.loadUrl(HOME + "#lost");
+      }
+      // The Bladedeck page on screen (scheme, host and Bladedeck's port), for Bridge.link.
+      @Override public void onPageStarted(WebView v, String url, android.graphics.Bitmap icon) {
+        Uri u = Uri.parse(url);
+        pageOrigin = "http".equals(u.getScheme()) && u.getPort() == 47616 && u.getHost() != null ? "http://" + u.getHost() + ":47616" : "";
       }
     });
     web.addJavascriptInterface(new Bridge(), "BladedeckApp");
@@ -148,5 +154,39 @@ public class MainActivity extends Activity {
     // Only Bladedeck pages are ever loaded here; these only make notifications and alarms.
     @JavascriptInterface public void notify(String title, String text) { AlarmReceiver.show(MainActivity.this, 999, String.valueOf(title).substring(0, Math.min(80, String.valueOf(title).length())), String.valueOf(text).substring(0, Math.min(200, String.valueOf(text).length()))); }
     @JavascriptInterface public void schedule(String json) { runOnUiThread(() -> MainActivity.this.schedule(json)); }
+
+    /* Messages to the PC (NotifyService). The page hands over its pairing key; the address is
+       the page's own (pageOrigin), never one the page names, so messages can only go to the
+       Bladedeck this phone shows. An empty key forgets the link. */
+    @JavascriptInterface public void link(String key) {
+      String o = pageOrigin, k = key == null ? "" : key.trim();
+      SharedPreferences.Editor ed = NotifyService.prefs(MainActivity.this).edit();
+      if (k.isEmpty() || o.isEmpty()) ed.remove("base").remove("key"); else ed.putString("base", o).putString("key", k);
+      ed.apply();
+    }
+    @JavascriptInterface public boolean notifyAccess() {
+      String on = android.provider.Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
+      return on != null && on.contains(getPackageName());
+    }
+    @JavascriptInterface public void openNotifyAccess() {
+      runOnUiThread(() -> { try { startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")); } catch (Exception e) { /* no such screen */ } });
+    }
+    // The apps that have posted notifications since access was given, with whether each is ticked.
+    @JavascriptInterface public String notifyApps() {
+      JSONArray out = new JSONArray();
+      SharedPreferences sp = NotifyService.prefs(MainActivity.this);
+      try {
+        for (java.util.Map.Entry<String, ?> e : sp.getAll().entrySet()) {
+          if (!e.getKey().startsWith("seen:")) continue;
+          String pkg = e.getKey().substring(5);
+          out.put(new JSONObject().put("pkg", pkg).put("name", String.valueOf(e.getValue())).put("on", sp.getBoolean("on:" + pkg, false)));
+        }
+      } catch (Exception e) { /* empty list */ }
+      return out.toString();
+    }
+    @JavascriptInterface public void setNotifyApp(String pkg, boolean on) {
+      if (pkg == null || !pkg.matches("[A-Za-z0-9_.]{1,200}")) return;
+      NotifyService.prefs(MainActivity.this).edit().putBoolean("on:" + pkg, on).apply();
+    }
   }
 }

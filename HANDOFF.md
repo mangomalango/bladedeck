@@ -127,7 +127,7 @@ Task IDs and cards: see TEAM.md (next free ID: BD-029 (BD-011..BD-018 are in ROA
 - **BD-010** (done) · windows · Gemini · `/bladedeck-review` of the Windows-only code.
   Review complete, documented in `NIGHTLY-REVIEW-gemini.md`. Fixed `tasklist` windowsHide in `prewarmSteam` (`main.js:347`) and FFmpeg concat backslash normalization (`wincapture.js:180`). Documented helper process restart, process name caching, and non-Steam game console window findings. Branch: `gemini/2026-10-14-bd010`. Claude (Windows) verifies findings.
 
-- **BD-027** · both · Gemini · Research only, no changes to any computer. Phone notifications in Bladedeck (owner's
+- **BD-027** (dropped: the owner gave the design directly, see BD-028) · both · Gemini · Research only, no changes to any computer. Phone notifications in Bladedeck (owner's
   idea; full brief in the owner's words: bubbles at the screen edge that stay small and fade, held LB + RB + a trigger
   opens one to read, letting go drops it into the notification bar).
   ```
@@ -145,7 +145,7 @@ Task IDs and cards: see TEAM.md (next free ID: BD-029 (BD-011..BD-018 are in ROA
              kept for the session only; research and writing only
   [REPLY]    "BD-027 done" here with the ranked list (one screen, no essay); details in NIGHTLY-REVIEW-gemini.md
   ```
-- **BD-028** · both · Claude (Windows) · After BD-024 and BD-027: build phone notifications. Phone side: forward an
+- **BD-028** (built, see Log; review: a second Claude in place of Gemini, owner's call) · both · Claude (Windows) · Build phone notifications. Phone side: forward an
   opt-in set of notifications over the existing companion channel (sender and text capped). PC side: the bubble,
   the hold-to-read gesture, the bar, do-not-disturb levels. Test copy with fake messages; nothing opens while a game
   has the screen. Network-facing, so Gemini audits it before merge.
@@ -159,6 +159,23 @@ Task IDs and cards: see TEAM.md (next free ID: BD-029 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-15, Claude (Windows), lead: BD-028 phone messages, the owner's bubble design.** PC: phonemsg.js (receive from
+  companion.js POST /api/notify, paired phones only; caps 40/40/500 chars, control chars stripped, 12 a minute per
+  phone; session memory only; Settings, Phone app: all / quiet / bar only / off), a transparent click-through
+  never-focusable always-on-top window renderer/bubble.html + bubble.js + bubble-preload.js: the bubble arrives at the
+  bottom, mostly see-through, with a soft sound; holding LB + RB + LT or RT floats it to the top as it fills, grows to
+  the message, the screen behind blurs (one desktopCapturer still, bubble-snap); letting go pops it (letting go before
+  a quarter full just sinks it back); then 4 s: wait = keep playing, LB = pause (procFreeze the game, Bladedeck in
+  front; going back thaws), RB = menu. Ignored bubbles fade after 15 s; every message ends in the notification bar.
+  renderer/companion.js: the bar entries, the choice, the setting and "Show a test message". Phone: Android 1.3
+  (android/): NotifyService (NotificationListenerService; only ticked apps; skips ongoing, group summaries, its own),
+  Bridge.link(key) uses the page's own origin (port 47616) so a page cannot redirect messages, notifyAccess,
+  openNotifyAccess, notifyApps, setNotifyApp; companion/app.js "Messages to the PC" with the access button and the app
+  ticks. Tested on Windows: the whole bubble flow in a test copy (arrive, fill to 1, pop, LB, the bar entry, a short tap
+  does not open), caps, rate limit and levels in node. NOT built or tested: the Android app (no SDK on the Windows PC;
+  build on Linux with android/build.sh), a real game underneath, a real controller. Shared files: main.js, preload.js,
+  companion.js, renderer/companion.js, companion/app.js, package.json, SPEC.md (276 channels; the new ones intended).
 
 - **2026-10-15, Claude (Windows), lead: Gemini's BD-020/021/022 review (b8624bf) reviewed and merged.** Kept as written:
   fsaccess.js inside() no longer reads a folder named "..foo" as a parent; safeName() strips leading dots and spaces;

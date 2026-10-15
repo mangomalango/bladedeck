@@ -123,10 +123,27 @@ async function drawMe() {
   const p = st?.player || { level: 1, pct: 0, streak: 0 };
   view.innerHTML = `<h2>You</h2><div class="card me"><div class="ring" style="--p:${p.pct}"><span>${p.level}</span></div><div><b style="font-size:20px">${esc(st?.pc || '')}</b><br><small style="color:var(--dim)">Level ${p.level} · ${p.pct}% to the next${p.streak > 1 ? ` · 🔥 ${p.streak}-day streak` : ''}</small></div></div>
     <h2>Sound</h2><div class="card" id="snd"><p class="empty" style="padding:4px">Loading…</p></div>
+    ${window.BladedeckApp?.notifyApps ? '<h2>Messages to the PC</h2><div class="card" id="msgs"></div>' : ''}
     <h2>This phone</h2><div class="card" style="display:grid;gap:8px">${window.BladedeckApp ? '<button id="switch" style="width:100%">Switch to another PC</button>' : ''}<button id="forget" style="width:100%">Forget this Bladedeck</button></div>`;
   if ($('#switch')) $('#switch').onclick = () => window.BladedeckApp.home();
-  $('#forget').onclick = () => { if (confirm('Unpair this phone?')) { localStorage.removeItem('bd-key'); key = ''; pairScreen(); } };
+  $('#forget').onclick = () => { if (confirm('Unpair this phone?')) { localStorage.removeItem('bd-key'); key = ''; try { window.BladedeckApp?.link?.(''); } catch { /* not the app */ } pairScreen(); } };
+  drawMsgs();
   drawSound(await api('sound').catch(() => ({ error: 'No sound controls' })));
+}
+/* Messages to the PC (Android app only): notifications from the apps ticked here show on the PC
+   as a small bubble (Bladedeck's Phone app settings say how). Nothing is sent until one is ticked. */
+function drawMsgs() {
+  const box = $('#msgs'), A = window.BladedeckApp; if (!box || !A?.notifyApps) return;
+  if (!A.notifyAccess()) {
+    box.innerHTML = '<p class="small">Show your phone\'s messages on the PC as a small bubble you can read without leaving the game. First let Bladedeck read notifications (Android asks once). Only the apps you tick here are ever sent, and only to this Bladedeck.</p><button id="msgallow" style="width:100%">Allow notification access</button>';
+    $('#msgallow').onclick = () => { A.openNotifyAccess(); setTimeout(drawMsgs, 4000); };
+    return;
+  }
+  let apps = []; try { apps = JSON.parse(A.notifyApps()); } catch { apps = []; }
+  apps.sort((a, b) => a.name.localeCompare(b.name));
+  box.innerHTML = apps.length ? `<p class="small">Tick the apps whose messages should show on the PC.</p>${apps.map((a) => `<label class="row" style="display:flex;gap:10px;align-items:center"><input type="checkbox" data-pkg="${esc(a.pkg)}" ${a.on ? 'checked' : ''}><span>${esc(a.name)}</span></label>`).join('')}`
+    : '<p class="small">Apps show up here once they post a notification. Come back after a message arrives.</p>';
+  box.onchange = (ev) => { const p = ev.target.dataset.pkg; if (p) A.setNotifyApp(p, ev.target.checked); };
 }
 function drawSound(s) {
   const box = $('#snd'); if (!box) return;
@@ -221,6 +238,8 @@ function setTab(t) {
 async function start() {
   $('#tabs').hidden = false;
   try { st = await api('state'); header(); } catch { return; }
+  // The Android app sends ticked notifications to this Bladedeck with this phone's key.
+  try { window.BladedeckApp?.link?.(key); } catch { /* not the app */ }
   connect(); setTab(tab);
   api('alarms').then((a) => { try { window.BladedeckApp?.schedule?.(JSON.stringify(a)); } catch { /* not the app */ } }).catch(() => {});
 }

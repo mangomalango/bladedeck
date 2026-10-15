@@ -1059,6 +1059,8 @@ require('./players').register({ getWin: () => win });
 require('./extras').register({ settings: () => loadLib().settings });
 require('./updater').register({ getWin: () => win });
 require('./feedback').register();
+require('./phonemsg').register({ getWin: () => win, settings: () => loadLib().settings });
+app.on('will-quit', () => require('./phonemsg').stop());
 require('./roms').register({ getWin: () => win });
 require('./achievements').register({ getWin: () => win });
 require('./gamemusic').register();

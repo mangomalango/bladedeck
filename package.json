@@ -55,6 +55,8 @@
       "wincapture.js",
       "updater.js",
       "feedback.js",
+      "phonemsg.js",
+      "bubble-preload.js",
       "build-info.json",
       "webapp-preload.js",
       "webapps.js",
