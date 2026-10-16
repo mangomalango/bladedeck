@@ -321,6 +321,14 @@ Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-16, Claude (Windows), lead: RELEASED v0.2.5 as latest (owner: "release").** master = bladedeck-nightly = 7051cd2
+  (version bump on 63d1247), tag v0.2.5, backup tag backup/2026-10-16-v0.2.5 (= v0.2.4), backup in
+  Downloadsladedeck-backups6-10-16-v0.2.5 (bundle, config, Steam shortcuts, installer, README). Assets:
+  Bladedeck.Setup.0.2.5.exe (built here; packaged smoke test: 0.2.5, 7051cd2, 7 blades, no pad, no errors.log),
+  Bladedeck-0.2.5.AppImage (CI run 38832628566, passed), Bladedeck-phone.apk still 1.2. Both PCs run nightly 8f7d7cc (same
+  code minus the version): the Update button will now offer 0.2.5, which is fine to take. Linux lead: build Android 1.3+
+  and attach it to v0.2.5.
+
 - **2026-10-16, Claude (Windows), lead: nightly 8f7d7cc INSTALLED on the Windows PC (owner: "Yes, install the nightly 8f7d7cc Windows
   build on this PC").** Backup first: Downloadsladedeck-backups6-10-16-before-nightly-8f7d7cc (config without caches, 3 Steam
   shortcuts.vdf, the installed 0.2.4 app, the installer). CI run 38823385384 installer, silent (/S), exit 0. Installed
