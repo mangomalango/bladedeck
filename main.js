@@ -202,7 +202,7 @@ function createWindow() {
           // Windows: windows opening and closing, as KWin reports them on KDE.
           onWindowEvent: (ev) => { if (win && !win.isDestroyed()) win.webContents.send('peek', ev); const p2 = require('./players').p2(); if (p2 && !p2.isDestroyed()) p2.webContents.send('peek', ev); } });
       });
-    if (process.platform === 'win32') require('./winpad').start(dataDir(), () => { if (loadLib().settings.viewStartPeek === true) peekToggle(); }, (kind = 'pip') => { if (win) win.webContents.send('peek', { kind, caption: '', pid: 0, cls: '' }); });
+    if (process.platform === 'win32') require('./winpad').start(dataDir(), () => { if (loadLib().settings.viewStartPeek !== false) peekToggle(); }, (kind = 'pip') => { if (win) win.webContents.send('peek', { kind, caption: '', pid: 0, cls: '' }); });
   });
   // Player 2's menu (multi-screen) goes with the main one.
   win.on('closed', () => { win = null; require('./players').stop(); });

@@ -56,11 +56,20 @@ const NowPlaying = (() => {
      gone, its pid not the one the panel had) slipped past 'gone': the panel stayed, black, and going
      back to it left a black screen. So the panel also checks its window is still in the list. */
   const WIN = navigator.userAgent.includes('Windows');
-  const stillOpen = () => Dock.windows().some((w) => (cur.winId ? w.id === cur.winId : w.pid === cur.pid));
+  // By its program, not its window: an emulator (PCSX2) swaps its window going full screen. A window
+  // of the same program that replaced the old one becomes the one "back" goes to.
+  const stillOpen = () => {
+    const l = Dock.windows(), same = cur.winId && l.find((w) => w.id === cur.winId);
+    if (same) return true;
+    const mine = cur.pid && l.find((w) => w.pid === cur.pid);
+    if (mine && cur.winId) cur.winId = mine.id;
+    return !!mine;
+  };
   function stale() {
-    if (!WIN || !cur || going || !(cur.winId || cur.pid)) return;
-    if (stillOpen()) { cur.seen = true; return; }
-    if (cur.seen) { gone({ kind: 'gone', pid: cur.pid }); if (cur) end(); }
+    if (!WIN || !cur || going || !cur.pid) return;
+    if (stillOpen()) { cur.seen = true; cur.miss = 0; return; }
+    // Only the panel is tidied away; the game's session and the focus are left to 'gone'.
+    if (cur.seen && ++cur.miss >= 2) end();
   }
   window.bladedeck.peekMode().then((m) => { if (m) mode = m; });
 
@@ -259,7 +268,7 @@ const NowPlaying = (() => {
 
   async function back() {
     if (going || !cur) return;
-    if (WIN && cur.seen && !stillOpen()) { gone({ kind: 'gone', pid: cur.pid }); if (cur) end(); toast('That game has closed.'); return; }
+    if (WIN && cur.seen && cur.pid && !stillOpen()) { end(); toast('That game has closed.'); return; }
     going = true;
     highlight(false);
     await popIn();

@@ -6,7 +6,8 @@
    so switching between a game and Bladedeck could put the PC to sleep.
    This finds those bindings (controller_action host_suspend) in the desktop and Big Picture
    layouts, and on request takes them out, keeping a copy of each file it changes. Steam must be
-   closed for that: it writes its layouts back when it quits. */
+   closed for that: it writes its layouts back when it quits.
+   On Windows it also takes Windows' shortcut keys out of the desktop layout (keysWalk below). */
 const { ipcMain } = require('electron');
 const { execFile } = require('child_process');
 const fs = require('fs');
@@ -81,14 +82,51 @@ function walk(nodes, found, cut, inputName = '') {
   }
 }
 
+/* The desktop layout also turns buttons into Windows' own shortcut keys: RB is Alt, LB is Ctrl,
+   View is Tab and a Steam Deck's L4 is the Windows key, so RB + View is Alt+Tab, and View or Menu
+   with L4 opens Task View or the Start menu, under Bladedeck and over it. View, Menu, LB and RB
+   become the controller buttons they are (Steam's Xbox-style pad, which the menu reads); Alt,
+   Ctrl, Tab and the Windows key on any other button are taken off. Menu was Escape: it becomes
+   Start too, so B (and a keyboard) stay Bladedeck's way back. Desktop layout only. */
+const PAD = { button_menu: 'select', button_escape: 'start', left_bumper: 'shoulder_left', right_bumper: 'shoulder_right' };
+const SHORTCUT = /^key_press ((LEFT_|RIGHT_)?(ALT|CONTROL|WINDOWS)|TAB)\b/i;
+const keyOf = (b) => (/^key_press (\w+)/i.exec(b) || [])[1] || '';
+function keysWalk(nodes, found, cut, inputName = '') {
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const [k, v] = nodes[i];
+    if (!Array.isArray(v)) continue;
+    if (k !== 'activators') { keysWalk(v, found, cut, k); continue; }
+    for (let j = v.length - 1; j >= 0; j--) {
+      const act = v[j][1]; if (!Array.isArray(act)) continue;
+      const bindings = act.find(([n]) => n === 'bindings'); if (!bindings || !Array.isArray(bindings[1])) continue;
+      const list = bindings[1];
+      for (let m = list.length - 1; m >= 0; m--) {
+        const [n, b] = list[m]; if (n !== 'binding' || typeof b !== 'string') continue;
+        const pad = PAD[inputName];
+        const hit = SHORTCUT.test(b) || (inputName === 'button_escape' && /^key_press ESCAPE\b/i.test(b));
+        if (!hit) continue;
+        found.push({ kind: 'keys', button: BUTTON[inputName] || inputName, key: keyOf(b), to: pad ? 'button' : 'nothing' });
+        if (!cut) continue;
+        if (pad) list[m] = ['binding', `xinput_button ${pad}, , `];
+        else list.splice(m, 1);
+      }
+      if (cut && !list.length) v.splice(j, 1);
+    }
+  }
+}
+
+const KEY_NAME = { LEFT_ALT: 'Alt', RIGHT_ALT: 'Alt', ALT: 'Alt', LEFT_CONTROL: 'Ctrl', RIGHT_CONTROL: 'Ctrl', CONTROL: 'Ctrl', LEFT_WINDOWS: 'the Windows key', RIGHT_WINDOWS: 'the Windows key', WINDOWS: 'the Windows key', TAB: 'Tab', ESCAPE: 'Escape' };
+// Controllers in the desktop layout; not the phone's touch layout (Steam Link), which has no such buttons to give.
+const isDesktop = (f) => path.basename(path.dirname(f)) === '413080' && !/mobile_touch/i.test(path.basename(f));
 function scan() {
   const out = [];
   for (const f of files()) {
     let text; try { text = fs.readFileSync(f, 'utf8'); } catch { continue; }
-    if (!/host_suspend/.test(text)) continue;
-    const found = []; walk(parse(text), found, false);
+    const found = [], tree = parse(text);
+    if (/host_suspend/.test(text)) walk(tree, found, false);
+    if (process.platform === 'win32' && isDesktop(f)) keysWalk(tree, found, false);
     const kind = path.basename(f, '.vdf').replace(/^controller_/, '');
-    for (const x of found) out.push({ file: f, layout: LAYOUT[kind] || kind, app: path.basename(path.dirname(f)) === '413090' ? 'Big Picture' : 'desktop', ...x });
+    for (const x of found) out.push({ file: f, layout: LAYOUT[kind] || kind, app: path.basename(path.dirname(f)) === '413090' ? 'Big Picture' : 'desktop', ...x, ...(x.key ? { key: KEY_NAME[x.key.toUpperCase()] || x.key } : {}) });
   }
   return out;
 }
@@ -104,6 +142,7 @@ async function fix() {
   for (const f of new Set(scan().map((x) => x.file))) {
     const text = fs.readFileSync(f, 'utf8');
     const tree = parse(text); walk(tree, [], true);
+    if (process.platform === 'win32' && isDesktop(f)) keysWalk(tree, [], true);
     const keep = `${f}.bladedeck-${new Date().toISOString().slice(0, 10)}.bak`;
     if (!fs.existsSync(keep)) fs.writeFileSync(keep, text);
     fs.writeFileSync(f, write(tree));
@@ -117,4 +156,4 @@ function register() {
   ipcMain.handle('steam-sleep-fix', async () => { try { return await fix(); } catch (err) { return { ok: false, error: String(err.message || err) }; } });
 }
 
-module.exports = { register, scan, parse, write, walk };
+module.exports = { register, scan, parse, write, walk, keysWalk };

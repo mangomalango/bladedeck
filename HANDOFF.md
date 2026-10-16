@@ -43,6 +43,21 @@ Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-16, Claude (Windows), lead: 0.2.6.5 (package "0.2.6-5": an installer needs semver; Windows shows
+  0.2.6.5) for Windows, from the owner's report "View/Menu broken on every controller, you broke Mortal Kombat
+  Deception, stop the Alt / Win / Tab".** 1. MK Deception (PCSX2) was mine: 0.2.6's Alt+F4 check went by window id, PCSX2
+  swaps its window going full screen, so Now Playing called gone() and Bladedeck took the focus over the game. Now
+  it goes by the program (pid), two looks in a row, and only tidies the panel (no gone(), no focus). 2. Steam's
+  desktop layout makes View Tab, Menu Escape, LB Ctrl, RB Alt, Deck L4 the Windows key (Alt+Tab, Task View):
+  steaminput.js keysWalk (Windows, desktop layout, not mobile_touch) turns View/Menu/LB/RB into xinput
+  select/start/shoulders and takes Alt/Ctrl/Tab/Win off other buttons; same channels as the sleep fix
+  (steam-sleep-scan/fix, items now carry kind 'keys'), Steam closed, .bak kept. Settings, Controllers shows it;
+  a one-time toast (steamKeysSeen). Tested on copies of this PC's layouts: Xbox 4 changed, Deck-style 5, 0 left.
+  NOT run on the real files (needs Steam closed, the owner's press). 3. View + Menu in a game on by default on
+  Windows too (viewStartPeek ?? true; main: !== false); the setting text says to turn it off if a game crashes.
+  4. padkeys: Tab from a controller (S.pad) is View in the menu. Tests: check, sweep 54, scripted test copy (all
+  0.2.6 checks plus Tab as View / keyboard Tab).
+
 - **2026-10-16, Claude (Windows), lead: RELEASED v0.2.6 for Windows as latest (owner: "release this to main").** master =
   bladedeck-nightly = 140d7a4, tag v0.2.6, one asset: Bladedeck.Setup.0.2.6.exe (built here; packaged smoke test as a test
   copy: PadKeys loaded, 7 blades, CPU/RAM chip, no errors.log). Backup first: Downloads\bladedeck-backups\2026-10-16-v0.2.6

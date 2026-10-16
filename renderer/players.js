@@ -229,12 +229,18 @@ const Players = (() => {
   // Steam's own layouts can put the PC to sleep from a button (steaminput.js in main).
   async function drawSteamSleep(box) {
     const el = $('.steam-sleep', box); if (!el) return;
-    const l = await api.steamSleepScan().catch(() => []);
-    if (!l.length) { el.innerHTML = ''; return; }
-    el.innerHTML = `<h4 class="set-sub">Steam puts the PC to sleep from a button</h4>
+    const all = await api.steamSleepScan().catch(() => []);
+    const l = all.filter((x) => x.kind !== 'keys'), keys = all.filter((x) => x.kind === 'keys');
+    if (!all.length) { el.innerHTML = ''; return; }
+    // Windows: the desktop layout's Alt, Ctrl, Tab and Windows keys (Alt+Tab, Task View, the Start menu).
+    const seen = new Set(), kl = keys.filter((x) => { const k = `${x.button} ${x.key} ${x.layout}`; if (seen.has(k)) return false; seen.add(k); return true; });
+    el.innerHTML = (kl.length ? `<h4 class="set-sub">Steam turns controller buttons into Windows shortcuts</h4>
+      <p class="note">${kl.map((x) => `<b>${esc(x.button)}</b> is ${esc(x.key)} on a ${esc(x.layout)} controller`).join('<br>')}.
+      So RB + View is Alt+Tab and other presses open Task View or the Start menu. Fixing it makes View, Menu, LB and RB plain controller buttons and takes the other shortcut keys off. A copy of each file is kept. Steam has to be closed first.</p>
+      <div class="pl-acts"><button type="button" data-pl="steamsleep">Stop Windows shortcuts from the controller</button></div>` : '') + (!l.length ? '' : `<h4 class="set-sub">Steam puts the PC to sleep from a button</h4>
       <p class="note">${l.map((x) => `<b>${esc(x.press[0].toUpperCase() + x.press.slice(1))} ${esc(x.button)}</b> on a ${esc(x.layout)} controller (Steam's ${esc(x.app)} layout)`).join('<br>')}.
       Steam does this whenever no game is running, so in Bladedeck too, and holding Menu is half of View + Menu. Turning it off keeps a copy of each file. Steam has to be closed first.</p>
-      <div class="pl-acts"><button type="button" data-pl="steamsleep">Turn off sleep from the controller</button></div>`;
+      ${kl.length ? '' : '<div class="pl-acts"><button type="button" data-pl="steamsleep">Turn off sleep from the controller</button></div>'}`);
   }
   async function wireControllers(box) {
     await drawControllers(box);
@@ -257,7 +263,7 @@ const Players = (() => {
         const r = await api.steamSleepFix();
         if (r.steamRunning) toast('Close Steam first (Steam menu, Exit), then press this again.', 'err');
         else if (!r.ok) toast(r.error || 'That did not work.', 'err');
-        else { toast(r.left ? 'Some were left; Steam may have put them back.' : 'Done. The controller no longer puts the PC to sleep.', r.left ? 'err' : 'fun'); S.lib.settings.steamSleepSeen = true; save(); }
+        else { toast(r.left ? 'Some were left; Steam may have put them back.' : 'Done. Start Steam again: the controller no longer sleeps the PC or presses Windows shortcuts.', r.left ? 'err' : 'fun'); S.lib.settings.steamSleepSeen = true; S.lib.settings.steamKeysSeen = true; save(); }
         drawSteamSleep(box);
       }
     });
@@ -345,8 +351,16 @@ const Players = (() => {
   if (me === 2) { document.body.classList.add('p2', 'multi'); setTimeout(conn, 1500); }
   // Once: tell the player if Steam's layout can put the PC to sleep from the controller.
   if (me === 1) setTimeout(async () => {
-    if (!S.lib || S.lib.settings.steamSleepSeen) return;
-    const l = await api.steamSleepScan().catch(() => []);
+    if (!S.lib) return;
+    const all = await api.steamSleepScan().catch(() => []);
+    // Windows: Steam's Alt / Tab / Windows-key buttons, once.
+    if (!S.lib.settings.steamKeysSeen && all.some((x) => x.kind === 'keys')) {
+      S.lib.settings.steamKeysSeen = true; save();
+      toast('Steam makes the controller press Alt, Tab and the Windows key (Alt+Tab, Task View). Settings, Controllers can stop that.', 'err');
+      return;
+    }
+    if (S.lib.settings.steamSleepSeen) return;
+    const l = all.filter((x) => x.kind !== 'keys');
     if (!l.length) return;
     S.lib.settings.steamSleepSeen = true; save();
     const x = l.find((y) => y.button === 'Menu') || l[0];

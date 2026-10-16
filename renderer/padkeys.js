@@ -43,6 +43,10 @@ const PadKeys = (() => {
     const t = ev.target;
     setTimeout(() => {
       if (since(t0 - BEFORE)) return; // it was the controller
+      // View, sent by Steam as Tab while the controller is what is being used: the menu's View.
+      if (ev.key === 'Tab' && typeof S !== 'undefined' && S.pad && typeof handle === 'function' && !S.modal) { handle('back'); return; }
+      // Otherwise it is a key like any other, and (as a key always did) the menu leaves controller mode.
+      if (typeof S !== 'undefined') S.pad = false;
       const ok = t.dispatchEvent(new KeyboardEvent('keydown', init));
       // A held-back Enter or Space no longer presses the focused button by itself.
       if (ok && (ev.key === 'Enter' || ev.key === ' ') && t.isConnected && /^(BUTTON|A|SUMMARY)$/.test(t.tagName)) t.click();
