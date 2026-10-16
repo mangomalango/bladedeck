@@ -53,7 +53,9 @@ const HoverMusic = (() => {
   setInterval(() => {
     if (typeof S === 'undefined') return;
     const e = S.sel && !S.sel.run && S.sel.id ? S.sel : null;
-    const ok = on() && e && !S.playing && !S.modal && deckFocused() && !document.body.classList.contains('away');
+    // Music you chose (Bladedeck's player, or a panel playing) wins over a game's theme.
+    const yours = Music.playing() ||Panels.audible?.();
+    const ok = on() && e && !S.playing && !S.modal && !yours && deckFocused() && !document.body.classList.contains('away');
     if (e !== sel) { sel = e; since = performance.now(); stop(); }
     if (!ok) { if (playingFor) stop(); return; }
     if (performance.now() - since >= 3000 && playingFor !== e.id) start(e);

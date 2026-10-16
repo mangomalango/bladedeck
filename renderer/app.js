@@ -192,7 +192,8 @@ function startSysChip() {
     chip.classList.toggle('hot', (m.cpu ?? 0) > 85 || (m.temp ?? 0) > 85 || m.used / m.total > 0.9);
   };
   chip.addEventListener('click', openThisPc);
-  tick(); setInterval(tick, 3000);
+  // Windows reads Task Manager's numbers once a second (system.js), so the readout keeps up with them.
+  tick(); setInterval(tick, navigator.userAgent.includes('Windows') ? 1000 : 3000);
 }
 
 /* ---------------------------------------------------------------- cover art */
@@ -833,7 +834,6 @@ function renderPc() {
         <button data-act="steam">Scan Steam</button>
         <button data-act="gog">Scan GOG</button>
         <button data-act="settings">Settings</button>
-        <button class="primary" data-act="console">Console mode</button>
       </div>
       <div class="grid" id="grid" style="--tile:${st.tileSize}px"></div>
     </section>
@@ -1362,7 +1362,7 @@ function openSettings() {
       <section class="set-sec" data-sec="general">
         <label>Your name<input type="text" name="playerName" value="${esc(st.playerName)}"></label>
         <label>Your town, for the weather<input type="text" name="town" value="${esc(st.town || '')}"></label>
-        <div class="checks"><label><input type="checkbox" name="curatedHome" ${st.curatedHome !== false ? 'checked' : ''}> Home shows a few picks for today under Favorites and Recently played</label><label><input type="checkbox" name="runningList" ${st.runningList !== false ? 'checked' : ''}> Show what's running on the left</label><label><input type="checkbox" name="voice" ${st.voice ? 'checked' : ''}> Voice commands (View + LB, Space or 🎤)</label><label><input type="checkbox" name="voiceWake" ${st.voiceWake ? 'checked' : ''}> Active keyword: listen for "Hey Blade"</label><label><input type="checkbox" name="showStats" ${st.showStats !== false ? 'checked' : ''}> Show processor, memory and temperature at the top (click it, or press I, for This PC)</label></div>
+        <div class="checks"><label><input type="checkbox" name="curatedHome" ${st.curatedHome !== false ? 'checked' : ''}> Home shows a few picks for today under Favorites and Recently played</label><label><input type="checkbox" name="runningList" ${st.runningList !== false ? 'checked' : ''}> Show what's running on the left</label><label><input type="checkbox" name="voice" ${st.voice ? 'checked' : ''}> Voice commands (View + LB, Space or 🎤)</label><label><input type="checkbox" name="voiceWake" ${st.voiceWake ? 'checked' : ''}> Active keyword: listen for "Hey Blade"</label><label><input type="checkbox" name="showStats" ${st.showStats !== false ? 'checked' : ''}> Show processor, memory and temperature at the top (click it, or press I, for This PC)</label><label><input type="checkbox" name="xpToasts" ${st.xpToasts !== false ? 'checked' : ''}> Pop-ups for XP and level-ups</label></div>
         <h4 class="set-sub">Guide and quick menu</h4>${Guide.settingsHtml()}
       </section>
       <section class="set-sec" data-sec="look">
@@ -1457,7 +1457,7 @@ function openSettings() {
         ambientVolume: +val(root, 'ambientVolume'), hoverMusicVolume: +val(root, 'hoverMusicVolume'), showcaseAlpha: +val(root, 'showcaseAlpha'), wineCommand: val(root, 'wineCommand'),
         gogDirs: val(root, 'gogDirs').split('\n').map((x) => x.trim()).filter(Boolean) });
       const peekWas = st.peekMinimize, dirWas = st.musicDir;
-      Object.assign(st, { musicDir: val(root, 'musicDir'), musicDuringGames: chk(root, 'musicDuringGames'), peekMinimize: chk(root, 'peekMinimize'), viewStartPeek: chk(root, 'viewStartPeek'),romsFullscreen: chk(root, 'romsFullscreen'), showStats: chk(root, 'showStats'), hoverMusic: chk(root, 'hoverMusic'), onlineMedia: chk(root, 'onlineMedia'), gameInfo: chk(root, 'gameInfo'), onlineCacheMB: +val(root, 'onlineCacheMB') || 2048, achClips: chk(root, 'achClips'), askStates: chk(root, 'askStates') });
+      Object.assign(st, { musicDir: val(root, 'musicDir'), musicDuringGames: chk(root, 'musicDuringGames'), peekMinimize: chk(root, 'peekMinimize'), viewStartPeek: chk(root, 'viewStartPeek'),romsFullscreen: chk(root, 'romsFullscreen'), showStats: chk(root, 'showStats'), xpToasts: chk(root, 'xpToasts'), hoverMusic: chk(root, 'hoverMusic'), onlineMedia: chk(root, 'onlineMedia'), gameInfo: chk(root, 'gameInfo'), onlineCacheMB: +val(root, 'onlineCacheMB') || 2048, achClips: chk(root, 'achClips'), askStates: chk(root, 'askStates') });
       st.liveAuto = chk(root, 'liveAuto');
       Object.assign(st, { screenType: val(root, 'screenType'), burnGuard: chk(root, 'burnGuard'), crtLook: chk(root, 'crtLook') });
       st.playingBg = chk(root, 'playingBg');

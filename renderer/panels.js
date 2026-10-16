@@ -317,7 +317,9 @@ const Panels = (() => {
     return 'shown';
   }
 
-  return { show, act, list, handle, leave, isOpen, video, overGames, walkthroughPanel, active: () => !!focused, current: () => focused, has: (k) => open.has(k), focus: (k) => { const p = open.get(k); if (p) act(k, 'show'); } };
+  // A panel making sound (a music site, a video): hover music keeps out of its way.
+  const audible = () => [...open.values()].some((p) => { try { return !!p.wv?.isCurrentlyAudible(); } catch { return false; } });
+  return { show, act, list, handle, leave, isOpen, video, overGames, walkthroughPanel, audible, active: () => !!focused, current: () => focused, has: (k) => open.has(k), focus: (k) => { const p = open.get(k); if (p) act(k, 'show'); } };
 })();
 
 /* Files: Bladedeck's own file browser for the Files panel. Places on the left (Bladedeck's own

@@ -484,9 +484,25 @@ function register({ getWin }) {
   ipcMain.handle('sound-player-sink', wrap((_e, o) => playerSink(o || {})));
 }
 
+/* Windows: Bladedeck's own row in the sound menu. Chromium closes its sound process when it goes
+   quiet and starts a new one, so a mute Windows keeps for the old process is lost; the pages
+   themselves are muted instead (and any window opened later). */
+let selfMute = false, selfHooked = false;
+const ownPids = () => new Set(app.getAppMetrics().map((x) => x.pid));
+function setSelfMute(on) {
+  selfMute = on;
+  for (const w of require('electron').webContents.getAllWebContents()) w.setAudioMuted(on);
+  if (!selfHooked) { selfHooked = true; app.on('web-contents-created', (_e, w) => { if (selfMute) w.setAudioMuted(true); }); }
+}
+function withSelf(st) {
+  const own = ownPids();
+  for (const a of st?.apps || []) if (own.has(a.id)) a.mute = selfMute || a.mute;
+  return st;
+}
+
 // The sound card, for the page and for the phone app.
 async function soundGet() {
-  if (process.platform === 'win32') return require('./winaudio').ask('state', app.getPath('userData'));
+  if (process.platform === 'win32') return withSelf(await require('./winaudio').ask('state', app.getPath('userData')));
   if (process.platform !== 'linux') throw new Error('nosys');
   return soundState();
 }
@@ -497,7 +513,8 @@ async function soundSetFn({ kind, id, volume, mute } = {}) {
     if (process.platform === 'win32') {
       const W = require('./winaudio'), dir = app.getPath('userData'), vv = volume == null ? '-' : String(Math.max(0, Math.min(100, Math.round(+volume))));
       const cmd = kind === 'output' ? `out|${ID}|${vv}|${m ?? '-'}` : kind === 'mic' ? `mic|${ID}|${vv}|${m ?? '-'}` : kind === 'app' ? `app|${parseInt(id, 10)}|${vv}|${m ?? '-'}` : kind === 'default' ? `default|${ID}` : 'state';
-      return W.ask(cmd, dir);
+      if (kind === 'app' && m != null && ownPids().has(parseInt(id, 10))) setSelfMute(m === '1');
+      return withSelf(await W.ask(cmd, dir));
     }
     if (kind === 'output') { if (v) await pactl(['set-sink-volume', ID, v]); if (m) await pactl(['set-sink-mute', ID, m]); }
     else if (kind === 'app') { if (v) await pactl(['set-sink-input-volume', ID, v]); if (m) await pactl(['set-sink-input-mute', ID, m]); }

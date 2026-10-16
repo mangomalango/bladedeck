@@ -1,6 +1,6 @@
 {
   "name": "bladedeck",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "One launcher for Steam, emulators, recompiled ports and any program. Console mode and PC mode.",
   "main": "main.js",
   "scripts": {

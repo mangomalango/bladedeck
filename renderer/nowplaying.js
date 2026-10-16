@@ -50,7 +50,18 @@ const NowPlaying = (() => {
     else if (ev.kind === 'want-back') back();
     else if (ev.kind === 'back') highlight(false);
     else if (ev.kind === 'gone') gone(ev);
+    else if (ev.kind === 'windows') setTimeout(stale, 150);
   });
+  /* Windows: the window list is compared every 2 seconds, and a game closed with Alt+F4 (its window
+     gone, its pid not the one the panel had) slipped past 'gone': the panel stayed, black, and going
+     back to it left a black screen. So the panel also checks its window is still in the list. */
+  const WIN = navigator.userAgent.includes('Windows');
+  const stillOpen = () => Dock.windows().some((w) => (cur.winId ? w.id === cur.winId : w.pid === cur.pid));
+  function stale() {
+    if (!WIN || !cur || going || !(cur.winId || cur.pid)) return;
+    if (stillOpen()) { cur.seen = true; return; }
+    if (cur.seen) { gone({ kind: 'gone', pid: cur.pid }); if (cur) end(); }
+  }
   window.bladedeck.peekMode().then((m) => { if (m) mode = m; });
 
   // The game's own window, if it is open: by the pid we verified, or Steam's class for it.
@@ -248,6 +259,7 @@ const NowPlaying = (() => {
 
   async function back() {
     if (going || !cur) return;
+    if (WIN && cur.seen && !stillOpen()) { gone({ kind: 'gone', pid: cur.pid }); if (cur) end(); toast('That game has closed.'); return; }
     going = true;
     highlight(false);
     await popIn();

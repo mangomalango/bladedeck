@@ -970,8 +970,10 @@ function startFirst(list, extra = []) {
 // The app comes first unless the slot wants the web version. Web pages go to the chosen browser,
 // as an app window of its own when asked (Chromium-style browsers), else to the default browser.
 ipcMain.handle('dock-open', async (_e, spec = {}) => {
-  if (!spec.web && startFirst(spec.apps)) return true;
-  if (!spec.web && spec.uri && process.platform === 'win32') { try { await shell.openExternal(spec.uri); return true; } catch { /* not installed */ } }
+  // Windows: the window that opens is sized to fill the screen when it comes up small (winlist.fillNext).
+  const fill = () => { if (process.platform === 'win32') require('./winlist').fillNext().catch(() => {}); return true; };
+  if (!spec.web && startFirst(spec.apps)) return fill();
+  if (!spec.web && spec.uri && process.platform === 'win32') { try { await shell.openExternal(spec.uri); return fill(); } catch { /* not installed */ } }
   if (spec.home) return !(await shell.openPath(os.homedir()));
   if (!spec.url || !/^https?:/i.test(spec.url)) return false;
   // Bladedeck's own app window, unless the site needs DRM that Electron cannot play.

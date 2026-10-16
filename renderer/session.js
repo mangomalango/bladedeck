@@ -39,6 +39,8 @@ const Player = (() => {
     p.xp += Math.round(n); save();
     const after = levelOf(p.xp);
     header();
+    // Settings, Home (or Your profile) can turn these pop-ups off; the XP still counts.
+    if (S.lib.settings.xpToasts === false) return;
     if (after > before) { setTimeout(() => { toast(`Level up! You are level ${after}.`, 'fun'); Sound.play('fixed'); }, 600); }
     else if (why) toast(`+${Math.round(n)} XP · ${why}`);
   }
@@ -136,10 +138,10 @@ const Player = (() => {
         ${goals.length ? `<div class="side-h">Your goals</div>${goals.map((e) => `<p class="pf-line">🎯 <b>${esc(e.title)}</b>: ${esc(e.goal)}</p>`).join('')}` : ''}
         ${games.length ? `<div class="side-h">Most played</div>${games.map((e) => `<p class="pf-line"><b>${esc(e.title)}</b> · ${hrs(Math.round(e.playtime / 60))}${e.goalsDone ? ` · ${e.goalsDone} goal${e.goalsDone === 1 ? '' : 's'}` : ''}</p>`).join('')}` : ''}
         ${journal.length ? `<div class="side-h">Journal</div>${journal.map((j) => { const m = MOODS.find((x) => x[0] === j.mood); return `<p class="pf-line"><span class="dim">${ago(j.t)}</span> · <b>${esc(j.e.title)}</b> · ${j.mins} min ${m ? m[1] : ''}${j.done === true ? ' · ✅ goal' : ''}${j.note ? ` · “${esc(j.note)}”` : ''}</p>`; }).join('')}` : '<p class="note">Finish a session of 5 minutes or more and Bladedeck asks how it went. Your answers build this journal.</p>'}
-        <div class="checks"><label><input type="checkbox" class="pf-ck" ${S.lib.settings.checkin !== false ? 'checked' : ''}> Ask how my session went</label></div>
+        <div class="checks"><label><input type="checkbox" class="pf-ck" ${S.lib.settings.checkin !== false ? 'checked' : ''}> Ask how my session went</label><label><input type="checkbox" class="pf-xp" ${S.lib.settings.xpToasts !== false ? 'checked' : ''}> Pop-ups for XP and level-ups</label></div>
       </div>`,
       buttons: [{ label: 'Close', primary: true }],
-      onOpen: (root) => root.addEventListener('change', (ev) => { if (ev.target.classList.contains('pf-ck')) { S.lib.settings.checkin = ev.target.checked; save(); } })
+      onOpen: (root) => root.addEventListener('change', (ev) => { if (ev.target.classList.contains('pf-ck')) { S.lib.settings.checkin = ev.target.checked; save(); } if (ev.target.classList.contains('pf-xp')) { S.lib.settings.xpToasts = ev.target.checked; save(); } })
     });
   }
 

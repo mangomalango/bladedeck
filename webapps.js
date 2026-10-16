@@ -65,6 +65,16 @@ const MOBILE_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (
 const searchUrl = (q) => `https://m.youtube.com/results?search_query=${encodeURIComponent(q)}`;
 // A YouTube video page to play in it, from the YouTube panel. Only YouTube watch pages.
 const videoUrl = (u) => { try { const x = new URL(String(u)); return /^https:$/.test(x.protocol) && /^(m|www)\.youtube\.com$/.test(x.hostname) && x.pathname === '/watch' && /^[\w-]{11}$/.test(x.searchParams.get('v') || '') ? x.toString() : ''; } catch { return ''; } };
+// Windows: a game that opens full screen after this window showed covers it. For the first
+// 15 seconds it is put back on top of the always-on-top windows now and then (without focus).
+function keepOver(w) {
+  if (process.platform !== 'win32') return;
+  clearInterval(w.__over); let n = 0;
+  w.__over = setInterval(() => {
+    if (w.isDestroyed() || !w.isVisible() || ++n > 10) { clearInterval(w.__over); return; }
+    w.setAlwaysOnTop(false); w.setAlwaysOnTop(true, 'screen-saver');
+  }, 1500);
+}
 function pipToggle({ query = '', show, url = '' } = {}) {
   let w = apps.get('walkthrough');
   url = videoUrl(url);
@@ -77,7 +87,7 @@ function pipToggle({ query = '', show, url = '' } = {}) {
     if (url) { w.__q = ''; w.loadURL(url, { userAgent: MOBILE_UA }); }
     else if (query && query !== w.__q) { w.__q = query; w.loadURL(searchUrl(query), { userAgent: MOBILE_UA }); }
     if (w.isMinimized()) w.restore();
-    w.showInactive(); w.setAlwaysOnTop(true, 'screen-saver'); tell(); return 'shown';
+    w.showInactive(); w.setAlwaysOnTop(true, 'screen-saver'); keepOver(w); tell(); return 'shown';
   }
   setupSession();
   const area = screen.getPrimaryDisplay().workArea, W = Math.round(Math.min(560, area.width * 0.32)), H = Math.round(W * 0.66);
@@ -91,7 +101,7 @@ function pipToggle({ query = '', show, url = '' } = {}) {
   apps.set('walkthrough', w);
   w.loadURL(url || (query ? searchUrl(query) : 'https://m.youtube.com'), { userAgent: MOBILE_UA });
   w.webContents.setUserAgent(MOBILE_UA);
-  w.once('ready-to-show', () => { w.showInactive(); tell(); });
+  w.once('ready-to-show', () => { w.showInactive(); keepOver(w); tell(); });
   w.webContents.setWindowOpenHandler(({ url: u }) => { if (/youtube\.com|youtu\.be/.test(u)) w.loadURL(u); else if (/^https?:/i.test(u)) shell.openExternal(u); return { action: 'deny' }; });
   for (const ev of ['page-title-updated', 'minimize', 'restore', 'focus', 'blur', 'show', 'hide']) w.on(ev, tell);
   w.on('closed', () => { apps.delete('walkthrough'); tell(); });

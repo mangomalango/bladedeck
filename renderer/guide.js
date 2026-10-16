@@ -289,7 +289,11 @@ const Guide = (() => {
       body = `<div class="gd-pbar"><button type="button" class="gd-f gd-back" data-g="back">‹ Answers</button><button type="button" class="gd-f" data-u="${esc(page.url)}">Open in browser</button></div>
         <h3 class="gd-pt">${esc(page.title)}</h3><div class="gd-page">${page.html}</div>`;
     }
+    // The box being typed in (by keyboard or Bladedeck's keyboard) stays as it is: redrawing it lost letters.
+    const old = el.querySelector('.gd-q'), typing = old && (document.activeElement === old || OSK.target?.() === old);
+    const s0 = typing ? old.selectionStart : 0, s1 = typing ? old.selectionEnd : 0, had = document.activeElement === old;
     el.querySelector('.gd-body').innerHTML = head + `<div class="gd-scroll">${body}</div>`;
+    if (typing) { const fresh = el.querySelector('.gd-q'); old.placeholder = fresh.placeholder; fresh.replaceWith(old); if (had) { old.focus(); try { old.setSelectionRange(s0, s1); } catch { /* not a text box */ } } }
     mark();
   }
 
@@ -348,7 +352,7 @@ const Guide = (() => {
     if (!ev.target.classList.contains('gd-q')) return;
     clearTimeout(timer);
     const q = ev.target.value.trim();
-    timer = setTimeout(() => { if (q) { focusI = 0; search(q); keepTyping(); } else { view = 'home'; draw(); keepTyping(); } }, 450);
+    timer = setTimeout(() => { if (q) { focusI = 0; search(q); keepTyping(); } else { view = 'home'; draw(); keepTyping(); } }, 1000);
   });
   el.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape') { ev.stopPropagation(); ev.preventDefault(); close(); }

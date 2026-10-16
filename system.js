@@ -6,8 +6,8 @@
    Linux reads /proc and /sys and uses nmcli and KDE's brightness service; Windows uses
    PowerShell (battery, brightness, network) and netsh (Wi-Fi). Anything a machine does not have
    is simply left out. */
-const { ipcMain } = require('electron');
-const { execFile } = require('child_process');
+const { ipcMain, app } = require('electron');
+const { execFile, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -23,6 +23,32 @@ function cpuLoad() {
   const prev = lastCpu; lastCpu = t;
   if (!prev || t.total === prev.total) return null;
   return Math.round(100 * (1 - (t.idle - prev.idle) / (t.total - prev.total)));
+}
+
+/* Windows: Task Manager's own numbers. typeperf streams the processor's utility (what Task Manager
+   shows, turbo included) and the memory it counts as in use (all but available and modified
+   pages), once a second. Node's counters read lower, and the top bar, the sea and This PC shared
+   one baseline, so each got a slice of a few hundred milliseconds. Falls back to Node's if
+   typeperf cannot start (counter names differ on some Windows languages). */
+let perf = null, perfProc = null, perfAt = 0;
+function winPerf() {
+  if (process.platform !== 'win32') return null;
+  if (!perfProc && Date.now() - perfAt > 30000) {
+    perfAt = Date.now();
+    const p = spawn('typeperf', ['\\Processor Information(_Total)\\% Processor Utility', '\\Memory\\Available Bytes', '\\Memory\\Modified Page List Bytes', '-si', '1'], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+    perfProc = p; let buf = '';
+    p.on('error', () => { if (perfProc === p) perfProc = null; });
+    p.on('exit', () => { if (perfProc === p) { perfProc = null; perf = null; } });
+    p.stdout.on('data', (d) => {
+      buf += d; let i;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const v = buf.slice(0, i).trim().split('","').map((x) => parseFloat(x.replace(/"/g, '').replace(',', '.'))); buf = buf.slice(i + 1);
+        if (v.length >= 4 && v.slice(1, 4).every(Number.isFinite)) perf = { cpu: Math.max(0, Math.min(100, Math.round(v[1]))), used: Math.max(0, os.totalmem() - v[2] - v[3]), t: Date.now() };
+      }
+    });
+    app.once('will-quit', () => { try { p.kill(); } catch { /* gone */ } });
+  }
+  return perf && Date.now() - perf.t < 3500 ? perf : null;
 }
 
 function temps() {
@@ -146,20 +172,21 @@ async function stats() {
   const [net, bright] = await Promise.all([network(w), brightness(w)]);
   return {
     host: os.hostname(), uptime: os.uptime(),
-    cpu: { model: (os.cpus()[0]?.model || '').replace(/\(R\)|\(TM\)|CPU|Processor/g, '').replace(/\s+/g, ' ').trim(), cores: os.cpus().length, load: cpuLoad() },
-    mem: { total: tot, used: tot - avail, compression: compression() }, gpu: gpu(), temps: temps(), battery: battery(w), disks: disks(), net, brightness: bright, platform: process.platform
+    cpu: { model: (os.cpus()[0]?.model || '').replace(/\(R\)|\(TM\)|CPU|Processor/g, '').replace(/\s+/g, ' ').trim(), cores: os.cpus().length, load: winPerf()?.cpu ?? cpuLoad() },
+    mem: { total: tot, used: winPerf()?.used ?? tot - avail, compression: compression() }, gpu: gpu(), temps: temps(), battery: battery(w), disks: disks(), net, brightness: bright, platform: process.platform
   };
 }
 
 function register() {
-  cpuLoad();
+  cpuLoad(); winPerf();
   ipcMain.handle('sys-stats', () => stats());
   // The top bar's little readout: only what is quick to read (no commands run).
   ipcMain.handle('sys-mini', () => {
     const tot = os.totalmem(); let avail = os.freemem();
     if (process.platform === 'linux') { const m = (read('/proc/meminfo') || '').match(/MemAvailable:\s+(\d+)/); if (m) avail = +m[1] * 1024; }
     const t = temps() || {}, vals = Object.values(t).filter((x) => typeof x === 'number');
-    return { cpu: cpuLoad(), used: tot - avail, total: tot, temp: vals.length ? Math.max(...vals) : null };
+    const wp = winPerf();
+    return { cpu: wp ? wp.cpu : cpuLoad(), used: wp ? wp.used : tot - avail, total: tot, temp: vals.length ? Math.max(...vals) : null };
   });
   ipcMain.handle('sys-wifi', async () => {
     if (process.platform === 'win32') {

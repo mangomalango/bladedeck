@@ -321,6 +321,24 @@ Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-16, Claude (Windows), lead: 0.2.6 Windows fixes from the owner's bug list, on bladedeck-nightly (not on master:
+  the renderer changes still need a Linux test copy).** Shared files touched: main.js (dock-open), store.js (sound),
+  renderer/app.js, renderer/index.html. Linux behaviour unchanged (every new path is win32 or `userAgent Windows`).
+  1. Controllers on Windows (Steam's desktop layout sends keys and clicks too): new renderer/padkeys.js, loaded first,
+     drops keys/clicks a controller just sent; a key that could be Steam's waits 50 ms while a pad is plugged in.
+     Xbox B (Space) no longer opens voice; no double moves. 2. Sound menu mutes Bladedeck itself (webContents
+     setAudioMuted; Chromium's sound process is replaced when quiet, so the per-process mute was lost).
+  3. Guide search keeps the box being typed in across redraws; waits 1 s. 4. Floating video stays over a game that
+  goes full screen after it (re-topmost for 15 s). 5. Hover music stays off while Bladedeck music or a panel plays.
+  6. Settings (Bluetooth) and dock apps that open small are maximized (winlist.fillNext). 7. A game closed with
+  Alt+F4: Now Playing checks its window is still listed; going back to a closed game ends the panel instead of a
+  black screen. 8. PC mode's second Console button removed. 9. "Pop-ups for XP and level-ups" switch (Settings,
+  Home; Your profile). 10. Quick start wording. 11. CPU/RAM chip: Task Manager's counters via typeperf, every 1 s.
+  Tests: check (276 channels), sweep 54 items no errors (twice), test-pool, test-replies, test-wakeword,
+  test-steamlink, test-webdl, test-bubble pass; scripted test copy: pad dedupe (held, key-first, idle, typing),
+  guide typing, XP switch, PC buttons. NOT tested: mute (test copies block sound-set), Alt+F4, pop-out over a real
+  game, Settings maximize, a real controller with Steam: the owner's eyes.
+
 - **2026-10-16, Claude (Windows), lead: RELEASED v0.2.5 as latest (owner: "release").** master = bladedeck-nightly = 7051cd2
   (version bump on 63d1247), tag v0.2.5, backup tag backup/2026-10-16-v0.2.5 (= v0.2.4), backup in
   Downloadsladedeck-backups6-10-16-v0.2.5 (bundle, config, Steam shortcuts, installer, README). Assets:

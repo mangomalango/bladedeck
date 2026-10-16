@@ -77,7 +77,7 @@ public static class BDWin {
     if (a == "min") ShowWindow(h, 6);
     else if (a == "close") PostMessage(h, 0x10, IntPtr.Zero, IntPtr.Zero);
     else {
-      if (IsIconic(h)) ShowWindow(h, 9);
+      if (a == "max") ShowWindow(h, 3); else if (IsIconic(h)) ShowWindow(h, 9);
       // Windows only lets the app with the last input take the foreground; a tap of Alt counts.
       keybd_event(0x12, 0, 0, IntPtr.Zero); keybd_event(0x12, 0, 2, IntPtr.Zero);
       BringWindowToTop(h); SetForegroundWindow(h);
@@ -198,7 +198,7 @@ async function act(id, a) {
   id = String(id);
   if (id.startsWith('w32:')) {
     const h = id.slice(4).replace(/\D/g, '');
-    let cmd = `${a === 'min' || a === 'close' ? a : 'show'}|${h}`;
+    let cmd = `${a === 'min' || a === 'close' || a === 'max' ? a : 'show'}|${h}`;
     // screen:<name> moves the window onto that screen (multi-screen puts each game on its player's).
     if (String(a).startsWith('screen:')) {
       const { screen } = require('electron'), { screenName } = require('./players');
@@ -220,4 +220,23 @@ async function act(id, a) {
 
 function stop() { clearInterval(timer); timer = 0; winDir = ''; if (proc) { try { proc.stdin.end(); proc.kill(); } catch { /* gone */ } proc = null; } }
 
-module.exports = { start, act, stop, foreground };
+/* Windows: a window Bladedeck just opened (Settings' Bluetooth page, an app from the dock) opens at
+   whatever size it last had, often its smallest, behind the full-screen menu. For a few seconds the
+   first new window (or an open one whose caption or program matches) that is small is maximized and
+   brought to the front. */
+async function fillNext(match) {
+  if (process.platform !== 'win32' || !winDir) return false;
+  const read = (out) => { try { return JSON.parse(out); } catch { return []; } };
+  const before = new Set(read(await ask('list')).map((w) => w.id));
+  const { screen } = require('electron'), d = screen.getPrimaryDisplay(), wide = d.size.width * d.scaleFactor;
+  for (let i = 0; i < 16; i++) {
+    await new Promise((r) => setTimeout(r, 500));
+    const w = read(await ask('list')).find((x) => !before.has(x.id) || (match && match.test(`${x.caption} ${x.cls}`)));
+    if (!w) continue;
+    if (w.min || (w.rect?.[2] || 0) < wide * 0.6) await act(w.id, 'max');
+    return true;
+  }
+  return false;
+}
+
+module.exports = { start, act, stop, foreground, fillNext };

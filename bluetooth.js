@@ -95,7 +95,10 @@ function register() {
   ipcMain.handle('bt-connect', guard((_e, mac, on) => (linux ? connect(mac, on !== false) : { ok: false })));
   ipcMain.handle('bt-scan', guard(() => (linux ? scan() : { ok: false })));
   ipcMain.handle('bt-pair', guard((_e, mac) => (linux ? pair(mac) : { ok: false })));
-  ipcMain.handle('bt-settings', () => { if (process.platform === 'win32') shell.openExternal('ms-settings:bluetooth'); return true; });
+  ipcMain.handle('bt-settings', () => {
+    if (process.platform === 'win32') { shell.openExternal('ms-settings:bluetooth'); require('./winlist').fillNext(/Settings.* ApplicationFrameHost$|SystemSettings/i).catch(() => {}); }
+    return true;
+  });
 }
 
 // At start: Bluetooth on, when the player asked for that (controllers then reconnect by themselves).
