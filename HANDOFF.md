@@ -12,54 +12,8 @@ starting it, and move it to the log when done. One assistant edits code at a tim
 
 Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROADMAP.md)).
 
-- **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
-  .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
-  Contract: SPEC §1 (web-dl-*, archive-*, fs-reveal, game-info), §3 downloads. Verify:
-  `npm run check`, `npm run test-copy -- --real`, then in DevTools (port 9333):
-  `WebDl.open()`, and `api.archiveRun({op:'compress', file:'<an allowed folder>', fmt:'7z'})`.
-  **Done, Windows (Claude Windows), no code change:** test copy with --real, scripted over port
-  9333. webDlFolders: dl `C:\Users\natha\Downloads`, games `...\Games\ROMs\Downloaded`, 7-Zip
-  found. Compress .7z and .zip and Extract (into "Some Game (2)", no overwrite) all ok in
-  ~\Bladedeck; a path outside (C:\Windows\win.ini) is refused. gameInfo(L4D2) returns kind,
-  story, play, multi, split. errors.log empty. Not checked: Show in Explorer (the test copy
-  blocks fs-reveal by design) and the Downloads window's look (WebDl.open() ran without error,
-  but the scripted text read the guide behind it); both need the owner's eyes.
-- **BD-002** (done) · windows · Claude (Windows) · ROM tidy and naming on Windows paths: `Watch.romTitle`
-  and `Watch.fits` with backslash paths (`C:\Games\Crackdown.1.EUR.X360-ZTM\default.xex`,
-  a `.bin` under `...\pfx\drive_c\...`). Contract: SPEC §2 (romTidy).
-  **Done, Windows (Claude Windows), no code change:** the real fits/romTitle/junk code run in node
-  on Windows paths: Crackdown.1.EUR.X360-ZTM\default.xex -> "Crackdown 1"; PS3_GAME\USRDIR\EBOOT.BIN
-  -> its folder's name; .bin under pfx\drive_c and compatdata skipped; a plain PSX .bin kept. Note
-  only: the extension regex `/\.([^./]+)$/` lets a backslash in, so an extension-less file under
-  a dotted folder gets a junk "extension" (it never matches a list, so it is harmless).
-- **BD-003** (done) · both · Gemini · Audit master `53c2aac..c05dbbc` (Nearby hint, clip scoring, game
-  info, Downloads, archive.js, test-copy mode, ROM tidy, SPEC check) with `/bladedeck-audit`.
-  **BD-003 done (Gemini): PASS.** All 261 channels match SPEC.md. ROM tidy preserves played games.
-  Linux/Windows parity intact. Fixed unhandled `null` in `renderer/extras.js` (lines 100, 127, 135)
-  when outward channels are blocked in test copies; `node scripts/sweep.js --empty` passes clean
-  (48 items, 0 page errors, 16 outward calls blocked). On branch `gemini/2026-10-14-audit-bd003`.
-- **BD-008** (done: 1 ms status, router id, rules in ~1 s, Help draws) · windows · Claude (Windows) · Settings, Network & sharing on Windows: the network
-  name and category (your Ethernet is Public), the firewall rules listed, home marking. Do not press
-  "Match the firewall" yourself; the owner does (UAC). Also ❓ Help, F1, the Quick start.
 - **BD-009** · windows · owner · Run scripts/windows/firewall-private.ps1 -HomePrivate (as admin) if
   you want Private-only; or press "Match the firewall to my choice" in Settings, Network & sharing.
-- **BD-005** (done) · windows · Claude (Windows) · Bring the newest Linux build to Windows: merge master,
-  `npm run check`, `npm run sweep` (a test copy walks every System item, blade, game, Settings tab
-  and PC window and prints errors). Fix Windows-only breakage behind win32; report the sweep's output.
-- **BD-006** (done) · windows · Claude (Windows) · ROM sync on Windows: `require('./romsync').plan()` lists
-  the drives from PowerShell (C:\ as home, other fixed and USB drives), `pick()` honours the
-  keep-free rule. Windows Firewall must let TCP 47628 in (Private only; ask the owner before any
-  rule change). Contract: SPEC §3 ROM sync.
-  **BD-005 and BD-006 done, Windows, no code change:** master 067c791 merged; check and spec OK
-  (257 channels); `npm run sweep` opened 48 System items, blades, games, Settings and PC windows
-  with no errors (16 outward calls blocked). romsync.plan() lists C:\ (home, 16.7 GB free, spare 0)
-  and D:..I:\ (D: and E: are 64 MB drives, spare 0); pick(list, 1 GB) and pick(list, 300 GB) choose
-  G:\ (most spare), and pick(list, 10 TB) gives null. pick() creates "<drive>\Bladedeck ROMs" when
-  it tests a drive (writable()). Firewall: no rule changed by an assistant. The owner runs
-  scripts/windows/firewall-private.ps1 (admin): it backs up, then makes the Bladedeck, dist and dev
-  Electron rules Private-only. NOTE: this PC's Ethernet is NetworkCategory **Public** (only
-  Tailscale is Private), so Private-only rules would cut Nearby/ROM sync at home unless the owner
-  also passes -HomePrivate. TCP 47628 is covered by the existing all-ports rules.
 - **BD-007** · both · owner + both Claudes · A real ROM sync Linux <-> Windows once both firewalls
   allow it: pair from ROM sync (System, Games and library), Sync now, the games join the library.
 - **BD-004** · both · owner + Claude (Linux) · Nearby both ways once the Linux firewall line is run:
@@ -67,249 +21,17 @@ Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROA
 
 - **BD-019** · both · Claude (Linux) lead · Review Claude (Windows)'s fix for 88b1b22 on windows-fixes before
   it reaches master (see the Log entry "Shared games pool"). Run `npm run test-pool` and `npm run check`.
-- **BD-020** (done: PASS, merged by lead) · both · Gemini · Overnight audit of the Shared games pool and storage map (fsaccess.js, storage.js,
-  renderer/transfer.js, renderer/storagemap.js): try to make the page share or unlock anything outside
-  Bladedeck/Shared games without the desktop confirmation. Add each attack you try to scripts/pooltest.js.
-  Findings in NIGHTLY-REVIEW-gemini.md; fixes only on gemini/<date>-bd020. Read only otherwise; no pushes.
-- **BD-021** (done: PASS) · both · Gemini · Review BD-014 (wide, smooth clips) on windows-fixes: renderer/play.js Showcase
-  (online clip as the full-screen backdrop when a game has no media; the new layer waits for "playing"
-  before cross-fading, 3 s fallback; old videos unloaded) and renderer/atmos.js (no poster preview while
-  body.sc-video). Look for: a stale clip winning a race when moving fast between games, videos left
-  decoding, Linux behaviour changes. In your own worktree; findings in NIGHTLY-REVIEW-gemini.md.
-- **BD-022** (done: PASS, pad skip merged) · both · Gemini · Review the Warp launch animation (renderer/warp.js, the Warp block at the end of
-  renderer/style.css, the stretch/pop sounds in renderer/sound.js, launch() and syncAway() in renderer/app.js):
-  never delays or blocks a launch, a failed launch ends it (Warp.skip), any key or click cuts it short, body is
-  always restored (no menu left scaled or hidden), prefers-reduced-motion and the Animations switch turn it off,
-  and Linux (KWin focus) still returns cleanly. In your own worktree; findings in NIGHTLY-REVIEW-gemini.md.
-- **BD-023** (done, see Log) · windows · Claude (Windows) · Gemini's BD-010 findings 3-7: winlist/winpad
-  helpers restart after dying; winlist name cache cleared each list (pid reuse); no lingering console window for
-  Steam-launched games with their own environment (hidden wscript runner; Mesa/DXVK shader env not set on Windows);
-  "one core" on Windows (processor affinity); procs.steamInstallDirs cached. Audit: Gemini (BD-024).
-- **BD-024** (done: PASS, Gemini, gemini/2026-10-15-bd024 daa0c96; details in NIGHTLY-REVIEW-gemini.md §4) · windows · Gemini · Audit BD-023 on windows-fixes.
-  ```
-  [TASK]     BD-024 · BD-023's five fixes do what BD-010 asked, and nothing else changed
-  [TARGET]   windows (main.js and steamlink.js are shared: Linux must behave exactly as before)
-  [OWNER]    Gemini
-  [CONTRACT] none (no channel or library key changed; npm run spec: 267 channels OK)
-  [INPUT]    winlist.js (names.Clear in List; ask() restarts startWin at most every 10 s; stop() ends it),
-             winpad.js (restart after exit, 2 s doubling to 60 s; stop() cancels), procs.js (steamInstallDirs
-             cached 30 s; oneCoreWin sets ProcessorAffinity = 1 after 1.5 s), main.js (oneCoreWin after spawn on
-             win32; SHADER_ENV not set on win32), steamlink.js (Windows games with their own environment: a .vbs
-             run by wscript //B instead of a .cmd; the old .cmd is removed)
-  [DO]       /bladedeck-review on those hunks. Look for: a restart loop when PowerShell cannot start at all, a
-             known=null reset firing false "opened" events, a .vbs quoting hole (quotes, %, & in paths or values),
-             Steam tracking the game through wscript (does the session end when the game closes?), any Linux change
-  [RULES]    TEAM.md: your own worktree and gemini/<date>-bd024 branch; read only on windows-fixes; no pushes to
-             others' branches; test copies only
-  [REPLY]    "BD-024 audit: PASS" or "DRIFT (<what>)" here in HANDOFF.md, details in NIGHTLY-REVIEW-gemini.md
-  ```
 ### For Gemini (in Antigravity)
-- **BD-043** (done: PASS, Gemini, NIGHTLY-REVIEW §13) · both · Gemini · Release-candidate audit for 0.2.5: everything since v0.2.4.
-  **BD-043 audit: PASS.** All 15 commits (31 files, 433 insertions, 75 deletions) audited. All 129 files pass `npm run check`, 276 channels verified. Test suites pass (`npm run test-replies` 21/21, `npm run test-pool` 20/20, `node scripts/sweep.js` 54 items 0 errors). Voice wake listeners cleanly terminate tracks/contexts on blur/away without leaks. `extractWhenDone` handles double clicks, mid-way cancellation, and game downloads cleanly. 4:3 responsive poster aspect ratio adapts properly under narrow windows/panels. Android `NotifyService.java` imports, lambda variables, and exception handling are verified clean.
-  ```
-  [TASK]     BD-043 · `git diff v0.2.4 origin/bladedeck-nightly` (code only) is safe to ship as 0.2.5
-  [INPUT]    15 commits: windowsHide on shared execFile helpers (4a54e25); menu A/B/X/Y no longer blocked by replies
-             (c6e5bea); bubble window gets no controller in test copies (f5a303a); bubble countdown bar (3c99d6f); phone
-             polls only when kept, semantic Reply, loop fixes (ecd8a23, Java, never compiled); constant-time pairing key
-             (fe34fa4); Linux Steam overlay fix + sync follow-up (6345e6f, 034ef38); test copies download to scratch
-             (48102c2); "Hey Blade" starts at launch and after games, mishearings, mic-blocked toast, AudioContext resume
-             (15f8bd5, 5ccebd9, 7e242dd, e823bb7); extract while downloading (b135719); hover video 4:3 (ccc31e3)
-  [DO]       /bladedeck-audit. Look hardest at: the wake listener's new focus/blur/deck-away calls (a mic left open while a
-             game runs? a stream started twice?); extractWhenDone (two Extract presses, cancel mid-way, a game download);
-             the 4:3 poster in a narrow window and with the Now Playing / Running panels out; the Java (read it as a
-             compiler would: imports, lambdas, effectively-final, checked exceptions)
-  [REPLY]    "BD-043 audit: PASS" or "DRIFT (<what>)"; fixes NOT allowed (list them for the lead)
-  ```
-- **BD-044** (done: 4 problems found and fixed, Gemini, NIGHTLY-REVIEW §14) · windows · Gemini · Windows bug hunt, whole app, in a test copy (`npm run test-copy -- --real` and without --real).
-  **BD-044 done: 4 problems (all 4 fixed on gemini/2026-10-16-bd044, check clean).**
-  1. `renderer/pad.js:123`, `127`: OSK close race condition (`target = null` before CSS fade finishes) threw `Cannot read properties of null (reading 'value')`. Fixed with `isOpen = () => !el.hidden && target != null` and null guards in `draw()`, `put()`, `del()`.
-  2. `renderer/app.js:441`: `launch()` unhandled rejection on null launch return. Fixed with optional chaining `r?.ok` and `r?.error`.
-  3. `renderer/hovermusic.js:54`: `ReferenceError: S is not defined` during script load race (`hovermusic.js` loaded before `app.js`). Fixed with `if (typeof S === 'undefined') return;`.
-  4. `webdl.js:129`: `web-dl-start` destructuring crash on null argument. Fixed with `opts || {}`.
-  ```
-  [TASK]     BD-044 · find what breaks when a person actually uses Bladedeck on Windows
-  [DO]       go through every System item, every Settings tab, PC mode, Files (open, Y menu), Downloads (with a file served
-             from 127.0.0.1 only), Updates (it only asks GitHub; never press Install), Feedback (write one in the test copy),
-             Help, the Guide, the storage map, the phone bubble test (Settings, Phone app, Show a test message), multi-player
-             menu, themes. Watch the DevTools console and the main process log for errors and warnings. For each problem:
-             steps, what you expected, what happened, file:line if you can find it
-  [REPLY]    "BD-044 done: N problems" with the list (worst first); fixes allowed on your branch for clear, small ones
-  ```
-- **BD-045** (done: 12 missing, all remediated, Gemini, NIGHTLY-REVIEW §15) · both · Gemini · Every child process: hidden, handled, and gone when Bladedeck goes.
-  **BD-045 done: 12 missing (all remediated)**:
-  Audited 81 child process calls across repo. 12 missing properties identified and remediated in 6 commits:
-  - Missing timeout on steam/process checks: `steaminput.js:97-98` (`5000ms`), `steamlink.js:85-86` (`5000ms`), `main.js:339, 347` (`5000ms`), `peek.js:238` (`4000ms`), `scripts/buildinfo.js:9` (`5000ms`).
-  - Missing `windowsHide: true` on detached/app spawns on Windows: `steamlink.js:229, 235`, `main.js:350`, `minecraft.js:145, 158, 159`, `moonlight.js:137`, `scripts/buildinfo.js:9`.
-  Full audit table in NIGHTLY-REVIEW §15.
-  ```
-  [TASK]     BD-045 · a table of every spawn/execFile/exec in the repo (file:line, what it runs, which OS)
-  [DO]       for each: windowsHide on Windows, an 'error' handler (or a callback that handles err), a timeout where it can
-             hang, and whether it can outlive Bladedeck (quit, crash). Mark each OK / MISSING. 4a54e25 covered the shared
-             execFile helpers; check what is left (spawn with stdio, detached ones, Linux-only ones are fine to mark N/A
-             on Windows)
-  [REPLY]    "BD-045 done" with the count of MISSING; fixes allowed on your branch (one commit per file)
-  ```
 - **BD-046** · both · Gemini · BD-016 from ROADMAP.md: text and Settings polish pass, as a proposal.
   ```
   [TASK]     BD-046 · one voice everywhere: short, plain, friendly, sentence case, no jargon
   [DO]       list every toast, label and Settings line that breaks the rule (file:line, now, suggested). Settings: one help
              line per switch where missing, defaults marked. Do not change behaviour, ids, setting names or channel names
   [REPLY]    "BD-046 done: N lines"; the text changes are allowed on your branch as ONE commit the owner can look at
-- **BD-047** (done: 0 problems, Gemini, gemini/2026-10-16-bd047, NIGHTLY-REVIEW §17) · both · Gemini · Controller-only check: every screen works without a mouse or keyboard.
-  **BD-047 done: 0 problems.** All 29 dialogs, panels, and flaps tested via CDP WebSocket controller injection: all 9 Settings tabs (LB/RB, B closes), 20 modals, 2 floating panels, and 4 custom flap/card overlays. Found and fixed highlight loss when container re-renders (in `PadNav.input`/`press` and `Updates.draw`). Zero focus traps, zero unreachable buttons, all close cleanly on B.
-  ```
-  [TASK]     BD-047 · nothing traps the controller, nothing needs a mouse
-  [DO]       in a test copy, drive every dialog, panel and Settings tab with the pad actions only (handleInput('up'|'down'|
-             'left'|'right'|'a'|'b'|'x'|'y'|'lb'|'rb'|'start'|'back') over DevTools): can you reach every button, close
-             every dialog with B, and is the highlight always visible? List traps and unreachable controls
-  [REPLY]    "BD-047 done: N problems"; small fixes allowed on your branch
-  ```
-- **BD-048** (done: 4 suites passing, Gemini, gemini/2026-10-16-bd048, NIGHTLY-REVIEW §18) · both · Gemini · More automatic checks, so these bugs stay fixed.
-  **BD-048 done:** Added 4 regression suites wired into `package.json`:
-  - `npm run test-wakeword` (`scripts/test-wakeword.js`): 57 assertions testing wake word variants, rest extraction, and non-wake rejections.
-  - `npm run test-steamlink` (`scripts/test-steamlink.js`): 15 assertions testing `plan()` self entry updating (`changed = 1` -> `changed = 0`), owner shortcut preservation, and add/remove diffing.
-  - `npm run test-webdl` (`scripts/test-webdl.js`): 18 assertions testing `extractWhenDone()` arming, idempotence, file type filtering, cancellation cleanup, and completion triggers.
-  - `npm run test-bubble` (`scripts/test-bubble.js`): 15 assertions testing combo fill/pop, stick centering requirement, View disarming, diagonal rejection, lag frame clamping, and hold-to-send threshold.
-  ```
-  [TASK]     BD-048 · turn today's fixes and your findings into scripted checks
-  [DO]       add to scripts/ (new files are fine; wire them into package.json as npm run test-<name>): the wake-word matcher
-             (renderer/voice.js regex: what wakes, what does not), steamlink.plan() (old self entry = 1 change, fixed = 0,
-             owner's shortcuts kept), webdl.extractWhenDone (a fake rec list), the bubble reply gesture (bubble.js logic
-             with forced pad states). Each script prints ok/FAIL lines and exits 1 on a failure, like scripts/replytest.js
-  [REPLY]    "BD-048 done" with the new commands; all on your branch
-  ```
-- **BD-034** (done: reproduced, Gemini, NIGHTLY-REVIEW §11) · windows · Gemini · Reproduce the owner's Linux feedback on Windows (after BD-033).
-  **BD-034 done:**
-  (1) Extract while downloading: In Downloads (`web-dl-act` 'extract'), clicking Extract returns `{ res: true }` but does nothing because `webdl.js:129` checks `rec.state === 'completed'`; however `renderer/finder.js:39` displays the button prematurely on active downloads. In Files (`archive-run` 'extract'), 7z.exe runs against the file being written by Chromium and fails with exit code 2: `It did not finish. The original is untouched.`. The incoming Linux patch refusing active webdl downloads in `archive-run` will resolve this cleanly.
-  (2) Voice wake ("Hey Blade"): Model is missing on fresh install until downloaded in Voice settings; `voice.js:110` silently catches and swallows OS microphone permission denials (`NotAllowedError`); `AudioContext` at 16 kHz can initialize in `'suspended'` state without an explicit `.resume()`; padMic regex on Windows can pick up virtual DualSense endpoints that stream no audio.
-  ```
-  [TASK]     BD-034 · do the owner's two Linux problems happen on Windows too?
-  [TARGET]   windows (test copies only; downloads into a scratch folder, never the owner's Downloads)
-  [OWNER]    Gemini
-  [CONTRACT] none
-  [DO]       (1) Extract while still downloading: in a test copy set settings.dlDir to a scratch folder FIRST, serve a
-             big file from 127.0.0.1 (no internet), start it with api.webDlStart, and press Extract in Files
-             (archive-run) and in Downloads before it finishes; report what each says. The Lead found Extract right
-             AFTER a download works on Windows (a small zip, 2026-10-15). Linux's fix (archive-run refuses a file
-             still downloading) is coming as a patch from Claude (Linux): check it on Windows when it lands.
-             (2) "Hey Blade": read renderer/voice.js after 15f8bd5 (it now listens from the start and after a game;
-             mishearings count) and say whether anything else would stop it on Windows (microphone permission, the
-             16 kHz AudioContext, the voice model not set up). No real microphone needed.
-  [RULES]    TEAM.md: your own worktree and gemini/<date>-bd034 branch; read only; test copies only; never write in
-             the owner's folders; never run or kill the installed Bladedeck
-  [REPLY]    "BD-034 done" here with what you found; details in NIGHTLY-REVIEW-gemini.md
-  ```
-- **BD-033** (done: PASS, Gemini, NIGHTLY-REVIEW §10) · both · Gemini · Whole-release audit of v0.2.4 (published 2026-10-15), after the fact.
-  **BD-033 audit: PASS.** All 129 files pass `npm run check`, 276 channels match SPEC.md, `npm run test-replies` (21/21) and `npm run test-pool` (20/20) pass. `npm run sweep` cleanly traversed 54 items with 0 page errors. Notes match codebase. Open findings #2, #7-#9 remain benign notes.
-  ```
-  [TASK]     BD-033 · v0.2.3..v0.2.4 as one piece: nothing broken between the parts, Linux unchanged, notes true
-  [TARGET]   both
-  [OWNER]    Gemini
-  [CONTRACT] SPEC.md (276 channels; npm run spec)
-  [INPUT]    git diff v0.2.3 v0.2.4: winpad.js + wincapture.js (helpers stop), renderer/app.js (blades checklist,
-             console sort, right stick click/hold, bubble guards), renderer/bubble.js + bubble.html + phonemsg.js +
-             companion.js (quick replies on LB + right stick), android/ (not compiled), CLAUDE.md, .claude/settings.json;
-             the release notes: gh release view v0.2.4
-  [DO]       look for: parts that each passed but clash together (bubble guards vs right-stick sort vs LB in the menu;
-             the Settings blades checklist vs Home/recent ordering with a sort on); any Linux path that changed
-             without a reason (Linux leads); a release note that says something the code does not do, or misses
-             something it does; the phone polling finding (BD-031 #2) and #7-#9 still open: say if any is worse
-             than "note"
-  [RULES]    TEAM.md: your own worktree and gemini/<date>-bd033 branch; read only; no pushes to others' branches;
-             test copies only; never run or kill the installed Bladedeck; never edit the release
-  [REPLY]    "BD-033 audit: PASS" or "DRIFT (<what>)" here, details in NIGHTLY-REVIEW-gemini.md
-  ```
-- **BD-032** (done: PASS, Gemini, gemini/2026-10-15-bd032, NIGHTLY-REVIEW §9) · both · Gemini · Peer review of quick replies as they are now on bladedeck-nightly, plus the right-stick change.
-  ```
-  [TASK]     BD-032 · the reply gesture and layout do what the owner chose, and nothing sends by accident
-  [TARGET]   both (renderer/bubble.js is shared; Linux behaviour must match)
-  [OWNER]    Gemini
-  [CONTRACT] none (no channel added: still 276; bubble-reply unchanged {id, pick 0-3})
-  [INPUT]    renderer/bubble.js + bubble.html: replies are LB held + the RIGHT STICK pushed one way for 0.55 s
-             (up 0 Sounds good, down 1 Busy, right 2 5 mins, left 3 In a match); the stick must come back to the
-             middle first (stickArmed); View held disarms; each frame adds at most 100 ms; with replies on offer LB
-             pauses on LET-GO only if no direction went with it (lbWas/lbUsed); the replies are a cross in the middle
-             of the screen, the Keep playing / LB / RB bar alone at the top. phonemsg.js: the menu gets its buttons
-             back if the overlay closes or crashes. android: the thumbs-up as \uD83D\uDC4D, javac -encoding UTF-8.
-             renderer/app.js f336cf7: right stick click sorts in console mode, held 0.55 s plays/pauses music; M is music.
-  [DO]       look for: a reply sent with no LB, by camera movement, by a second controller or a drifting stick, or
-             while View is held; LB + stick then LB let go also pausing; a diagonal picking the wrong reply; the
-             choice closing mid-hold; #rp left on screen after the choice ends; the R3 hold/tap mix-up (a hold
-             also sorting, a tap also toggling music); anything that changes Linux or messages without replies
-  [RULES]    TEAM.md: your own worktree and gemini/<date>-bd032 branch; read only on bladedeck-nightly; no pushes
-             to others' branches; test copies only; never run or kill the installed Bladedeck
-  [REPLY]    "BD-032 audit: PASS" here, details in NIGHTLY-REVIEW-gemini.md §9
-  ```
-- **BD-031** (done: PASS by a second Claude in place of Gemini, the owner's call; BD-030 merged, see Log) · both · Gemini · Audit BD-030 (quick replies) on branch claude/bd030-quick-replies (11aee87) BEFORE it is
-  merged: phonemsg.js (REPLIES, replyable, outbox, bubble-reply, takeReplies), companion.js GET /api/replies,
-  renderer/bubble.js (hold-to-send, faceArmed), android NotifyService.java (replyAction, poll, answer). Try to
-  make a reply go out that the owner did not hold, to the wrong phone, with words of the PC's choosing, or after
-  it should be gone; add any attack you try to scripts/replytest.js. Read only otherwise; findings in
-  NIGHTLY-REVIEW-gemini.md. The Android code has NOT been compiled (no SDK on Windows): check it by reading.
-  Reply "BD-031 audit: PASS" or "DRIFT (<what>)" here.
-- **BD-029** (done: PASS, Gemini, gemini/2026-10-15-bd029 17e7741, NIGHTLY-REVIEW §5; merged by the lead after a Windows hard-kill test, see Log) · windows · Gemini · Review only: Windows helpers stop when Bladedeck quits or crashes.
-  ```
-  [TASK]     BD-029 · review the helper-termination change (winpad.js, wincapture.js)
-  [TARGET]   windows (written on Linux, not run on Windows)
-  [OWNER]    Gemini
-  [CONTRACT] none
-  [DO]       read the commit on claude/bladedeck-helpers-termination-pwivp1 and the Log entry "Windows helpers now
-             stop when Bladedeck quits or crashes". winpad.js: the PowerShell takes the Bladedeck pid, holds a
-             Process handle and breaks its loop on HasExited; check the script is valid and the restart logic still
-             works. wincapture.js: watchdog(pid) starts a PowerShell that kills ffmpeg once Bladedeck is gone and
-             ends when ffmpeg does; look for pid reuse, the watcher outliving ffmpeg, -Command quoting, a recording
-             that stops normally, and the ring and Record running together. Run `npm run check`.
-  [RULES]    TEAM.md: read only, your own worktree and gemini/<date>-bd029 branch; no pushes to others' branches;
-             test copies only; never run or kill the installed Bladedeck
-  [REPLY]    "BD-029 audit: PASS" or "DRIFT (<what>)" here, details in NIGHTLY-REVIEW-gemini.md
-  ```
 - **From the owner (2026-10-15): Claude (Windows) is in charge; you take only the small cards written for you here,
   in your own worktree. You work on the program only: never on the computer (drivers, devices, services, firewall,
   registry, power, scheduled tasks, installs), never the installed Bladedeck. See TEAM.md, "Owner's rule".**
   Your next cards, in order: BD-024 (audit BD-023), BD-025 (remote access), BD-027 (phone notifications research). Nothing else until Claude (Windows) writes the next one.
-- **BD-025** (done, Gemini, NIGHTLY-REVIEW §6: Moonlight to Sunshine over Tailscale, plus Tailscale SSH; not yet reviewed by the lead, the owner acts on nothing yet) · both · Gemini · Research only, no changes to any computer.
-  ```
-  [TASK]     BD-025 · the owner, away from home, can reach both PCs: see and use the desktop, play, and start
-             Bladedeck updates
-  [TARGET]   both (Windows 11 Home PC "micromango": Tailscale up at 100.64.194.64, Sunshine running; CachyOS
-             laptop "mangos": Tailscale at 100.114.178.97; phone: Pixel on the same tailnet)
-  [OWNER]    Gemini
-  [CONTRACT] none
-  [DO]       compare the ways that fit what is already installed: Moonlight to Sunshine over Tailscale (games and
-             desktop), Tailscale SSH (Linux), RustDesk / Chrome Remote Desktop (Windows 11 Home has no RDP host),
-             waking a sleeping PC from afar (Wake-on-LAN through a tailnet device), and what Bladedeck's own phone
-             app already does over Tailscale (companion.js). For each: what the owner taps, what is safe, what it
-             costs. Pick one setup to recommend and write the owner's steps in plain words.
-  [RULES]    research and writing only: install nothing, change no settings, open no ports, on any PC
-  [REPLY]    "BD-025 done" here with the recommendation; the full comparison in NIGHTLY-REVIEW-gemini.md on
-             gemini/<date>-bd025. Claude (Windows) reviews it before the owner acts on it.
-  ```
-- BD-003 complete, reviewed and merged by the lead (557049f). Next audit: what lands on master after it (`/bladedeck-audit`).
-- **BD-010** (done) · windows · Gemini · `/bladedeck-review` of the Windows-only code.
-  Review complete, documented in `NIGHTLY-REVIEW-gemini.md`. Fixed `tasklist` windowsHide in `prewarmSteam` (`main.js:347`) and FFmpeg concat backslash normalization (`wincapture.js:180`). Documented helper process restart, process name caching, and non-Steam game console window findings. Branch: `gemini/2026-10-14-bd010`. Claude (Windows) verifies findings.
-
-- **BD-027** (dropped: the owner gave the design directly, see BD-028; Gemini wrote it anyway, NIGHTLY-REVIEW §7, plus a ranked ideas list §8) · both · Gemini · Research only, no changes to any computer. Phone notifications in Bladedeck (owner's
-  idea; full brief in the owner's words: bubbles at the screen edge that stay small and fade, held LB + RB + a trigger
-  opens one to read, letting go drops it into the notification bar).
-  ```
-  [TASK]     BD-027 · a short ranked list the lead can build from
-  [TARGET]   both
-  [OWNER]    Gemini
-  [CONTRACT] none (research)
-  [DO]       compare how console and streaming UIs show in-game notifications and why people turn them off;
-             propose 3 bubble designs (look, motion, timing) that fit the blades look; rank the ideas: pop into the
-             bar, a ring that fills while held, a colour and chime per sender, do-not-disturb per game,
-             wait-for-pause, a glance strip, quick replies; name the risks (accidental opens, messages in screen
-             recordings and clips, a phone flooding the PC)
-  [RULES]    balance first: nothing takes over a game's screen (a quiet dot unless the owner allows a sender),
-             do-not-disturb levels (off, friends, alarms only, all off), opt-in per phone app, local network only,
-             kept for the session only; research and writing only
-  [REPLY]    "BD-027 done" here with the ranked list (one screen, no essay); details in NIGHTLY-REVIEW-gemini.md
-  ```
-- **BD-028** (built, see Log; review: a second Claude in place of Gemini, owner's call) · both · Claude (Windows) · Build phone notifications. Phone side: forward an
-  opt-in set of notifications over the existing companion channel (sender and text capped). PC side: the bubble,
-  the hold-to-read gesture, the bar, do-not-disturb levels. Test copy with fake messages; nothing opens while a game
-  has the screen. Network-facing, so Gemini audits it before merge.
 ### For Claude
 - Things that need the owner's hardware: multi-screen on two screens, the DualSense speaker,
   the live view's remembered windows, Real-Debrid's file server with a real login, the
@@ -320,6 +42,17 @@ Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROA
 - Discord Rich Presence needs his own Application ID (Suggested extras, Discord).
 
 ## Log
+
+- **2026-10-16, Claude (Windows), lead: RELEASED v0.2.6 for Windows as latest (owner: "release this to main").** master =
+  bladedeck-nightly = 140d7a4, tag v0.2.6, one asset: Bladedeck.Setup.0.2.6.exe (built here; packaged smoke test as a test
+  copy: PadKeys loaded, 7 blades, CPU/RAM chip, no errors.log). Backup first: Downloads\bladedeck-backups\2026-10-16-v0.2.6
+  (bundle, config, 3 Steam shortcuts.vdf, the installed app, README). No AppImage: Linux's Update button says this release
+  has no download for it. Linux lead: run a test copy of 140d7a4 (padkeys.js does nothing on Linux; check the guide
+  typing, hover music and XP switch), then build 0.2.6's AppImage and attach it to v0.2.6.
+  Tidy (owner: "neat, don't destroy"): finished cards moved word for word from Open tasks to "Done tasks" at the end of
+  this file (no line lost); README gains Download and "What's where". No branch deleted, no file moved; docs/screenshots
+  (the owner's own screens, untracked) left alone, out of the public repo.
+  NOTE: the entry below says "not on master": it is on master now, with the owner's go-ahead.
 
 - **2026-10-16, Claude (Windows), lead: 0.2.6 Windows fixes from the owner's bug list, on bladedeck-nightly (not on master:
   the renderer changes still need a Linux test copy).** Shared files touched: main.js (dock-open), store.js (sound),
@@ -1093,3 +826,285 @@ Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROA
   then sound packs (Aero chimes, Blades, Dash, or a folder of your own; Kenney's public-domain
   packs suggested) and icon packs (Line icons, Aero orbs: Bladedeck's own SVGs in `renderer/icons.js`)
   in Look and sound / Look and menus. Installed; backup refreshed.
+
+## Done tasks
+
+Finished cards, moved here from Open tasks as they were (newest first in each group).
+
+- **BD-001** (done) · windows · Claude (Windows) · The Downloads window, Files' Y menu (Extract, Compress
+  .zip/.7z, Show in Explorer) and game info work in a Windows test copy.
+  Contract: SPEC §1 (web-dl-*, archive-*, fs-reveal, game-info), §3 downloads. Verify:
+  `npm run check`, `npm run test-copy -- --real`, then in DevTools (port 9333):
+  `WebDl.open()`, and `api.archiveRun({op:'compress', file:'<an allowed folder>', fmt:'7z'})`.
+  **Done, Windows (Claude Windows), no code change:** test copy with --real, scripted over port
+  9333. webDlFolders: dl `C:\Users\natha\Downloads`, games `...\Games\ROMs\Downloaded`, 7-Zip
+  found. Compress .7z and .zip and Extract (into "Some Game (2)", no overwrite) all ok in
+  ~\Bladedeck; a path outside (C:\Windows\win.ini) is refused. gameInfo(L4D2) returns kind,
+  story, play, multi, split. errors.log empty. Not checked: Show in Explorer (the test copy
+  blocks fs-reveal by design) and the Downloads window's look (WebDl.open() ran without error,
+  but the scripted text read the guide behind it); both need the owner's eyes.
+- **BD-002** (done) · windows · Claude (Windows) · ROM tidy and naming on Windows paths: `Watch.romTitle`
+  and `Watch.fits` with backslash paths (`C:\Games\Crackdown.1.EUR.X360-ZTM\default.xex`,
+  a `.bin` under `...\pfx\drive_c\...`). Contract: SPEC §2 (romTidy).
+  **Done, Windows (Claude Windows), no code change:** the real fits/romTitle/junk code run in node
+  on Windows paths: Crackdown.1.EUR.X360-ZTM\default.xex -> "Crackdown 1"; PS3_GAME\USRDIR\EBOOT.BIN
+  -> its folder's name; .bin under pfx\drive_c and compatdata skipped; a plain PSX .bin kept. Note
+  only: the extension regex `/\.([^./]+)$/` lets a backslash in, so an extension-less file under
+  a dotted folder gets a junk "extension" (it never matches a list, so it is harmless).
+- **BD-003** (done) · both · Gemini · Audit master `53c2aac..c05dbbc` (Nearby hint, clip scoring, game
+  info, Downloads, archive.js, test-copy mode, ROM tidy, SPEC check) with `/bladedeck-audit`.
+  **BD-003 done (Gemini): PASS.** All 261 channels match SPEC.md. ROM tidy preserves played games.
+  Linux/Windows parity intact. Fixed unhandled `null` in `renderer/extras.js` (lines 100, 127, 135)
+  when outward channels are blocked in test copies; `node scripts/sweep.js --empty` passes clean
+  (48 items, 0 page errors, 16 outward calls blocked). On branch `gemini/2026-10-14-audit-bd003`.
+- **BD-008** (done: 1 ms status, router id, rules in ~1 s, Help draws) · windows · Claude (Windows) · Settings, Network & sharing on Windows: the network
+  name and category (your Ethernet is Public), the firewall rules listed, home marking. Do not press
+  "Match the firewall" yourself; the owner does (UAC). Also ❓ Help, F1, the Quick start.
+- **BD-005** (done) · windows · Claude (Windows) · Bring the newest Linux build to Windows: merge master,
+  `npm run check`, `npm run sweep` (a test copy walks every System item, blade, game, Settings tab
+  and PC window and prints errors). Fix Windows-only breakage behind win32; report the sweep's output.
+- **BD-006** (done) · windows · Claude (Windows) · ROM sync on Windows: `require('./romsync').plan()` lists
+  the drives from PowerShell (C:\ as home, other fixed and USB drives), `pick()` honours the
+  keep-free rule. Windows Firewall must let TCP 47628 in (Private only; ask the owner before any
+  rule change). Contract: SPEC §3 ROM sync.
+  **BD-005 and BD-006 done, Windows, no code change:** master 067c791 merged; check and spec OK
+  (257 channels); `npm run sweep` opened 48 System items, blades, games, Settings and PC windows
+  with no errors (16 outward calls blocked). romsync.plan() lists C:\ (home, 16.7 GB free, spare 0)
+  and D:..I:\ (D: and E: are 64 MB drives, spare 0); pick(list, 1 GB) and pick(list, 300 GB) choose
+  G:\ (most spare), and pick(list, 10 TB) gives null. pick() creates "<drive>\Bladedeck ROMs" when
+  it tests a drive (writable()). Firewall: no rule changed by an assistant. The owner runs
+  scripts/windows/firewall-private.ps1 (admin): it backs up, then makes the Bladedeck, dist and dev
+  Electron rules Private-only. NOTE: this PC's Ethernet is NetworkCategory **Public** (only
+  Tailscale is Private), so Private-only rules would cut Nearby/ROM sync at home unless the owner
+  also passes -HomePrivate. TCP 47628 is covered by the existing all-ports rules.
+- **BD-020** (done: PASS, merged by lead) · both · Gemini · Overnight audit of the Shared games pool and storage map (fsaccess.js, storage.js,
+  renderer/transfer.js, renderer/storagemap.js): try to make the page share or unlock anything outside
+  Bladedeck/Shared games without the desktop confirmation. Add each attack you try to scripts/pooltest.js.
+  Findings in NIGHTLY-REVIEW-gemini.md; fixes only on gemini/<date>-bd020. Read only otherwise; no pushes.
+- **BD-021** (done: PASS) · both · Gemini · Review BD-014 (wide, smooth clips) on windows-fixes: renderer/play.js Showcase
+  (online clip as the full-screen backdrop when a game has no media; the new layer waits for "playing"
+  before cross-fading, 3 s fallback; old videos unloaded) and renderer/atmos.js (no poster preview while
+  body.sc-video). Look for: a stale clip winning a race when moving fast between games, videos left
+  decoding, Linux behaviour changes. In your own worktree; findings in NIGHTLY-REVIEW-gemini.md.
+- **BD-022** (done: PASS, pad skip merged) · both · Gemini · Review the Warp launch animation (renderer/warp.js, the Warp block at the end of
+  renderer/style.css, the stretch/pop sounds in renderer/sound.js, launch() and syncAway() in renderer/app.js):
+  never delays or blocks a launch, a failed launch ends it (Warp.skip), any key or click cuts it short, body is
+  always restored (no menu left scaled or hidden), prefers-reduced-motion and the Animations switch turn it off,
+  and Linux (KWin focus) still returns cleanly. In your own worktree; findings in NIGHTLY-REVIEW-gemini.md.
+- **BD-023** (done, see Log) · windows · Claude (Windows) · Gemini's BD-010 findings 3-7: winlist/winpad
+  helpers restart after dying; winlist name cache cleared each list (pid reuse); no lingering console window for
+  Steam-launched games with their own environment (hidden wscript runner; Mesa/DXVK shader env not set on Windows);
+  "one core" on Windows (processor affinity); procs.steamInstallDirs cached. Audit: Gemini (BD-024).
+- **BD-024** (done: PASS, Gemini, gemini/2026-10-15-bd024 daa0c96; details in NIGHTLY-REVIEW-gemini.md §4) · windows · Gemini · Audit BD-023 on windows-fixes.
+  ```
+  [TASK]     BD-024 · BD-023's five fixes do what BD-010 asked, and nothing else changed
+  [TARGET]   windows (main.js and steamlink.js are shared: Linux must behave exactly as before)
+  [OWNER]    Gemini
+  [CONTRACT] none (no channel or library key changed; npm run spec: 267 channels OK)
+  [INPUT]    winlist.js (names.Clear in List; ask() restarts startWin at most every 10 s; stop() ends it),
+             winpad.js (restart after exit, 2 s doubling to 60 s; stop() cancels), procs.js (steamInstallDirs
+             cached 30 s; oneCoreWin sets ProcessorAffinity = 1 after 1.5 s), main.js (oneCoreWin after spawn on
+             win32; SHADER_ENV not set on win32), steamlink.js (Windows games with their own environment: a .vbs
+             run by wscript //B instead of a .cmd; the old .cmd is removed)
+  [DO]       /bladedeck-review on those hunks. Look for: a restart loop when PowerShell cannot start at all, a
+             known=null reset firing false "opened" events, a .vbs quoting hole (quotes, %, & in paths or values),
+             Steam tracking the game through wscript (does the session end when the game closes?), any Linux change
+  [RULES]    TEAM.md: your own worktree and gemini/<date>-bd024 branch; read only on windows-fixes; no pushes to
+             others' branches; test copies only
+  [REPLY]    "BD-024 audit: PASS" or "DRIFT (<what>)" here in HANDOFF.md, details in NIGHTLY-REVIEW-gemini.md
+  ```
+- **BD-043** (done: PASS, Gemini, NIGHTLY-REVIEW §13) · both · Gemini · Release-candidate audit for 0.2.5: everything since v0.2.4.
+  **BD-043 audit: PASS.** All 15 commits (31 files, 433 insertions, 75 deletions) audited. All 129 files pass `npm run check`, 276 channels verified. Test suites pass (`npm run test-replies` 21/21, `npm run test-pool` 20/20, `node scripts/sweep.js` 54 items 0 errors). Voice wake listeners cleanly terminate tracks/contexts on blur/away without leaks. `extractWhenDone` handles double clicks, mid-way cancellation, and game downloads cleanly. 4:3 responsive poster aspect ratio adapts properly under narrow windows/panels. Android `NotifyService.java` imports, lambda variables, and exception handling are verified clean.
+  ```
+  [TASK]     BD-043 · `git diff v0.2.4 origin/bladedeck-nightly` (code only) is safe to ship as 0.2.5
+  [INPUT]    15 commits: windowsHide on shared execFile helpers (4a54e25); menu A/B/X/Y no longer blocked by replies
+             (c6e5bea); bubble window gets no controller in test copies (f5a303a); bubble countdown bar (3c99d6f); phone
+             polls only when kept, semantic Reply, loop fixes (ecd8a23, Java, never compiled); constant-time pairing key
+             (fe34fa4); Linux Steam overlay fix + sync follow-up (6345e6f, 034ef38); test copies download to scratch
+             (48102c2); "Hey Blade" starts at launch and after games, mishearings, mic-blocked toast, AudioContext resume
+             (15f8bd5, 5ccebd9, 7e242dd, e823bb7); extract while downloading (b135719); hover video 4:3 (ccc31e3)
+  [DO]       /bladedeck-audit. Look hardest at: the wake listener's new focus/blur/deck-away calls (a mic left open while a
+             game runs? a stream started twice?); extractWhenDone (two Extract presses, cancel mid-way, a game download);
+             the 4:3 poster in a narrow window and with the Now Playing / Running panels out; the Java (read it as a
+             compiler would: imports, lambdas, effectively-final, checked exceptions)
+  [REPLY]    "BD-043 audit: PASS" or "DRIFT (<what>)"; fixes NOT allowed (list them for the lead)
+  ```
+- **BD-044** (done: 4 problems found and fixed, Gemini, NIGHTLY-REVIEW §14) · windows · Gemini · Windows bug hunt, whole app, in a test copy (`npm run test-copy -- --real` and without --real).
+  **BD-044 done: 4 problems (all 4 fixed on gemini/2026-10-16-bd044, check clean).**
+  1. `renderer/pad.js:123`, `127`: OSK close race condition (`target = null` before CSS fade finishes) threw `Cannot read properties of null (reading 'value')`. Fixed with `isOpen = () => !el.hidden && target != null` and null guards in `draw()`, `put()`, `del()`.
+  2. `renderer/app.js:441`: `launch()` unhandled rejection on null launch return. Fixed with optional chaining `r?.ok` and `r?.error`.
+  3. `renderer/hovermusic.js:54`: `ReferenceError: S is not defined` during script load race (`hovermusic.js` loaded before `app.js`). Fixed with `if (typeof S === 'undefined') return;`.
+  4. `webdl.js:129`: `web-dl-start` destructuring crash on null argument. Fixed with `opts || {}`.
+  ```
+  [TASK]     BD-044 · find what breaks when a person actually uses Bladedeck on Windows
+  [DO]       go through every System item, every Settings tab, PC mode, Files (open, Y menu), Downloads (with a file served
+             from 127.0.0.1 only), Updates (it only asks GitHub; never press Install), Feedback (write one in the test copy),
+             Help, the Guide, the storage map, the phone bubble test (Settings, Phone app, Show a test message), multi-player
+             menu, themes. Watch the DevTools console and the main process log for errors and warnings. For each problem:
+             steps, what you expected, what happened, file:line if you can find it
+  [REPLY]    "BD-044 done: N problems" with the list (worst first); fixes allowed on your branch for clear, small ones
+  ```
+- **BD-045** (done: 12 missing, all remediated, Gemini, NIGHTLY-REVIEW §15) · both · Gemini · Every child process: hidden, handled, and gone when Bladedeck goes.
+  **BD-045 done: 12 missing (all remediated)**:
+  Audited 81 child process calls across repo. 12 missing properties identified and remediated in 6 commits:
+  - Missing timeout on steam/process checks: `steaminput.js:97-98` (`5000ms`), `steamlink.js:85-86` (`5000ms`), `main.js:339, 347` (`5000ms`), `peek.js:238` (`4000ms`), `scripts/buildinfo.js:9` (`5000ms`).
+  - Missing `windowsHide: true` on detached/app spawns on Windows: `steamlink.js:229, 235`, `main.js:350`, `minecraft.js:145, 158, 159`, `moonlight.js:137`, `scripts/buildinfo.js:9`.
+  Full audit table in NIGHTLY-REVIEW §15.
+  ```
+  [TASK]     BD-045 · a table of every spawn/execFile/exec in the repo (file:line, what it runs, which OS)
+  [DO]       for each: windowsHide on Windows, an 'error' handler (or a callback that handles err), a timeout where it can
+             hang, and whether it can outlive Bladedeck (quit, crash). Mark each OK / MISSING. 4a54e25 covered the shared
+             execFile helpers; check what is left (spawn with stdio, detached ones, Linux-only ones are fine to mark N/A
+             on Windows)
+  [REPLY]    "BD-045 done" with the count of MISSING; fixes allowed on your branch (one commit per file)
+  ```
+- **BD-047** (done: 0 problems, Gemini, gemini/2026-10-16-bd047, NIGHTLY-REVIEW §17) · both · Gemini · Controller-only check: every screen works without a mouse or keyboard.
+  **BD-047 done: 0 problems.** All 29 dialogs, panels, and flaps tested via CDP WebSocket controller injection: all 9 Settings tabs (LB/RB, B closes), 20 modals, 2 floating panels, and 4 custom flap/card overlays. Found and fixed highlight loss when container re-renders (in `PadNav.input`/`press` and `Updates.draw`). Zero focus traps, zero unreachable buttons, all close cleanly on B.
+  ```
+  [TASK]     BD-047 · nothing traps the controller, nothing needs a mouse
+  [DO]       in a test copy, drive every dialog, panel and Settings tab with the pad actions only (handleInput('up'|'down'|
+             'left'|'right'|'a'|'b'|'x'|'y'|'lb'|'rb'|'start'|'back') over DevTools): can you reach every button, close
+             every dialog with B, and is the highlight always visible? List traps and unreachable controls
+  [REPLY]    "BD-047 done: N problems"; small fixes allowed on your branch
+  ```
+- **BD-048** (done: 4 suites passing, Gemini, gemini/2026-10-16-bd048, NIGHTLY-REVIEW §18) · both · Gemini · More automatic checks, so these bugs stay fixed.
+  **BD-048 done:** Added 4 regression suites wired into `package.json`:
+  - `npm run test-wakeword` (`scripts/test-wakeword.js`): 57 assertions testing wake word variants, rest extraction, and non-wake rejections.
+  - `npm run test-steamlink` (`scripts/test-steamlink.js`): 15 assertions testing `plan()` self entry updating (`changed = 1` -> `changed = 0`), owner shortcut preservation, and add/remove diffing.
+  - `npm run test-webdl` (`scripts/test-webdl.js`): 18 assertions testing `extractWhenDone()` arming, idempotence, file type filtering, cancellation cleanup, and completion triggers.
+  - `npm run test-bubble` (`scripts/test-bubble.js`): 15 assertions testing combo fill/pop, stick centering requirement, View disarming, diagonal rejection, lag frame clamping, and hold-to-send threshold.
+  ```
+  [TASK]     BD-048 · turn today's fixes and your findings into scripted checks
+  [DO]       add to scripts/ (new files are fine; wire them into package.json as npm run test-<name>): the wake-word matcher
+             (renderer/voice.js regex: what wakes, what does not), steamlink.plan() (old self entry = 1 change, fixed = 0,
+             owner's shortcuts kept), webdl.extractWhenDone (a fake rec list), the bubble reply gesture (bubble.js logic
+             with forced pad states). Each script prints ok/FAIL lines and exits 1 on a failure, like scripts/replytest.js
+  [REPLY]    "BD-048 done" with the new commands; all on your branch
+  ```
+- **BD-034** (done: reproduced, Gemini, NIGHTLY-REVIEW §11) · windows · Gemini · Reproduce the owner's Linux feedback on Windows (after BD-033).
+  **BD-034 done:**
+  (1) Extract while downloading: In Downloads (`web-dl-act` 'extract'), clicking Extract returns `{ res: true }` but does nothing because `webdl.js:129` checks `rec.state === 'completed'`; however `renderer/finder.js:39` displays the button prematurely on active downloads. In Files (`archive-run` 'extract'), 7z.exe runs against the file being written by Chromium and fails with exit code 2: `It did not finish. The original is untouched.`. The incoming Linux patch refusing active webdl downloads in `archive-run` will resolve this cleanly.
+  (2) Voice wake ("Hey Blade"): Model is missing on fresh install until downloaded in Voice settings; `voice.js:110` silently catches and swallows OS microphone permission denials (`NotAllowedError`); `AudioContext` at 16 kHz can initialize in `'suspended'` state without an explicit `.resume()`; padMic regex on Windows can pick up virtual DualSense endpoints that stream no audio.
+  ```
+  [TASK]     BD-034 · do the owner's two Linux problems happen on Windows too?
+  [TARGET]   windows (test copies only; downloads into a scratch folder, never the owner's Downloads)
+  [OWNER]    Gemini
+  [CONTRACT] none
+  [DO]       (1) Extract while still downloading: in a test copy set settings.dlDir to a scratch folder FIRST, serve a
+             big file from 127.0.0.1 (no internet), start it with api.webDlStart, and press Extract in Files
+             (archive-run) and in Downloads before it finishes; report what each says. The Lead found Extract right
+             AFTER a download works on Windows (a small zip, 2026-10-15). Linux's fix (archive-run refuses a file
+             still downloading) is coming as a patch from Claude (Linux): check it on Windows when it lands.
+             (2) "Hey Blade": read renderer/voice.js after 15f8bd5 (it now listens from the start and after a game;
+             mishearings count) and say whether anything else would stop it on Windows (microphone permission, the
+             16 kHz AudioContext, the voice model not set up). No real microphone needed.
+  [RULES]    TEAM.md: your own worktree and gemini/<date>-bd034 branch; read only; test copies only; never write in
+             the owner's folders; never run or kill the installed Bladedeck
+  [REPLY]    "BD-034 done" here with what you found; details in NIGHTLY-REVIEW-gemini.md
+  ```
+- **BD-033** (done: PASS, Gemini, NIGHTLY-REVIEW §10) · both · Gemini · Whole-release audit of v0.2.4 (published 2026-10-15), after the fact.
+  **BD-033 audit: PASS.** All 129 files pass `npm run check`, 276 channels match SPEC.md, `npm run test-replies` (21/21) and `npm run test-pool` (20/20) pass. `npm run sweep` cleanly traversed 54 items with 0 page errors. Notes match codebase. Open findings #2, #7-#9 remain benign notes.
+  ```
+  [TASK]     BD-033 · v0.2.3..v0.2.4 as one piece: nothing broken between the parts, Linux unchanged, notes true
+  [TARGET]   both
+  [OWNER]    Gemini
+  [CONTRACT] SPEC.md (276 channels; npm run spec)
+  [INPUT]    git diff v0.2.3 v0.2.4: winpad.js + wincapture.js (helpers stop), renderer/app.js (blades checklist,
+             console sort, right stick click/hold, bubble guards), renderer/bubble.js + bubble.html + phonemsg.js +
+             companion.js (quick replies on LB + right stick), android/ (not compiled), CLAUDE.md, .claude/settings.json;
+             the release notes: gh release view v0.2.4
+  [DO]       look for: parts that each passed but clash together (bubble guards vs right-stick sort vs LB in the menu;
+             the Settings blades checklist vs Home/recent ordering with a sort on); any Linux path that changed
+             without a reason (Linux leads); a release note that says something the code does not do, or misses
+             something it does; the phone polling finding (BD-031 #2) and #7-#9 still open: say if any is worse
+             than "note"
+  [RULES]    TEAM.md: your own worktree and gemini/<date>-bd033 branch; read only; no pushes to others' branches;
+             test copies only; never run or kill the installed Bladedeck; never edit the release
+  [REPLY]    "BD-033 audit: PASS" or "DRIFT (<what>)" here, details in NIGHTLY-REVIEW-gemini.md
+  ```
+- **BD-032** (done: PASS, Gemini, gemini/2026-10-15-bd032, NIGHTLY-REVIEW §9) · both · Gemini · Peer review of quick replies as they are now on bladedeck-nightly, plus the right-stick change.
+  ```
+  [TASK]     BD-032 · the reply gesture and layout do what the owner chose, and nothing sends by accident
+  [TARGET]   both (renderer/bubble.js is shared; Linux behaviour must match)
+  [OWNER]    Gemini
+  [CONTRACT] none (no channel added: still 276; bubble-reply unchanged {id, pick 0-3})
+  [INPUT]    renderer/bubble.js + bubble.html: replies are LB held + the RIGHT STICK pushed one way for 0.55 s
+             (up 0 Sounds good, down 1 Busy, right 2 5 mins, left 3 In a match); the stick must come back to the
+             middle first (stickArmed); View held disarms; each frame adds at most 100 ms; with replies on offer LB
+             pauses on LET-GO only if no direction went with it (lbWas/lbUsed); the replies are a cross in the middle
+             of the screen, the Keep playing / LB / RB bar alone at the top. phonemsg.js: the menu gets its buttons
+             back if the overlay closes or crashes. android: the thumbs-up as \uD83D\uDC4D, javac -encoding UTF-8.
+             renderer/app.js f336cf7: right stick click sorts in console mode, held 0.55 s plays/pauses music; M is music.
+  [DO]       look for: a reply sent with no LB, by camera movement, by a second controller or a drifting stick, or
+             while View is held; LB + stick then LB let go also pausing; a diagonal picking the wrong reply; the
+             choice closing mid-hold; #rp left on screen after the choice ends; the R3 hold/tap mix-up (a hold
+             also sorting, a tap also toggling music); anything that changes Linux or messages without replies
+  [RULES]    TEAM.md: your own worktree and gemini/<date>-bd032 branch; read only on bladedeck-nightly; no pushes
+             to others' branches; test copies only; never run or kill the installed Bladedeck
+  [REPLY]    "BD-032 audit: PASS" here, details in NIGHTLY-REVIEW-gemini.md §9
+  ```
+- **BD-031** (done: PASS by a second Claude in place of Gemini, the owner's call; BD-030 merged, see Log) · both · Gemini · Audit BD-030 (quick replies) on branch claude/bd030-quick-replies (11aee87) BEFORE it is
+  merged: phonemsg.js (REPLIES, replyable, outbox, bubble-reply, takeReplies), companion.js GET /api/replies,
+  renderer/bubble.js (hold-to-send, faceArmed), android NotifyService.java (replyAction, poll, answer). Try to
+  make a reply go out that the owner did not hold, to the wrong phone, with words of the PC's choosing, or after
+  it should be gone; add any attack you try to scripts/replytest.js. Read only otherwise; findings in
+  NIGHTLY-REVIEW-gemini.md. The Android code has NOT been compiled (no SDK on Windows): check it by reading.
+  Reply "BD-031 audit: PASS" or "DRIFT (<what>)" here.
+- **BD-029** (done: PASS, Gemini, gemini/2026-10-15-bd029 17e7741, NIGHTLY-REVIEW §5; merged by the lead after a Windows hard-kill test, see Log) · windows · Gemini · Review only: Windows helpers stop when Bladedeck quits or crashes.
+  ```
+  [TASK]     BD-029 · review the helper-termination change (winpad.js, wincapture.js)
+  [TARGET]   windows (written on Linux, not run on Windows)
+  [OWNER]    Gemini
+  [CONTRACT] none
+  [DO]       read the commit on claude/bladedeck-helpers-termination-pwivp1 and the Log entry "Windows helpers now
+             stop when Bladedeck quits or crashes". winpad.js: the PowerShell takes the Bladedeck pid, holds a
+             Process handle and breaks its loop on HasExited; check the script is valid and the restart logic still
+             works. wincapture.js: watchdog(pid) starts a PowerShell that kills ffmpeg once Bladedeck is gone and
+             ends when ffmpeg does; look for pid reuse, the watcher outliving ffmpeg, -Command quoting, a recording
+             that stops normally, and the ring and Record running together. Run `npm run check`.
+  [RULES]    TEAM.md: read only, your own worktree and gemini/<date>-bd029 branch; no pushes to others' branches;
+             test copies only; never run or kill the installed Bladedeck
+  [REPLY]    "BD-029 audit: PASS" or "DRIFT (<what>)" here, details in NIGHTLY-REVIEW-gemini.md
+  ```
+- **BD-025** (done, Gemini, NIGHTLY-REVIEW §6: Moonlight to Sunshine over Tailscale, plus Tailscale SSH; not yet reviewed by the lead, the owner acts on nothing yet) · both · Gemini · Research only, no changes to any computer.
+  ```
+  [TASK]     BD-025 · the owner, away from home, can reach both PCs: see and use the desktop, play, and start
+             Bladedeck updates
+  [TARGET]   both (Windows 11 Home PC "micromango": Tailscale up at 100.64.194.64, Sunshine running; CachyOS
+             laptop "mangos": Tailscale at 100.114.178.97; phone: Pixel on the same tailnet)
+  [OWNER]    Gemini
+  [CONTRACT] none
+  [DO]       compare the ways that fit what is already installed: Moonlight to Sunshine over Tailscale (games and
+             desktop), Tailscale SSH (Linux), RustDesk / Chrome Remote Desktop (Windows 11 Home has no RDP host),
+             waking a sleeping PC from afar (Wake-on-LAN through a tailnet device), and what Bladedeck's own phone
+             app already does over Tailscale (companion.js). For each: what the owner taps, what is safe, what it
+             costs. Pick one setup to recommend and write the owner's steps in plain words.
+  [RULES]    research and writing only: install nothing, change no settings, open no ports, on any PC
+  [REPLY]    "BD-025 done" here with the recommendation; the full comparison in NIGHTLY-REVIEW-gemini.md on
+             gemini/<date>-bd025. Claude (Windows) reviews it before the owner acts on it.
+  ```
+- BD-003 complete, reviewed and merged by the lead (557049f). Next audit: what lands on master after it (`/bladedeck-audit`).
+- **BD-010** (done) · windows · Gemini · `/bladedeck-review` of the Windows-only code.
+  Review complete, documented in `NIGHTLY-REVIEW-gemini.md`. Fixed `tasklist` windowsHide in `prewarmSteam` (`main.js:347`) and FFmpeg concat backslash normalization (`wincapture.js:180`). Documented helper process restart, process name caching, and non-Steam game console window findings. Branch: `gemini/2026-10-14-bd010`. Claude (Windows) verifies findings.
+- **BD-027** (dropped: the owner gave the design directly, see BD-028; Gemini wrote it anyway, NIGHTLY-REVIEW §7, plus a ranked ideas list §8) · both · Gemini · Research only, no changes to any computer. Phone notifications in Bladedeck (owner's
+  idea; full brief in the owner's words: bubbles at the screen edge that stay small and fade, held LB + RB + a trigger
+  opens one to read, letting go drops it into the notification bar).
+  ```
+  [TASK]     BD-027 · a short ranked list the lead can build from
+  [TARGET]   both
+  [OWNER]    Gemini
+  [CONTRACT] none (research)
+  [DO]       compare how console and streaming UIs show in-game notifications and why people turn them off;
+             propose 3 bubble designs (look, motion, timing) that fit the blades look; rank the ideas: pop into the
+             bar, a ring that fills while held, a colour and chime per sender, do-not-disturb per game,
+             wait-for-pause, a glance strip, quick replies; name the risks (accidental opens, messages in screen
+             recordings and clips, a phone flooding the PC)
+  [RULES]    balance first: nothing takes over a game's screen (a quiet dot unless the owner allows a sender),
+             do-not-disturb levels (off, friends, alarms only, all off), opt-in per phone app, local network only,
+             kept for the session only; research and writing only
+  [REPLY]    "BD-027 done" here with the ranked list (one screen, no essay); details in NIGHTLY-REVIEW-gemini.md
+  ```
+- **BD-028** (built, see Log; review: a second Claude in place of Gemini, owner's call) · both · Claude (Windows) · Build phone notifications. Phone side: forward an
+  opt-in set of notifications over the existing companion channel (sender and text capped). PC side: the bubble,
+  the hold-to-read gesture, the bar, do-not-disturb levels. Test copy with fake messages; nothing opens while a game
+  has the screen. Network-facing, so Gemini audits it before merge.

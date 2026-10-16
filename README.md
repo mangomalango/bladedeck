@@ -7,6 +7,12 @@ One launcher for Steam, emulators, native ports and any program. Two modes:
 
 Switch between modes at any time with **View** (controller) or **F10** (keyboard).
 
+## Download
+
+From [Releases](https://github.com/mangomalango/bladedeck/releases): `Bladedeck.Setup.<version>.exe` for Windows,
+`Bladedeck-<version>.AppImage` for Linux. Newest: 0.2.6 (Windows), 0.2.5 (Linux). Bladedeck offers its own updates in
+System, Updates.
+
 ## Run it
 
 Needs Node 18+.
@@ -83,3 +89,18 @@ Your settings and personal files live in the app's user data directory (`~/.conf
 - `library.json`: All settings, emulators, and library entries.
 - `themes/*.json`: Custom themes. Variables control colors, radius, fonts, and ribbon background animations.
 - `custom.css`: Custom stylesheet loaded on top of every theme.
+
+## What's where
+
+| Place | What it holds |
+| --- | --- |
+| `*.js` at the top | The main process: one file per job (`main.js` starts it all, `store.js` the library, `system.js` This PC, `win*.js` the Windows helpers) |
+| `preload.js`, `bubble-preload.js`, `webapp-preload.js` | The only bridge from the pages to the system; every channel is listed in `SPEC.md` |
+| `renderer/` | The menu itself: `index.html`, `app.js`, `style.css`, and one file per feature |
+| `themes/` | The built-in themes |
+| `companion/` | The phone web app (and the Android `.apk` it offers) |
+| `android/` | The Android app's source |
+| `scripts/` | Checks and tests (`npm run check`, `sweep`, `test-copy`, `test-*`), build helpers, `windows/` and `nightly/` scripts |
+| `.github/` | The builds GitHub runs on every push |
+| `CLAUDE.md`, `GEMINI.md`, `TEAM.md`, `HANDOFF.md`, `.claude/`, `.agents/` | How the assistants work on this repository, and what is open or done |
+| `SPEC.md`, `ROADMAP.md`, `WINDOWS.md` | The interface contract, what is planned, and Windows notes |
