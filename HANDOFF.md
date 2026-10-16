@@ -321,6 +321,13 @@ Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROA
 
 ## Log
 
+- **2026-10-16, Claude (Windows), lead: nightly 8f7d7cc INSTALLED on the Windows PC (owner: "Yes, install the nightly 8f7d7cc Windows
+  build on this PC").** Backup first: Downloadsladedeck-backups6-10-16-before-nightly-8f7d7cc (config without caches, 3 Steam
+  shortcuts.vdf, the installed 0.2.4 app, the installer). CI run 38823385384 installer, silent (/S), exit 0. Installed
+  app.asar build-info: commit 8f7d7cc, branch bladedeck-nightly; it contains the wake, extract, overlay and BD-047 fixes.
+  Started it: window "Bladedeck", 6 processes, no errors.log. Both PCs now run 8f7d7cc. The app still says 0.2.4, so
+  System, Updates may offer v0.2.4: skip it until 0.2.5.
+
 - **2026-10-16, Claude (Linux) via the lead: nightly 8f7d7cc on Linux: everything passes, installed on the laptop.** check, test-pool,
   test-replies, test-wakeword, test-steamlink, test-webdl, test-bubble pass; sweep --real 55 items and --empty 53, no page
   errors; no Linux-only breakage. The CI AppImage (run 38823385384, sha256 9b57587b...) is installed; backup in
