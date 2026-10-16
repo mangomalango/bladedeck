@@ -57,6 +57,9 @@ Task IDs and cards: see TEAM.md (next free ID: BD-049 (BD-011..BD-018 are in ROA
   Windows too (viewStartPeek ?? true; main: !== false); the setting text says to turn it off if a game crashes.
   4. padkeys: Tab from a controller (S.pad) is View in the menu. Tests: check, sweep 54, scripted test copy (all
   0.2.6 checks plus Tab as View / keyboard Tab).
+  RELEASED v0.2.6.5 as latest from master 1e0cde5 (owner: "release it as 0.2.6.5"), asset
+  Bladedeck.Setup.0.2.6-5.exe (packaged smoke test as a test copy: no errors.log). Backup:
+  Downloads\bladedeck-backups\2026-10-16-v0.2.6.5.
 
 - **2026-10-16, Claude (Windows), lead: RELEASED v0.2.6 for Windows as latest (owner: "release this to main").** master =
   bladedeck-nightly = 140d7a4, tag v0.2.6, one asset: Bladedeck.Setup.0.2.6.exe (built here; packaged smoke test as a test
